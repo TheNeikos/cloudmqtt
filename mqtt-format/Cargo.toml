@@ -1,12 +1,11 @@
 [package]
-name = "cloudmqtt"
+name = "mqtt-format"
 version = "0.1.0"
 edition = "2021"
-authors = ["Marcel Müller <neikos@neikos.email>"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-[workspace]
-members = ["mqtt-format"]
-
 [dependencies]
+nom = "7.1.1"
+nom-supreme = "0.8.0"
+thiserror = "1.0.31"
