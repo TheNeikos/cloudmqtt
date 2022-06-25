@@ -291,7 +291,11 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (input, MPacket::Pubrel { id })
         }
-        (7, 0b0000) => (input, MPacket::Pubcomp),
+        (7, 0b0000) => {
+            let (input, id) = mpacketidentifier(input)?;
+
+            (input, MPacket::Pubcomp { id })
+        }
         (8, 0b0000) => (input, MPacket::Subscribe),
         (9, 0b0010) => (input, MPacket::Suback),
         (10, 0b0000) => (input, MPacket::Unsubscribe),
