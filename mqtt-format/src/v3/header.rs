@@ -5,6 +5,7 @@ use nom::{
     sequence::tuple,
     IResult, Parser,
 };
+use nom_supreme::ParserExt;
 
 use super::{
     errors::MPacketHeaderError,
@@ -13,20 +14,8 @@ use super::{
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MPacketHeader {
-    kind: MPacketKind,
-    remaining_length: u32,
-}
-
-impl MPacketHeader {
-    #[must_use]
-    pub fn kind(&self) -> MPacketKind {
-        self.kind
-    }
-
-    #[must_use]
-    pub fn remaining_length(&self) -> u32 {
-        self.remaining_length
-    }
+    pub kind: MPacketKind,
+    pub remaining_length: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -111,7 +100,9 @@ fn decode_variable_length(bytes: &[u8]) -> u32 {
 
 pub fn mfixedheader(input: &[u8]) -> IResult<&[u8], MPacketHeader> {
     let (input, kind) = mpacketkind(input)?;
-    let (input, remaining_length) = take_while_m_n(1, 4, |b| b & 0b1000_0000 != 0)
+    let (input, remaining_length) = nom::number::complete::u8
+        .and(take_while_m_n(0, 3, |b| b & 0b1000_0000 != 0))
+        .recognize()
         .map(decode_variable_length)
         .parse(input)?;
 

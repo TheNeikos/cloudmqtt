@@ -6,7 +6,7 @@ use nom::{
 use super::{
     connect_return::{mconnectreturn, MConnectReturnCode},
     errors::MPacketHeaderError,
-    header::{mfixedheader, MPacketHeader},
+    header::{mfixedheader, MPacketHeader, MPacketKind},
     identifier::{mpacketidentifier, MPacketIdentifier},
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
@@ -79,14 +79,8 @@ fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPacket> {
-    let (input, (upper, lower)): (_, (u8, u8)) =
-        bits::<_, _, nom::error::Error<(&[u8], usize)>, _, _>(tuple((
-            nom::bits::complete::take(4usize),
-            nom::bits::complete::take(4usize),
-        )))(input)?;
-
-    let (input, info) = match (upper, lower) {
-        (1, 0b0000) => {
+    let (input, info) = match fixed_header.kind {
+        MPacketKind::Connect => {
             let (input, protocol_name) = mstring(input)?;
 
             if &*protocol_name != "MQTT" {
@@ -193,7 +187,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (2, 0b0000) => {
+        MPacketKind::Connack => {
             let (input, (reserved, session_present)): (_, (u8, u8)) =
                 bits::<_, _, nom::error::Error<(&[u8], usize)>, _, _>(tuple((
                     nom::bits::complete::take(7usize),
@@ -218,22 +212,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (3, lower) => {
-            let dup = lower & 0b1000 != 0;
-            let retain = lower & 0b0001 != 0;
-            let qos = match mquality_of_service(lower & 0b0110 >> 1) {
-                Ok(qos) => qos,
-                Err(e) => {
-                    return Err(nom::Err::Error(nom::error::Error::from_external_error(
-                        input,
-                        nom::error::ErrorKind::MapRes,
-                        e,
-                    )))
-                }
-            };
-
-            // Variable header
-
+        MPacketKind::Publish { dup, qos, retain } => {
             let variable_header_start = input;
 
             let (input, topic_name) = mstring(input)?;
@@ -260,7 +239,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
             // Payload
 
             let payload_length = match fixed_header
-                .remaining_length()
+                .remaining_length
                 .checked_sub(variable_header_len as u32)
             {
                 Some(len) => len,
@@ -286,34 +265,34 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (4, 0b0000) => {
+        MPacketKind::Puback => {
             let (input, id) = mpacketidentifier(input)?;
 
             (input, MPacket::Puback { id })
         }
-        (5, 0b0000) => {
+        MPacketKind::Pubrec => {
             let (input, id) = mpacketidentifier(input)?;
 
             (input, MPacket::Pubrec { id })
         }
-        (6, 0b0010) => {
+        MPacketKind::Pubrel => {
             let (input, id) = mpacketidentifier(input)?;
 
             (input, MPacket::Pubrel { id })
         }
-        (7, 0b0000) => {
+        MPacketKind::Pubcomp => {
             let (input, id) = mpacketidentifier(input)?;
 
             (input, MPacket::Pubcomp { id })
         }
-        (8, 0b0000) => {
+        MPacketKind::Subscribe => {
             let (input, id) = mpacketidentifier(input)?;
 
             let (input, subscriptions) = msubscriptionrequests(input)?;
 
             (input, MPacket::Subscribe { id, subscriptions })
         }
-        (9, 0b0010) => {
+        MPacketKind::Suback => {
             let (input, id) = mpacketidentifier(input)?;
 
             let (input, subscription_acks) = msubscriptionacks(input)?;
@@ -326,7 +305,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (10, 0b0000) => {
+        MPacketKind::Unsubscribe => {
             let (input, id) = mpacketidentifier(input)?;
 
             let (input, unsubscriptions) = munsubscriptionrequests(input)?;
@@ -339,21 +318,14 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (11, 0b0010) => {
+        MPacketKind::Unsuback => {
             let (input, id) = mpacketidentifier(input)?;
 
             (input, MPacket::Unsuback { id })
         }
-        (12, 0b0000) => (input, MPacket::Pingreq),
-        (13, 0b0000) => (input, MPacket::Pingresp),
-        (14, 0b0000) => (input, MPacket::Disconnect),
-        (inv_type, _) => {
-            return Err(nom::Err::Error(nom::error::Error::from_external_error(
-                input,
-                nom::error::ErrorKind::MapRes,
-                MPacketHeaderError::InvalidPacketType(inv_type),
-            )))
-        }
+        MPacketKind::Pingreq => (input, MPacket::Pingreq),
+        MPacketKind::Pingresp => (input, MPacket::Pingresp),
+        MPacketKind::Disconnect => (input, MPacket::Disconnect),
     };
 
     Ok((input, info))
@@ -362,7 +334,41 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 pub fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
     let (input, header) = mfixedheader(input)?;
 
-    let (input, packet) = mpacketdata(header, input)?;
+    let data = nom::bytes::streaming::take(header.remaining_length);
+
+    let (input, packet) = data
+        .and_then(|input| mpacketdata(header, input))
+        .parse(input)?;
 
     Ok((input, packet))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::v3::packet::MPacket;
+
+    use super::mpacket;
+    use std::num::NonZeroUsize;
+
+    #[test]
+    fn check_incomplete_length() {
+        let input = &[0b1110_0000, 0b0000_0010];
+
+        let res = mpacket(input).unwrap_err();
+
+        assert_eq!(
+            res,
+            nom::Err::Incomplete(nom::Needed::Size(NonZeroUsize::new(2).unwrap())),
+        );
+    }
+
+    #[test]
+    fn check_complete_length() {
+        let input = &[0b1110_0000, 0b0000_0000];
+
+        let (rest, disc) = mpacket(input).unwrap();
+
+        assert_eq!(rest, &[]);
+        assert_eq!(disc, MPacket::Disconnect);
+    }
 }
