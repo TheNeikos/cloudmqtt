@@ -85,7 +85,7 @@ mod tests {
             1,    // QoS 1
             0, 3, // Length 3
             0x63, 0x2F, 0x64, // The string 'c/d'
-            2,    // QoS 1
+            2,    // QoS 2
         ];
 
         let (rest, subs) = msubscriptionrequests(input).unwrap();

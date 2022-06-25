@@ -1,4 +1,4 @@
-use nom::{number::streaming::be_u16, Parser};
+use nom::{number::complete::be_u16, Parser};
 
 use super::MSResult;
 

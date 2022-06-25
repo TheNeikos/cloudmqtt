@@ -1,6 +1,6 @@
 use nom::{
     bits,
-    bytes::streaming::take_while_m_n,
+    bytes::complete::take_while_m_n,
     error::{Error, ErrorKind, FromExternalError},
     sequence::tuple,
     IResult, Parser,
@@ -54,8 +54,8 @@ pub enum MPacketKind {
 fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
     let (input, (upper, lower)): (_, (u8, u8)) =
         bits::<_, _, Error<(&[u8], usize)>, _, _>(tuple((
-            nom::bits::streaming::take(4usize),
-            nom::bits::streaming::take(4usize),
+            nom::bits::complete::take(4usize),
+            nom::bits::complete::take(4usize),
         )))(input)?;
 
     let (input, kind) = match (upper, lower) {

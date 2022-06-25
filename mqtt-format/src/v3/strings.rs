@@ -1,4 +1,4 @@
-use nom::{bytes::streaming::take, number::streaming::be_u16, IResult, Parser};
+use nom::{bytes::complete::take, number::complete::be_u16, IResult, Parser};
 use nom_supreme::ParserExt;
 
 /// A v3 MQTT string as defined in section 1.5.3

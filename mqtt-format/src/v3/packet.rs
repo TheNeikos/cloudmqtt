@@ -1,6 +1,6 @@
 use nom::{
-    bits, bytes::streaming::take, error::FromExternalError, multi::many1,
-    number::streaming::be_u16, sequence::tuple, IResult, Parser,
+    bits, bytes::complete::take, error::FromExternalError, multi::many1,
+    number::complete::be_u16, sequence::tuple, IResult, Parser,
 };
 
 use super::{
@@ -81,8 +81,8 @@ fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
 fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPacket> {
     let (input, (upper, lower)): (_, (u8, u8)) =
         bits::<_, _, nom::error::Error<(&[u8], usize)>, _, _>(tuple((
-            nom::bits::streaming::take(4usize),
-            nom::bits::streaming::take(4usize),
+            nom::bits::complete::take(4usize),
+            nom::bits::complete::take(4usize),
         )))(input)?;
 
     let (input, info) = match (upper, lower) {
@@ -97,7 +97,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 )));
             }
 
-            let (input, protocol_level) = nom::number::streaming::u8(input)?;
+            let (input, protocol_level) = nom::number::complete::u8(input)?;
 
             if protocol_level != 4 {
                 return Err(nom::Err::Error(nom::error::Error::from_external_error(
@@ -118,15 +118,16 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                     clean_session,
                     reserved,
                 ),
-            ) = bits(tuple((
-                nom::bits::streaming::take(1usize),
-                nom::bits::streaming::take(1usize),
-                nom::bits::streaming::take(1usize),
-                nom::bits::streaming::take(2usize),
-                nom::bits::streaming::take(1usize),
-                nom::bits::streaming::take(1usize),
-                nom::bits::streaming::take(1usize),
-            )))(input)?;
+            ): (_, (u8, u8, u8, _, u8, u8, u8)) =
+                bits::<_, _, nom::error::Error<(&[u8], usize)>, _, _>(tuple((
+                    nom::bits::complete::take(1usize),
+                    nom::bits::complete::take(1usize),
+                    nom::bits::complete::take(1usize),
+                    nom::bits::complete::take(2usize),
+                    nom::bits::complete::take(1usize),
+                    nom::bits::complete::take(1usize),
+                    nom::bits::complete::take(1usize),
+                )))(input)?;
 
             if reserved != 0 {
                 return Err(nom::Err::Error(nom::error::Error::from_external_error(
@@ -191,10 +192,11 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
             )
         }
         (2, 0b0000) => {
-            let (input, (reserved, session_present)) = bits(tuple((
-                nom::bits::streaming::take(7usize),
-                nom::bits::streaming::take(1usize),
-            )))(input)?;
+            let (input, (reserved, session_present)): (_, (u8, u8)) =
+                bits::<_, _, nom::error::Error<(&[u8], usize)>, _, _>(tuple((
+                    nom::bits::complete::take(7usize),
+                    nom::bits::complete::take(1usize),
+                )))(input)?;
 
             if reserved != 0 {
                 return Err(nom::Err::Error(nom::error::Error::from_external_error(

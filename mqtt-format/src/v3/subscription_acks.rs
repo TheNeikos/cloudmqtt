@@ -23,9 +23,9 @@ fn msubscriptionack(input: &[u8]) -> MSResult<'_, MSubscriptionAck> {
         input,
         match data {
             0x00 => MSubscriptionAck::MaximumQualityAtMostOnce,
-            0x01 => MSubscriptionAck::MaximumQualityAtMostOnce,
-            0x02 => MSubscriptionAck::MaximumQualityAtMostOnce,
-            0x80 => MSubscriptionAck::MaximumQualityAtMostOnce,
+            0x01 => MSubscriptionAck::MaximumQualityAtLeastOnce,
+            0x02 => MSubscriptionAck::MaximumQualityExactlyOnce,
+            0x80 => MSubscriptionAck::Failure,
             invalid_ack => {
                 return Err(nom::Err::Error(nom::error::Error::from_external_error(
                     input,
@@ -41,13 +41,14 @@ pub fn msubscriptionacks<'message>(
     input: &'message [u8],
 ) -> MSResult<'message, MSubscriptionAcks<'message>> {
     let acks = input;
-    let (input, _) = many1_count(msubscriptionack)(input)?;
+    let (input, acks_len) = many1_count(msubscriptionack)(input)?;
+
+    assert!(acks_len <= acks.len());
 
     let ack_ptr: *const MSubscriptionAck = acks.as_ptr() as *const MSubscriptionAck;
-    let acks_len = acks.len();
     let acks: &'message [MSubscriptionAck] = unsafe {
         // SAFETY: The array has been checked and is of the correct len, as well as
-        // MSubscriptionAck is the same repr
+        // MSubscriptionAck is the same repr and has no padding
         std::slice::from_raw_parts(ack_ptr, acks_len)
     };
 
@@ -72,7 +73,7 @@ mod tests {
             &[
                 MSubscriptionAck::MaximumQualityAtLeastOnce,
                 MSubscriptionAck::MaximumQualityExactlyOnce,
-                MSubscriptionAck::MaximumQualityAtLeastOnce,
+                MSubscriptionAck::MaximumQualityAtMostOnce,
                 MSubscriptionAck::Failure,
             ]
         )
@@ -82,6 +83,6 @@ mod tests {
     fn check_invalid_subacks() {
         let input = &[0x1, 0x5];
 
-        msubscriptionacks(input).unwrap_err();
+        nom::combinator::all_consuming(msubscriptionacks)(input).unwrap_err();
     }
 }
