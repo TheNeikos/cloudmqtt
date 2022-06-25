@@ -62,8 +62,8 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
         (0b0001, 0b0000) => (input, MPacketKind::Connect),
         (0b0010, 0b0000) => (input, MPacketKind::Connack),
         (0b0011, lower) => {
-            let dup = lower & 0b1000 == 1;
-            let retain = lower & 0b0001 == 1;
+            let dup = lower & 0b1000 != 0;
+            let retain = lower & 0b0001 != 0;
             let qos = match mquality_of_service(lower & 0b0110 >> 1) {
                 Ok(qos) => qos,
                 Err(e) => {

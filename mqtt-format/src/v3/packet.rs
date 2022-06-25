@@ -1,6 +1,6 @@
 use nom::{
-    bits, bytes::complete::take, error::FromExternalError, multi::many1,
-    number::complete::be_u16, sequence::tuple, IResult, Parser,
+    bits, bytes::complete::take, error::FromExternalError, number::complete::be_u16,
+    sequence::tuple, IResult, Parser,
 };
 
 use super::{
@@ -11,7 +11,7 @@ use super::{
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
     subscription_acks::{msubscriptionacks, MSubscriptionAcks},
-    subscription_request::{msubscriptionrequest, msubscriptionrequests, MSubscriptionRequests},
+    subscription_request::{msubscriptionrequests, MSubscriptionRequests},
     unsubscription_request::{munsubscriptionrequests, MUnsubscriptionRequests},
     will::MLastWill,
     MSResult,
@@ -146,12 +146,14 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
             let (input, will) = if will_flag == 1 {
                 let (input, topic) = mstring(input)?;
                 let (input, payload) = mpayload(input)?;
+                let retain = will_retain != 0;
 
                 (
                     input,
                     Some(MLastWill {
                         topic,
                         payload,
+                        retain,
                         qos: mquality_of_service(will_qos).map_err(|e| {
                             nom::Err::Error(nom::error::Error::from_external_error(
                                 input,
@@ -217,8 +219,8 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
             )
         }
         (3, lower) => {
-            let dup = lower & 0b1000 == 1;
-            let retain = lower & 0b0001 == 1;
+            let dup = lower & 0b1000 != 0;
+            let retain = lower & 0b0001 != 0;
             let qos = match mquality_of_service(lower & 0b0110 >> 1) {
                 Ok(qos) => qos,
                 Err(e) => {
@@ -357,7 +359,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
     Ok((input, info))
 }
 
-fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
+pub fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
     let (input, header) = mfixedheader(input)?;
 
     let (input, packet) = mpacketdata(header, input)?;

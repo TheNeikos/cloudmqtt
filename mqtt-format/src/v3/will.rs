@@ -5,4 +5,5 @@ pub struct MLastWill<'message> {
     pub topic: MString<'message>,
     pub payload: &'message [u8],
     pub qos: MQualityOfService,
+    pub retain: bool,
 }

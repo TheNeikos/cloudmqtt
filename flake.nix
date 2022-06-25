@@ -29,6 +29,8 @@
 
         rustTarget = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain;
 
+        unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
+
         craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
           rustc = rustTarget;
           cargo = rustTarget;
