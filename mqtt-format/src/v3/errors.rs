@@ -12,4 +12,6 @@ pub enum MPacketHeaderError {
     InvalidProtocolName(String),
     #[error("The client sent an unsupported protocol level: {}", .0)]
     InvalidProtocolLevel(u8),
+    #[error("Received a forbidden reserved value")]
+    ForbiddenReservedValue,
 }

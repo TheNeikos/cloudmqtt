@@ -99,7 +99,15 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             let (
                 input,
-                (user_name_flag, password_flag, will_retain, will_qos, will_flag, clean_session),
+                (
+                    user_name_flag,
+                    password_flag,
+                    will_retain,
+                    will_qos,
+                    will_flag,
+                    clean_session,
+                    reserved,
+                ),
             ) = bits(tuple((
                 nom::bits::streaming::take(1usize),
                 nom::bits::streaming::take(1usize),
@@ -107,7 +115,16 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 nom::bits::streaming::take(2usize),
                 nom::bits::streaming::take(1usize),
                 nom::bits::streaming::take(1usize),
+                nom::bits::streaming::take(1usize),
             )))(input)?;
+
+            if reserved != 0 {
+                return Err(nom::Err::Error(nom::error::Error::from_external_error(
+                    input,
+                    nom::error::ErrorKind::MapRes,
+                    MPacketHeaderError::ForbiddenReservedValue,
+                )));
+            }
 
             let (input, keep_alive) = be_u16(input)?;
 
