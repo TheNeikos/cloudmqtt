@@ -1,6 +1,6 @@
 use nom::{
-    bits, bytes::streaming::take, error::FromExternalError, number::streaming::be_u16,
-    sequence::tuple, IResult, Parser,
+    bits, bytes::streaming::take, error::FromExternalError, multi::many1,
+    number::streaming::be_u16, sequence::tuple, IResult, Parser,
 };
 
 use super::{
@@ -10,6 +10,7 @@ use super::{
     identifier::{mpacketidentifier, MPacketIdentifier},
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
+    subscription_request::{msubscriptionrequest, msubscriptionrequests, MSubscriptionRequests},
     will::MLastWill,
     MSResult,
 };
@@ -52,6 +53,7 @@ pub enum MPacket<'message> {
     },
     Subscribe {
         id: MPacketIdentifier,
+        subscriptions: MSubscriptionRequests<'message>,
     },
     Suback {
         id: MPacketIdentifier,
@@ -296,7 +298,13 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (input, MPacket::Pubcomp { id })
         }
-        (8, 0b0000) => (input, MPacket::Subscribe),
+        (8, 0b0000) => {
+            let (input, id) = mpacketidentifier(input)?;
+
+            let (input, subscriptions) = msubscriptionrequests(input)?;
+
+            (input, MPacket::Subscribe { id, subscriptions })
+        }
         (9, 0b0010) => (input, MPacket::Suback),
         (10, 0b0000) => (input, MPacket::Unsubscribe),
         (11, 0b0010) => (input, MPacket::Unsuback),

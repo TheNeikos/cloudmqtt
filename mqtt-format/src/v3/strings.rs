@@ -4,7 +4,7 @@ use nom_supreme::ParserExt;
 /// A v3 MQTT string as defined in section 1.5.3
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MString<'message> {
-    value: &'message str,
+    pub value: &'message str,
 }
 
 impl<'message> std::ops::Deref for MString<'message> {
