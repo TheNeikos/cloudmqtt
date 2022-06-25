@@ -48,12 +48,12 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
         )))(input)?;
 
     let (input, kind) = match (upper, lower) {
-        (0b0001, 0b0000) => (input, MPacketKind::Connect),
-        (0b0010, 0b0000) => (input, MPacketKind::Connack),
-        (0b0011, lower) => {
+        (1, 0b0000) => (input, MPacketKind::Connect),
+        (2, 0b0000) => (input, MPacketKind::Connack),
+        (3, lower) => {
             let dup = lower & 0b1000 != 0;
             let retain = lower & 0b0001 != 0;
-            let qos = match mquality_of_service(lower & 0b0110 >> 1) {
+            let qos = match mquality_of_service((lower & 0b0110) >> 1) {
                 Ok(qos) => qos,
                 Err(e) => {
                     return Err(nom::Err::Error(Error::from_external_error(
@@ -65,17 +65,17 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
             };
             (input, MPacketKind::Publish { qos, dup, retain })
         }
-        (0b0100, 0b0000) => (input, MPacketKind::Puback),
-        (0b0101, 0b0000) => (input, MPacketKind::Pubrec),
-        (0b0110, 0b0010) => (input, MPacketKind::Pubrel),
-        (0b1001, 0b0000) => (input, MPacketKind::Pubcomp),
-        (0b1000, 0b0000) => (input, MPacketKind::Subscribe),
-        (0b1001, 0b0010) => (input, MPacketKind::Suback),
-        (0b1010, 0b0000) => (input, MPacketKind::Unsubscribe),
-        (0b1011, 0b0010) => (input, MPacketKind::Unsuback),
-        (0b1100, 0b0000) => (input, MPacketKind::Pingreq),
-        (0b1101, 0b0000) => (input, MPacketKind::Pingresp),
-        (0b1110, 0b0000) => (input, MPacketKind::Disconnect),
+        (4, 0b0000) => (input, MPacketKind::Puback),
+        (5, 0b0000) => (input, MPacketKind::Pubrec),
+        (6, 0b0010) => (input, MPacketKind::Pubrel),
+        (7, 0b0000) => (input, MPacketKind::Pubcomp),
+        (8, 0b0000) => (input, MPacketKind::Subscribe),
+        (9, 0b0010) => (input, MPacketKind::Suback),
+        (10, 0b0000) => (input, MPacketKind::Unsubscribe),
+        (11, 0b0010) => (input, MPacketKind::Unsuback),
+        (12, 0b0000) => (input, MPacketKind::Pingreq),
+        (13, 0b0000) => (input, MPacketKind::Pingresp),
+        (14, 0b0000) => (input, MPacketKind::Disconnect),
         (inv_type, _) => {
             return Err(nom::Err::Error(Error::from_external_error(
                 input,
@@ -117,7 +117,13 @@ pub fn mfixedheader(input: &[u8]) -> IResult<&[u8], MPacketHeader> {
 
 #[cfg(test)]
 mod tests {
-    use super::decode_variable_length;
+    use crate::v3::{
+        errors::MPacketHeaderError,
+        header::{MPacketHeader, MPacketKind},
+        qos::MQualityOfService,
+    };
+
+    use super::{decode_variable_length, mfixedheader};
 
     #[test]
     fn check_variable_length_decoding() {
@@ -130,5 +136,33 @@ mod tests {
 
         let output = decode_variable_length(input);
         assert_eq!(output, 321);
+    }
+
+    #[test]
+    fn check_header_publish_flags() {
+        let input = &[0b0011_1101, 0];
+
+        let (input, header) = mfixedheader(input).unwrap();
+
+        assert_eq!(input, &[]);
+
+        assert_eq!(
+            header,
+            MPacketHeader {
+                remaining_length: 0,
+                kind: MPacketKind::Publish {
+                    dup: true,
+                    qos: MQualityOfService::ExactlyOnce,
+                    retain: true
+                }
+            }
+        );
+    }
+
+    #[test]
+    fn check_invalid_header_publish_flags() {
+        let input = &[0b0011_1111, 0];
+
+        mfixedheader(input).unwrap_err();
     }
 }
