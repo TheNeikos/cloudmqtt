@@ -45,6 +45,10 @@ pub fn mstring(input: &[u8]) -> IResult<&[u8], MString<'_>> {
 mod tests {
     use super::{mstring, MString};
 
+    // TODO(neikos): Unclear how MQTT-1.5.3-3 is to be tested. Since we don't touch the stream, I
+    // think we are fulfilling that requirement
+
+    // MQTT-1.5.3-1
     #[test]
     fn check_simple_string() {
         let input = [0x00, 0x05, 0x41, 0xF0, 0xAA, 0x9B, 0x94];
@@ -62,6 +66,7 @@ mod tests {
         )
     }
 
+    // MQTT-1.5.3-2
     #[test]
     fn check_forbidden_characters() {
         let input = [0x00, 0x02, 0x00, 0x01];
