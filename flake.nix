@@ -1,5 +1,5 @@
 {
-  description = "The CloudMQTT rust library";
+  description = "The CloudMQTT Rust library";
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-22.05";
     flake-utils = {
@@ -27,7 +27,7 @@
           overlays = [ (import rust-overlay) ];
         };
 
-        rustTarget = pkgs.rust-bin.stable.latest.default;
+        rustTarget = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain;
 
         craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
           rustc = rustTarget;
