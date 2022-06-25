@@ -5,14 +5,16 @@ use nom::{
 
 use super::{
     errors::MPacketHeaderError,
+    header::{mfixedheader, MPacketHeader},
     identifier::{mpacketidentifier, MPacketIdentifier},
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
     will::MLastWill,
+    MSResult,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub enum MPacketData<'message> {
+pub enum MPacket<'message> {
     Connect {
         protocol_name: MString<'message>,
         protocol_level: u8,
@@ -66,7 +68,7 @@ fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take(len)(input)
 }
 
-fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketData> {
+fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPacket> {
     let (input, (upper, lower)): (_, (u8, u8)) =
         bits::<_, _, nom::error::Error<(&[u8], usize)>, _, _>(tuple((
             nom::bits::streaming::take(4usize),
@@ -74,7 +76,7 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
         )))(input)?;
 
     let (input, info) = match (upper, lower) {
-        (0b0001, 0b0000) => {
+        (1, 0b0000) => {
             let (input, protocol_name) = mstring(input)?;
 
             if &*protocol_name != "MQTT" {
@@ -149,7 +151,7 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
 
             (
                 input,
-                MPacketData::Connect {
+                MPacket::Connect {
                     protocol_name,
                     protocol_level,
                     clean_session: clean_session == 1,
@@ -161,8 +163,8 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
                 },
             )
         }
-        (0b0010, 0b0000) => (input, MPacketData::Connack),
-        (0b0011, lower) => {
+        (2, 0b0000) => (input, MPacket::Connack),
+        (3, lower) => {
             let dup = lower & 0b1000 == 1;
             let retain = lower & 0b0001 == 1;
             let qos = match mquality_of_service(lower & 0b0110 >> 1) {
@@ -203,7 +205,10 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
 
             // Payload
 
-            let payload_length = match remaining_length.checked_sub(variable_header_len as u32) {
+            let payload_length = match fixed_header
+                .remaining_length()
+                .checked_sub(variable_header_len as u32)
+            {
                 Some(len) => len,
                 None => {
                     return Err(nom::Err::Error(nom::error::Error::from_external_error(
@@ -217,7 +222,7 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
 
             (
                 input,
-                MPacketData::Publish {
+                MPacket::Publish {
                     qos,
                     dup,
                     retain,
@@ -227,17 +232,17 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
                 },
             )
         }
-        (0b0100, 0b0000) => (input, MPacketData::Puback),
-        (0b0101, 0b0000) => (input, MPacketData::Pubrec),
-        (0b0110, 0b0010) => (input, MPacketData::Pubrel),
-        (0b1001, 0b0000) => (input, MPacketData::Pubcomp),
-        (0b1000, 0b0000) => (input, MPacketData::Subscribe),
-        (0b1001, 0b0010) => (input, MPacketData::Suback),
-        (0b1010, 0b0000) => (input, MPacketData::Unsubscribe),
-        (0b1011, 0b0010) => (input, MPacketData::Unsuback),
-        (0b1100, 0b0000) => (input, MPacketData::Pingreq),
-        (0b1101, 0b0000) => (input, MPacketData::Pingresp),
-        (0b1110, 0b0000) => (input, MPacketData::Disconnect),
+        (4, 0b0000) => (input, MPacket::Puback),
+        (5, 0b0000) => (input, MPacket::Pubrec),
+        (6, 0b0010) => (input, MPacket::Pubrel),
+        (7, 0b0000) => (input, MPacket::Pubcomp),
+        (8, 0b0000) => (input, MPacket::Subscribe),
+        (9, 0b0010) => (input, MPacket::Suback),
+        (10, 0b0000) => (input, MPacket::Unsubscribe),
+        (11, 0b0010) => (input, MPacket::Unsuback),
+        (12, 0b0000) => (input, MPacket::Pingreq),
+        (13, 0b0000) => (input, MPacket::Pingresp),
+        (14, 0b0000) => (input, MPacket::Disconnect),
         (inv_type, _) => {
             return Err(nom::Err::Error(nom::error::Error::from_external_error(
                 input,
@@ -248,4 +253,12 @@ fn mpacketdata(remaining_length: u32, input: &[u8]) -> IResult<&[u8], MPacketDat
     };
 
     Ok((input, info))
+}
+
+fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
+    let (input, header) = mfixedheader(input)?;
+
+    let (input, packet) = mpacketdata(header, input)?;
+
+    Ok((input, packet))
 }
