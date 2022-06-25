@@ -335,7 +335,11 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (11, 0b0010) => (input, MPacket::Unsuback),
+        (11, 0b0010) => {
+            let (input, id) = mpacketidentifier(input)?;
+
+            (input, MPacket::Unsuback { id })
+        }
         (12, 0b0000) => (input, MPacket::Pingreq),
         (13, 0b0000) => (input, MPacket::Pingresp),
         (14, 0b0000) => (input, MPacket::Disconnect),
