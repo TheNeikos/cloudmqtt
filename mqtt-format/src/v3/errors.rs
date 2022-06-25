@@ -14,4 +14,6 @@ pub enum MPacketHeaderError {
     InvalidProtocolLevel(u8),
     #[error("Received a forbidden reserved value")]
     ForbiddenReservedValue,
+    #[error("Received an invalid connect return code in CONNACK")]
+    InvalidConnectReturnCode(u8),
 }

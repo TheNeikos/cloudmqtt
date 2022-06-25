@@ -4,6 +4,7 @@ use nom::{
 };
 
 use super::{
+    connect_return::{mconnectreturn, MConnectReturnCode},
     errors::MPacketHeaderError,
     header::{mfixedheader, MPacketHeader},
     identifier::{mpacketidentifier, MPacketIdentifier},
@@ -25,7 +26,10 @@ pub enum MPacket<'message> {
         keep_alive: u16,
         client_id: MString<'message>,
     },
-    Connack,
+    Connack {
+        session_present: bool,
+        connect_return_code: MConnectReturnCode,
+    },
     Publish {
         dup: bool,
         qos: MQualityOfService,
@@ -180,7 +184,30 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (2, 0b0000) => (input, MPacket::Connack),
+        (2, 0b0000) => {
+            let (input, (reserved, session_present)) = bits(tuple((
+                nom::bits::streaming::take(7usize),
+                nom::bits::streaming::take(1usize),
+            )))(input)?;
+
+            if reserved != 0 {
+                return Err(nom::Err::Error(nom::error::Error::from_external_error(
+                    input,
+                    nom::error::ErrorKind::MapRes,
+                    MPacketHeaderError::ForbiddenReservedValue,
+                )));
+            }
+
+            let (input, connect_return_code) = mconnectreturn(input)?;
+
+            (
+                input,
+                MPacket::Connack {
+                    session_present: session_present == 1,
+                    connect_return_code,
+                },
+            )
+        }
         (3, lower) => {
             let dup = lower & 0b1000 == 1;
             let retain = lower & 0b0001 == 1;
