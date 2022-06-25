@@ -16,4 +16,6 @@ pub enum MPacketHeaderError {
     ForbiddenReservedValue,
     #[error("Received an invalid connect return code in CONNACK")]
     InvalidConnectReturnCode(u8),
+    #[error("Received an invalid SUBACK")]
+    InvalidSubscriptionAck(u8),
 }

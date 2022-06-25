@@ -10,6 +10,7 @@ use super::{
     identifier::{mpacketidentifier, MPacketIdentifier},
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
+    subscription_acks::{msubscriptionacks, MSubscriptionAcks},
     subscription_request::{msubscriptionrequest, msubscriptionrequests, MSubscriptionRequests},
     will::MLastWill,
     MSResult,
@@ -57,6 +58,7 @@ pub enum MPacket<'message> {
     },
     Suback {
         id: MPacketIdentifier,
+        subscription_acks: MSubscriptionAcks<'message>,
     },
     Unsubscribe {
         id: MPacketIdentifier,
@@ -305,7 +307,19 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (input, MPacket::Subscribe { id, subscriptions })
         }
-        (9, 0b0010) => (input, MPacket::Suback),
+        (9, 0b0010) => {
+            let (input, id) = mpacketidentifier(input)?;
+
+            let (input, subscription_acks) = msubscriptionacks(input)?;
+
+            (
+                input,
+                MPacket::Suback {
+                    id,
+                    subscription_acks,
+                },
+            )
+        }
         (10, 0b0000) => (input, MPacket::Unsubscribe),
         (11, 0b0010) => (input, MPacket::Unsuback),
         (12, 0b0000) => (input, MPacket::Pingreq),
