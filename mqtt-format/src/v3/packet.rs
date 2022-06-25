@@ -12,6 +12,7 @@ use super::{
     strings::{mstring, MString},
     subscription_acks::{msubscriptionacks, MSubscriptionAcks},
     subscription_request::{msubscriptionrequest, msubscriptionrequests, MSubscriptionRequests},
+    unsubscription_request::{munsubscriptionrequests, MUnsubscriptionRequests},
     will::MLastWill,
     MSResult,
 };
@@ -62,6 +63,7 @@ pub enum MPacket<'message> {
     },
     Unsubscribe {
         id: MPacketIdentifier,
+        unsubscriptions: MUnsubscriptionRequests<'message>,
     },
     Unsuback {
         id: MPacketIdentifier,
@@ -320,7 +322,19 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                 },
             )
         }
-        (10, 0b0000) => (input, MPacket::Unsubscribe),
+        (10, 0b0000) => {
+            let (input, id) = mpacketidentifier(input)?;
+
+            let (input, unsubscriptions) = munsubscriptionrequests(input)?;
+
+            (
+                input,
+                MPacket::Unsubscribe {
+                    id,
+                    unsubscriptions,
+                },
+            )
+        }
         (11, 0b0010) => (input, MPacket::Unsuback),
         (12, 0b0000) => (input, MPacket::Pingreq),
         (13, 0b0000) => (input, MPacket::Pingresp),
