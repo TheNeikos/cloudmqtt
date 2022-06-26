@@ -495,7 +495,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 pub fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
     let (input, header) = mfixedheader(input)?;
 
-    let data = nom::bytes::streaming::take(header.remaining_length);
+    let data = nom::bytes::complete::take(header.remaining_length);
 
     let (input, packet) = data
         .and_then(|input| mpacketdata(header, input))

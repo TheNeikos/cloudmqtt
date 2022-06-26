@@ -9,4 +9,26 @@ authors = ["Marcel Müller <neikos@neikos.email>"]
 [workspace]
 members = ["mqtt-format"]
 
+[[bin]]
+name = "cloudmqtt-client"
+required-features = ["bin"]
+
+[features]
+bin = ["clap", "tokio/rt-multi-thread", "tokio/macros"]
+
 [dependencies]
+clap = { version = "3.2.6", optional = true, features = ["derive"] }
+futures = "0.3.21"
+mqtt-format = { version = "0.1.0", path = "mqtt-format" }
+nom = { version = "7.1.1" }
+thiserror = "1.0.31"
+tokio = { version = "1.19.2", default-features = false, features = [
+    "net",
+    "time",
+] }
+tokio-util = { version = "0.7.3", features = [
+    "futures-io",
+    "io",
+    "io-util",
+    "compat",
+] }
