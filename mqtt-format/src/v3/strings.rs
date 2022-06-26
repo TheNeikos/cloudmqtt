@@ -1,5 +1,8 @@
+use futures::{AsyncWrite, AsyncWriteExt};
 use nom::{bytes::complete::take, number::complete::be_u16, IResult, Parser};
 use nom_supreme::ParserExt;
+
+use super::errors::MPacketWriteError;
 
 /// A v3 MQTT string as defined in section 1.5.3
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -12,6 +15,24 @@ impl<'message> std::ops::Deref for MString<'message> {
 
     fn deref(&self) -> &Self::Target {
         self.value
+    }
+}
+
+impl<'message> MString<'message> {
+    pub fn get_len(mstr: &MString<'_>) -> usize {
+        2 + mstr.value.len()
+    }
+
+    pub(crate) async fn write_to<W: AsyncWrite>(
+        mstr: &MString<'_>,
+        writer: &mut std::pin::Pin<&mut W>,
+    ) -> Result<(), MPacketWriteError> {
+        writer
+            .write_all(&(mstr.value.len() as u16).to_be_bytes())
+            .await?;
+        writer.write_all(mstr.value.as_bytes()).await?;
+
+        Ok(())
     }
 }
 
@@ -43,6 +64,8 @@ pub fn mstring(input: &[u8]) -> IResult<&[u8], MString<'_>> {
 
 #[cfg(test)]
 mod tests {
+    use std::pin::Pin;
+
     use super::{mstring, MString};
 
     // TODO(neikos): Unclear how MQTT-1.5.3-3 is to be tested. Since we don't touch the stream, I
@@ -64,6 +87,21 @@ mod tests {
                 }
             ))
         )
+    }
+
+    #[tokio::test]
+    async fn check_simple_string_roundtrip() {
+        let input = [0x00, 0x05, 0x41, 0xF0, 0xAA, 0x9B, 0x94];
+
+        let (_, s) = mstring(&input).unwrap();
+
+        let mut vec = vec![];
+
+        MString::write_to(&s, &mut Pin::new(&mut vec))
+            .await
+            .unwrap();
+
+        assert_eq!(input, &vec[..])
     }
 
     // MQTT-1.5.3-2

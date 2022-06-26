@@ -88,7 +88,7 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
     Ok((input, kind))
 }
 
-fn decode_variable_length(bytes: &[u8]) -> u32 {
+pub fn decode_variable_length(bytes: &[u8]) -> u32 {
     let mut output: u32 = 0;
 
     for (exp, val) in bytes.iter().enumerate() {
@@ -118,7 +118,6 @@ pub fn mfixedheader(input: &[u8]) -> IResult<&[u8], MPacketHeader> {
 #[cfg(test)]
 mod tests {
     use crate::v3::{
-        errors::MPacketHeaderError,
         header::{MPacketHeader, MPacketKind},
         qos::MQualityOfService,
     };

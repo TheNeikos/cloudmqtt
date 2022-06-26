@@ -19,3 +19,11 @@ pub enum MPacketHeaderError {
     #[error("Received an invalid SUBACK")]
     InvalidSubscriptionAck(u8),
 }
+
+#[derive(Debug, thiserror::Error)]
+pub enum MPacketWriteError {
+    #[error("An IO error occurred")]
+    Io(#[from] std::io::Error),
+    #[error("An invalid packet size was constructed: {}", .0)]
+    InvalidSize(usize),
+}

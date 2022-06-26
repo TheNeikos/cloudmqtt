@@ -7,3 +7,9 @@ pub struct MLastWill<'message> {
     pub qos: MQualityOfService,
     pub retain: bool,
 }
+
+impl<'message> MLastWill<'message> {
+    pub fn get_len(&self) -> usize {
+        MString::get_len(&self.topic) + (2 + self.payload.len())
+    }
+}

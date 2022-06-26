@@ -1,3 +1,6 @@
+use std::pin::Pin;
+
+use futures::AsyncWriteExt;
 use nom::{
     bits, bytes::complete::take, error::FromExternalError, number::complete::be_u16,
     sequence::tuple, IResult, Parser,
@@ -5,7 +8,7 @@ use nom::{
 
 use super::{
     connect_return::{mconnectreturn, MConnectReturnCode},
-    errors::MPacketHeaderError,
+    errors::{MPacketHeaderError, MPacketWriteError},
     header::{mfixedheader, MPacketHeader, MPacketKind},
     identifier::{mpacketidentifier, MPacketIdentifier},
     qos::{mquality_of_service, MQualityOfService},
@@ -71,6 +74,164 @@ pub enum MPacket<'message> {
     Pingreq,
     Pingresp,
     Disconnect,
+}
+
+impl<'message> MPacket<'message> {
+    pub async fn write_to<W: futures::AsyncWrite>(
+        &self,
+        mut writer: Pin<&mut W>,
+    ) -> Result<(), MPacketWriteError> {
+        macro_rules! write_remaining_length {
+            ($writer:ident, $length:expr) => {
+                match $length {
+                    len @ 0..=127 => {
+                        $writer.write_all(&[len as u8]).await?;
+                    }
+                    len @ 128..=16383 => {
+                        let first = len % 128 | 0b1000_0000;
+                        let second = len / 128;
+                        $writer.write_all(&[first as u8, second as u8]).await?;
+                    }
+                    len @ 16384..=2_097_151 => {
+                        let first = len % 128 | 0b1000_0000;
+                        let second = (len / 128) % 128 | 0b1000_0000;
+                        let third = len / (128 * 128);
+                        $writer
+                            .write_all(&[first as u8, second as u8, third as u8])
+                            .await?;
+                    }
+                    len @ 2_097_152..=268_435_455 => {
+                        let first = len % 128 | 0b1000_0000;
+                        let second = (len / 128) % 128 | 0b1000_0000;
+                        let third = (len / (128 * 128)) % 128 | 0b1000_0000;
+                        let fourth = len / (128 * 128 * 128);
+                        $writer
+                            .write_all(&[first as u8, second as u8, third as u8, fourth as u8])
+                            .await?;
+                    }
+                    size => {
+                        return Err(MPacketWriteError::InvalidSize(size));
+                    }
+                }
+            };
+        }
+
+        match self {
+            MPacket::Connect {
+                protocol_name,
+                protocol_level,
+                clean_session,
+                will,
+                username,
+                password,
+                keep_alive,
+                client_id,
+            } => {
+                let packet_type = 0b0001_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 10
+                    + MString::get_len(&client_id)
+                    + will.as_ref().map(MLastWill::get_len).unwrap_or_default()
+                    + username.as_ref().map(MString::get_len).unwrap_or_default()
+                    + password.as_ref().map(|p| 2 + p.len()).unwrap_or_default();
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                MString::write_to(protocol_name, &mut writer).await?;
+                // Variable 7
+                writer.write_all(&[*protocol_level]).await?;
+                let connect_flags = bools_to_u8([
+                    username.is_some(),
+                    password.is_some(),
+                    will.as_ref().map(|w| w.retain).unwrap_or_default(),
+                    will.as_ref()
+                        .map(|w| w.qos == MQualityOfService::ExactlyOnce)
+                        .unwrap_or_default(),
+                    will.as_ref()
+                        .map(|w| w.qos != MQualityOfService::ExactlyOnce)
+                        .unwrap_or_default(),
+                    will.is_some(),
+                    *clean_session,
+                    false,
+                ]);
+                // Variable 8
+                writer.write_all(&[connect_flags]).await?;
+                // Variable 9-10
+                writer.write_all(&keep_alive.to_be_bytes()).await?;
+
+                // Payload Client
+                MString::write_to(client_id, &mut writer).await?;
+
+                // Payload Will
+                if let Some(will) = will {
+                    MString::write_to(&will.topic, &mut writer).await?;
+                    writer
+                        .write_all(&(will.payload.len() as u16).to_be_bytes())
+                        .await?;
+                    writer.write_all(&will.payload).await?;
+                }
+
+                // Payload Username
+                if let Some(username) = username {
+                    MString::write_to(&username, &mut writer).await?;
+                }
+
+                if let Some(password) = password {
+                    writer
+                        .write_all(&(password.len() as u16).to_be_bytes())
+                        .await?;
+                    writer.write_all(password).await?;
+                }
+            }
+            MPacket::Connack {
+                session_present,
+                connect_return_code,
+            } => todo!(),
+            MPacket::Publish {
+                dup,
+                qos,
+                retain,
+                topic_name,
+                id,
+                payload,
+            } => todo!(),
+            MPacket::Puback { id } => todo!(),
+            MPacket::Pubrec { id } => todo!(),
+            MPacket::Pubrel { id } => todo!(),
+            MPacket::Pubcomp { id } => todo!(),
+            MPacket::Subscribe { id, subscriptions } => todo!(),
+            MPacket::Suback {
+                id,
+                subscription_acks,
+            } => todo!(),
+            MPacket::Unsubscribe {
+                id,
+                unsubscriptions,
+            } => todo!(),
+            MPacket::Unsuback { id } => todo!(),
+            MPacket::Pingreq => todo!(),
+            MPacket::Pingresp => todo!(),
+            MPacket::Disconnect => todo!(),
+        }
+
+        Ok(())
+    }
+}
+
+fn bools_to_u8(bools: [bool; 8]) -> u8 {
+    (bools[0] as u8) << 7
+        | (bools[1] as u8) << 6
+        | (bools[2] as u8) << 5
+        | (bools[3] as u8) << 4
+        | (bools[4] as u8) << 3
+        | (bools[5] as u8) << 2
+        | (bools[6] as u8) << 1
+        | (bools[7] as u8)
 }
 
 fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
@@ -345,10 +506,12 @@ pub fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::v3::packet::MPacket;
+    use crate::v3::{packet::MPacket, strings::MString, will::MLastWill};
 
     use super::mpacket;
-    use std::num::NonZeroUsize;
+    use std::{num::NonZeroUsize, pin::Pin};
+
+    use pretty_assertions::assert_eq;
 
     #[test]
     fn check_incomplete_length() {
@@ -370,5 +533,77 @@ mod tests {
 
         assert_eq!(rest, &[]);
         assert_eq!(disc, MPacket::Disconnect);
+    }
+
+    #[tokio::test]
+    async fn check_connect_roundtrip() {
+        let input = &[
+            0b0001_0000,
+            37,
+            0x0,
+            0x4, // String length
+            b'M',
+            b'Q',
+            b'T',
+            b'T',
+            0x4,         // Level
+            0b1111_0110, // Connect flags
+            0x0,
+            0x10, // Keel Alive in secs
+            0x0,  // Client Identifier
+            0x5,
+            b'H',
+            b'E',
+            b'L',
+            b'L',
+            b'O',
+            0x0, // Will Topic
+            0x5,
+            b'W',
+            b'O',
+            b'R',
+            b'L',
+            b'D',
+            0x0, // Will Payload
+            0x1,
+            0xFF,
+            0x0,
+            0x5, // Username
+            b'A',
+            b'D',
+            b'M',
+            b'I',
+            b'N',
+            0x0,
+            0x1, // Password
+            0xF0,
+        ];
+
+        let (rest, conn) = mpacket(input).unwrap();
+
+        assert_eq!(
+            conn,
+            MPacket::Connect {
+                protocol_name: MString { value: "MQTT" },
+                protocol_level: 4,
+                clean_session: true,
+                will: Some(MLastWill {
+                    topic: MString { value: "WORLD" },
+                    payload: &[0xFF],
+                    qos: crate::v3::qos::MQualityOfService::ExactlyOnce,
+                    retain: true
+                }),
+                username: Some(MString { value: "ADMIN" }),
+                password: Some(&[0xF0]),
+                keep_alive: 16,
+                client_id: MString { value: "HELLO" }
+            }
+        );
+
+        let mut buf = vec![];
+
+        conn.write_to(Pin::new(&mut buf)).await.unwrap();
+
+        assert_eq!(input, &buf[..]);
     }
 }
