@@ -1,7 +1,9 @@
+use futures::{AsyncWrite, AsyncWriteExt};
 use nom::{multi::many1_count, Parser};
 use nom_supreme::ParserExt;
 
 use super::{
+    errors::MPacketWriteError,
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
     MSResult,
@@ -9,8 +11,21 @@ use super::{
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MSubscriptionRequests<'message> {
-    count: usize,
-    data: &'message [u8],
+    pub count: usize,
+    pub data: &'message [u8],
+}
+
+impl<'message> MSubscriptionRequests<'message> {
+    pub(crate) async fn write_to<W: AsyncWrite>(
+        &self,
+        writer: &mut std::pin::Pin<&mut W>,
+    ) -> Result<(), MPacketWriteError> {
+        writer.write_all(self.data).await?;
+        Ok(())
+    }
+    pub(crate) fn get_len(&self) -> usize {
+        self.data.len()
+    }
 }
 
 impl<'message> IntoIterator for MSubscriptionRequests<'message> {
@@ -60,6 +75,18 @@ pub fn msubscriptionrequests(input: &[u8]) -> MSResult<'_, MSubscriptionRequests
 pub struct MSubscriptionRequest<'message> {
     pub topic: MString<'message>,
     pub qos: MQualityOfService,
+}
+
+impl<'message> MSubscriptionRequest<'message> {
+    pub async fn write_to<W: AsyncWrite>(
+        &self,
+        writer: &mut std::pin::Pin<&mut W>,
+    ) -> Result<(), MPacketWriteError> {
+        MString::write_to(&self.topic, writer).await?;
+        self.qos.write_to(writer).await?;
+
+        Ok(())
+    }
 }
 
 pub fn msubscriptionrequest(input: &[u8]) -> MSResult<'_, MSubscriptionRequest<'_>> {

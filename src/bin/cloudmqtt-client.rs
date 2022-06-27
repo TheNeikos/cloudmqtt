@@ -1,6 +1,6 @@
 use clap::Parser;
 use cloudmqtt::{MqttClient, MqttConnectionParams};
-use mqtt_format::v3::will::MLastWill;
+use mqtt_format::v3::{subscription_request::MSubscriptionRequest, will::MLastWill, strings::MString};
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -9,6 +9,9 @@ struct Args {
     addr: String,
     #[clap(long, value_parser)]
     client_id: String,
+
+    #[clap(long, value_parser)]
+    subscriptions: Vec<String>,
 }
 
 #[tokio::main]
@@ -38,10 +41,20 @@ async fn main() {
     .await
     .unwrap();
 
+    client.subscribe(
+        &args.subscriptions
+            .iter()
+            .map(|sub| MSubscriptionRequest {
+                topic: MString { value: &sub },
+                qos: mqtt_format::v3::qos::MQualityOfService::AtMostOnce,
+            })
+            .collect::<Vec<_>>(),
+    ).await.unwrap();
+
     let mut buffer = vec![];
 
     loop {
-        match client.message_listener(&mut buffer).await {
+        match client.listen_for_message(&mut buffer).await {
             Ok(packet) => println!("Received: {packet:#?}"),
             Err(e) => {
                 eprintln!("Encountered error while parsing packet: {:?}", e);

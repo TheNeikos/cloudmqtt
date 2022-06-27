@@ -204,7 +204,23 @@ impl<'message> MPacket<'message> {
             MPacket::Pubrec { id } => todo!(),
             MPacket::Pubrel { id } => todo!(),
             MPacket::Pubcomp { id } => todo!(),
-            MPacket::Subscribe { id, subscriptions } => todo!(),
+            MPacket::Subscribe { id, subscriptions } => {
+                let packet_type = 0b1000_0010;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = id.get_len() + subscriptions.get_len();
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable header
+
+                id.write_to(&mut writer).await?;
+
+                subscriptions.write_to(&mut writer).await?;
+            }
             MPacket::Suback {
                 id,
                 subscription_acks,
@@ -240,6 +256,7 @@ fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPacket> {
+    println!("Parsing with header: {:?}", fixed_header);
     let (input, info) = match fixed_header.kind {
         MPacketKind::Connect => {
             let (input, protocol_name) = mstring(input)?;
