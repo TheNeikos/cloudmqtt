@@ -11,7 +11,9 @@ impl AsyncWrite for MqttClientStream {
         buf: &[u8],
     ) -> std::task::Poll<Result<usize, std::io::Error>> {
         match &mut *self {
-            MqttClientStream::UnsecuredTcp(direct) => std::pin::Pin::new(direct).poll_write(cx, buf),
+            MqttClientStream::UnsecuredTcp(direct) => {
+                std::pin::Pin::new(direct).poll_write(cx, buf)
+            }
         }
     }
 

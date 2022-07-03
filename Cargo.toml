@@ -17,7 +17,9 @@ required-features = ["bin"]
 bin = ["clap", "tokio/rt-multi-thread", "tokio/macros"]
 
 [dependencies]
+bytes = "1.1.0"
 clap = { version = "3.2.6", optional = true, features = ["derive"] }
+dashmap = "5.3.4"
 futures = "0.3.21"
 mqtt-format = { version = "0.1.0", path = "mqtt-format" }
 nom = { version = "7.1.1" }
@@ -25,6 +27,8 @@ thiserror = "1.0.31"
 tokio = { version = "1.19.2", default-features = false, features = [
     "net",
     "time",
+    "sync",
+    "macros"
 ] }
 tokio-util = { version = "0.7.3", features = [
     "futures-io",
@@ -32,3 +36,6 @@ tokio-util = { version = "0.7.3", features = [
     "io-util",
     "compat",
 ] }
+
+[dev-dependencies]
+static_assertions = "1.1.0"

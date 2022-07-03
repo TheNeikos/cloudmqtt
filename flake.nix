@@ -29,14 +29,12 @@
 
         rustTarget = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain;
 
-        unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default);
-
-        craneLib = (crane.mkLib pkgs).overrideScope' (final: prev: {
-          rustc = rustTarget;
-          cargo = rustTarget;
-          rustfmt = rustTarget;
-          clippy = rustTarget;
+        unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override {
+          extensions = [ "rust-src" "miri" ];
         });
+
+        craneLib = (crane.mkLib pkgs).overrideToolchain rustTarget;
+        unstableCraneLib = (crane.mkLib pkgs).overrideToolchain unstableRustTarget;
 
         tomlInfo = craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
         inherit (tomlInfo) pname version;
@@ -49,6 +47,27 @@
         cloudmqtt = craneLib.buildPackage {
           inherit cargoArtifacts src version;
         };
+
+        xargo = pkgs.rustPlatform.buildRustPackage
+          rec {
+            pname = "xargo";
+            version = "0.3.26";
+
+            src = pkgs.fetchFromGitHub {
+              owner = "japaric";
+              repo = pname;
+              rev = "v${version}";
+              hash = "sha256-MPopR58EIPiLg79wxf3nDy6SitdsmuUCjOLut8+fFJ4=";
+            };
+
+            cargoHash = "sha256-LmOu7Ni6TkACHy/ZG8ASG/P2UWEs3Qljz4RGSW1i3zk=";
+
+            doCheck = false;
+
+            buildInputs = [ ];
+            nativeBuildInputs = [ ];
+          };
+
       in
       rec {
         checks = {
@@ -61,6 +80,26 @@
 
           cloudmqtt-fmt = craneLib.cargoFmt {
             inherit src;
+          };
+
+          cloudmqtt-miri = unstableCraneLib.cargoBuild {
+            inherit src;
+            pnameSuffix = "-miri";
+            cargoArtifacts = null;
+            cargoVendorDir = null;
+            doRemapSourcePathPrefix = false;
+
+            cargoBuildCommand = "cargo miri test";
+            doCheck = false;
+
+            nativeBuildInputs = [ xargo ];
+
+            preInstallPhases = [ "ensureTargetDir" ];
+            ensureTargetDir = ''
+              mkdir -p ''${CARGO_TARGET_DIR:-target}
+            '';
+            XARGO_RUST_SRC = "${unstableRustTarget}/lib/rustlib/src/rust/library";
+            RUST_BACKTRACE=1;
           };
         };
 
@@ -76,10 +115,10 @@
           ];
 
           nativeBuildInputs = [
-            rustTarget
+            unstableRustTarget
+            xargo
 
             pkgs.cargo-msrv
-            pkgs.cargo-edit
             pkgs.cargo-deny
             pkgs.cargo-expand
             pkgs.cargo-bloat

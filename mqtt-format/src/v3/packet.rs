@@ -256,7 +256,6 @@ fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
 }
 
 fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPacket> {
-    println!("Parsing with header: {:?}", fixed_header);
     let (input, info) = match fixed_header.kind {
         MPacketKind::Connect => {
             let (input, protocol_name) = mstring(input)?;
@@ -529,18 +528,6 @@ mod tests {
     use std::{num::NonZeroUsize, pin::Pin};
 
     use pretty_assertions::assert_eq;
-
-    #[test]
-    fn check_incomplete_length() {
-        let input = &[0b1110_0000, 0b0000_0010];
-
-        let res = mpacket(input).unwrap_err();
-
-        assert_eq!(
-            res,
-            nom::Err::Incomplete(nom::Needed::Size(NonZeroUsize::new(2).unwrap())),
-        );
-    }
 
     #[test]
     fn check_complete_length() {

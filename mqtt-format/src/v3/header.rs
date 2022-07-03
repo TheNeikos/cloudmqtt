@@ -47,8 +47,6 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
             nom::bits::complete::take(4usize),
         )))(input)?;
 
-    println!("Received packet kind: 0b{:b} 0b{:b}", upper, lower);
-
     let (input, kind) = match (upper, lower) {
         (1, 0b0000) => (input, MPacketKind::Connect),
         (2, 0b0000) => (input, MPacketKind::Connack),
@@ -58,7 +56,6 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
             let qos = match mquality_of_service((lower & 0b0110) >> 1) {
                 Ok(qos) => qos,
                 Err(e) => {
-                    println!("Got an invalid QOS!");
                     return Err(nom::Err::Error(Error::from_external_error(
                         input,
                         ErrorKind::MapRes,
@@ -103,7 +100,6 @@ pub fn decode_variable_length(bytes: &[u8]) -> u32 {
 
 pub fn mfixedheader(input: &[u8]) -> IResult<&[u8], MPacketHeader> {
     let (input, kind) = mpacketkind(input)?;
-    println!("Packet kind: {:?}", kind);
     let (input, remaining_length) = nom::number::complete::u8
         .and(take_while_m_n(0, 3, |b| b & 0b1000_0000 != 0))
         .recognize()
