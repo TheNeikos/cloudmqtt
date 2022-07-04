@@ -40,7 +40,7 @@ async fn main() {
     let mut client = MqttClient::connect_v3_unsecured(
         &args.addr,
         MqttConnectionParams {
-            clean_session: true,
+            clean_session: false,
             will: Some(MLastWill {
                 topic: mqtt_format::v3::strings::MString {
                     value: "hello/world",
@@ -51,7 +51,7 @@ async fn main() {
             }),
             username: None,
             password: None,
-            keep_alive: 100,
+            keep_alive: 5,
             client_id: mqtt_format::v3::strings::MString {
                 value: &args.client_id,
             },
@@ -60,6 +60,8 @@ async fn main() {
     .await
     .unwrap();
 
+    tokio::spawn(client.hearbeat(None));
+
     client
         .subscribe(
             &args
@@ -67,7 +69,7 @@ async fn main() {
                 .iter()
                 .map(|sub| MSubscriptionRequest {
                     topic: MString { value: &sub },
-                    qos: mqtt_format::v3::qos::MQualityOfService::AtMostOnce,
+                    qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
                 })
                 .collect::<Vec<_>>(),
         )

@@ -110,9 +110,9 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                 MPacket::Publish { qos, .. } => {
                     if qos != MQualityOfService::AtMostOnce {
                         self.ack_fn.handle(next_message.clone());
-                        client
-                            .received_packet_storage
-                            .push_to_storage(next_message.clone());
+                        // client
+                        //     .received_packet_storage
+                        //     .push_to_storage(next_message.clone());
 
                         let mut mutex = client.client_sender.lock().await;
 

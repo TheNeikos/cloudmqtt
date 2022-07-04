@@ -1,4 +1,4 @@
-use std::pin::Pin;
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use bytes::{BufMut, Bytes, BytesMut};
 use client_stream::MqttClientStream;
@@ -44,9 +44,10 @@ fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, MqttError> {
 pub struct MqttClient {
     session_present: bool,
     client_receiver: Mutex<Option<ReadHalf<client_stream::MqttClientStream>>>,
-    client_sender: Mutex<Option<WriteHalf<client_stream::MqttClientStream>>>,
+    client_sender: Arc<Mutex<Option<WriteHalf<client_stream::MqttClientStream>>>>,
     received_packet_storage: PacketStorage,
     sent_packet_storage: PacketStorage,
+    keep_alive_duration: u16,
 }
 
 macro_rules! write_packet {
@@ -104,10 +105,37 @@ impl MqttClient {
         Ok(MqttClient {
             session_present,
             client_receiver: Mutex::new(Some(read_half)),
-            client_sender: Mutex::new(Some(write_half)),
+            client_sender: Arc::new(Mutex::new(Some(write_half))),
             sent_packet_storage: PacketStorage::new(),
             received_packet_storage: PacketStorage::new(),
+            keep_alive_duration: connection_params.keep_alive,
         })
+    }
+
+    pub fn hearbeat(
+        &self,
+        cancel_token: Option<CancellationToken>,
+    ) -> impl std::future::Future<Output = Result<(), MqttError>> {
+        let keep_alive_duration = self.keep_alive_duration;
+        let sender = self.client_sender.clone();
+        async move {
+            loop {
+                tokio::time::sleep(Duration::from_secs((keep_alive_duration as u64 * 100) / 80))
+                    .await;
+
+                let mut mutex = sender.lock().await;
+
+                let mut client_stream = match mutex.as_mut() {
+                    Some(cs) => cs,
+                    None => return Err(MqttError::ConnectionClosed),
+                };
+                trace!("Sending hearbeat");
+
+                let packet = MPacket::Pingreq;
+
+                write_packet!(&mut client_stream, packet).await?;
+            }
+        }
     }
 
     async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
@@ -178,7 +206,7 @@ impl MqttClient {
     }
 
     pub async fn subscribe(
-        &mut self,
+        &self,
         subscription_requests: &[MSubscriptionRequest<'_>],
     ) -> Result<(), MqttError> {
         let mut mutex = match self.client_sender.try_lock() {

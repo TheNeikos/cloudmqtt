@@ -200,7 +200,20 @@ impl<'message> MPacket<'message> {
                 id,
                 payload,
             } => todo!(),
-            MPacket::Puback { id } => todo!(),
+            MPacket::Puback { id } => {
+                let packet_type = 0b0100_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 2;
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                id.write_to(&mut writer).await?;
+            }
             MPacket::Pubrec { id } => todo!(),
             MPacket::Pubrel { id } => todo!(),
             MPacket::Pubcomp { id } => todo!(),
@@ -230,7 +243,13 @@ impl<'message> MPacket<'message> {
                 unsubscriptions,
             } => todo!(),
             MPacket::Unsuback { id } => todo!(),
-            MPacket::Pingreq => todo!(),
+            MPacket::Pingreq => {
+                let packet_type = 0b1100_0000;
+                let variable_length = 0b0;
+
+                // Header
+                writer.write_all(&[packet_type, variable_length]).await?;
+            }
             MPacket::Pingresp => todo!(),
             MPacket::Disconnect => todo!(),
         }
