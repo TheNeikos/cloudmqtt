@@ -8,6 +8,7 @@ use mqtt_format::v3::{
     header::mfixedheader,
     identifier::MPacketIdentifier,
     packet::{mpacket, MPacket},
+    qos::MQualityOfService,
     strings::MString,
     subscription_request::{MSubscriptionRequest, MSubscriptionRequests},
     will::MLastWill,
@@ -22,6 +23,7 @@ use tokio::{
 use tokio_util::{compat::TokioAsyncWriteCompatExt, sync::CancellationToken};
 
 pub use packet_storage::MqttPacket;
+use tracing::{debug, trace};
 
 pub mod client_stream;
 pub mod error;
@@ -29,31 +31,12 @@ mod packet_storage;
 pub mod packet_stream;
 
 fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, MqttError> {
-    match mpacket(input) {
-        Ok((&[], packet)) => Ok(packet),
-        _ => Err(MqttError::InvalidPacket),
-    }
-}
+    match nom::combinator::all_consuming(mpacket)(input) {
+        Ok((_, packet)) => Ok(packet),
 
-struct PacketChannel {
-    sender: tokio::sync::mpsc::Sender<MqttPacket>,
-    receiver: Mutex<tokio::sync::mpsc::Receiver<MqttPacket>>,
-}
-
-impl PacketChannel {
-    async fn receiver<'channel>(
-        &'channel self,
-    ) -> MutexGuard<'channel, tokio::sync::mpsc::Receiver<MqttPacket>> {
-        self.receiver.lock().await
-    }
-}
-
-impl PacketChannel {
-    fn new() -> Self {
-        let (sender, receiver) = tokio::sync::mpsc::channel(4);
-        Self {
-            sender,
-            receiver: Mutex::new(receiver),
+        Err(error) => {
+            tracing::error!(?error, "Could not parse packet");
+            Err(MqttError::InvalidPacket)
         }
     }
 }
@@ -64,7 +47,6 @@ pub struct MqttClient {
     client_sender: Mutex<Option<WriteHalf<client_stream::MqttClientStream>>>,
     received_packet_storage: PacketStorage,
     sent_packet_storage: PacketStorage,
-    packet_channel: PacketChannel,
 }
 
 macro_rules! write_packet {
@@ -86,6 +68,8 @@ impl MqttClient {
     ) -> Result<MqttClient, MqttError> {
         let stream = TcpStream::connect(addr).await?;
 
+        tracing::debug!("Connected via TCP to {}", stream.peer_addr()?);
+
         let packet = MPacket::Connect {
             protocol_name: MString { value: "MQTT" },
             protocol_level: 4,
@@ -97,6 +81,8 @@ impl MqttClient {
             client_id: connection_params.client_id,
         };
 
+        trace!(?packet, "Connecting");
+
         let (mut read_half, mut write_half) =
             tokio::io::split(MqttClientStream::UnsecuredTcp(stream));
 
@@ -104,7 +90,7 @@ impl MqttClient {
 
         let maybe_connect = MqttClient::read_one_packet(&mut read_half).await?;
 
-        let session_present = match parse_packet(&maybe_connect)? {
+        let session_present = match maybe_connect.get_packet()? {
             MPacket::Connack {
                 session_present,
                 connect_return_code,
@@ -121,150 +107,75 @@ impl MqttClient {
             client_sender: Mutex::new(Some(write_half)),
             sent_packet_storage: PacketStorage::new(),
             received_packet_storage: PacketStorage::new(),
-            packet_channel: PacketChannel::new(),
         })
     }
 
     async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
         mut reader: W,
-    ) -> Result<Bytes, MqttError> {
+    ) -> Result<MqttPacket, MqttError> {
+        debug!("Reading a packet");
+
         let mut buffer = BytesMut::new();
         buffer.put_u16(reader.read_u16().await?);
 
+        trace!(
+            "Packet has reported size on first byte: 0b{size:08b} = {size}",
+            size = buffer[1] & 0b0111_1111
+        );
         if buffer[1] & 0b1000_0000 != 0 {
+            trace!("Reading one more byte from size");
             buffer.put_u8(reader.read_u8().await?);
             if buffer[2] & 0b1000_0000 != 0 {
+                trace!("Reading one more byte from size");
                 buffer.put_u8(reader.read_u8().await?);
                 if buffer[3] & 0b1000_0000 != 0 {
+                    trace!("Reading one more byte from size");
                     buffer.put_u8(reader.read_u8().await?);
                 }
             }
         }
 
+        trace!("Parsing fixed header");
+
         let (_, header) = mfixedheader(&buffer).map_err(|_| MqttError::InvalidPacket)?;
 
+        trace!("Reading remaining length: {}", header.remaining_length);
+
+        buffer.reserve(header.remaining_length as usize);
         let mut buffer = buffer.limit(header.remaining_length as usize);
 
         reader.read_buf(&mut buffer).await?;
 
-        let _ = mpacket(buffer.get_ref()).map_err(|_| MqttError::InvalidPacket)?;
-        Ok(buffer.into_inner().freeze())
+        let packet = parse_packet(buffer.get_ref())?;
+
+        trace!(?packet, "Received full packet");
+
+        Ok(MqttPacket::new(buffer.into_inner().freeze()))
+    }
+
+    async fn acknowledge_packet<W: tokio::io::AsyncWrite + Unpin>(
+        mut writer: W,
+        packet: MPacket<'_>,
+    ) -> Result<(), MqttError> {
+        let id = match packet {
+            MPacket::Publish { id, qos, .. } if qos != MQualityOfService::AtMostOnce => id.unwrap(),
+            _ => panic!("Tried to acknowledge a non-publish packet"),
+        };
+
+        trace!(?id, "Acknowledging publish");
+
+        let packet = MPacket::Puback { id };
+
+        write_packet!(&mut writer, packet).await?;
+
+        trace!(?id, "Acknowledged publish");
+
+        Ok(())
     }
 
     pub fn build_packet_stream(&self) -> PacketStreamBuilder<'_, NoOPAck> {
         PacketStreamBuilder::<NoOPAck>::new(self)
     }
-
-    /// Start listening for packets
-    ///
-    /// This future will not return until either the network stream
-    /// is broken or the `cancel`lation token is cancelled.
-    /// If this future is dropped then the client connection is severed
-    /// and will have to be re-established with [`MqttClient::reconnect`]
-    ///
-    /// # Cancel safety
-    ///
-    /// This method is cancel-safe but leaves the connection open.
-    /// If you wish to stop the MqttClient, you can do so by cancelling the given [`CancellationToken`].
-    pub async fn listen(&self, cancel: Option<CancellationToken>) -> Result<(), MqttError> {
-        let mut mutex = match self.client_receiver.try_lock() {
-            Ok(guard) => guard,
-            Err(_) => return Err(MqttError::AlreadyListening),
-        };
-
-        let client_stream = match mutex.as_mut() {
-            Some(cs) => cs,
-            None => return Err(MqttError::ConnectionClosed),
-        };
-
-        let cancel = cancel.unwrap_or_default();
-
-        loop {
-            let packet_reader = async {
-                let mut buffer = BytesMut::new();
-                buffer.put_u16(client_stream.read_u16().await?);
-
-                if buffer[1] & 0b1000_0000 != 0 {
-                    buffer.put_u8(client_stream.read_u8().await?);
-                    if buffer[2] & 0b1000_0000 != 0 {
-                        buffer.put_u8(client_stream.read_u8().await?);
-                        if buffer[3] & 0b1000_0000 != 0 {
-                            buffer.put_u8(client_stream.read_u8().await?);
-                        }
-                    }
-                }
-
-                let (_, header) = mfixedheader(&buffer).map_err(|_| MqttError::InvalidPacket)?;
-
-                let mut buffer = buffer.limit(header.remaining_length as usize);
-
-                client_stream.read_buf(&mut buffer).await?;
-
-                let _ = mpacket(buffer.get_ref()).map_err(|_| MqttError::InvalidPacket)?;
-
-                Ok::<Bytes, MqttError>(buffer.into_inner().freeze())
-            };
-
-            tokio::select! {
-                _ = cancel.cancelled() => break,
-                buffer = packet_reader => {
-                    let buffer = buffer?;
-                    let mqttpacket = MqttPacket::new(buffer);
-                    self.packet_channel.sender.send(mqttpacket).await.expect("Could not send out packet id");
-                }
-            }
-        }
-        Ok(())
-    }
-
-    pub async fn next_message(&self) -> Option<MqttPacket> {
-        let mut receiver = self.packet_channel.receiver().await;
-
-        receiver.recv().await
-    }
-
-    // pub async fn listen_for_message<'buffer>(&'buffer self) -> Result<MPacket<'buffer>, MqttError> {
-    //     let mut client_stream = match self.client_receiver.try_lock().map(|mut cs| cs.take()) {
-    //         Ok(Some(cs)) => cs,
-    //         Ok(None) => return Err(MqttError::ConnectionClosed),
-    //         Err(_) => return Err(MqttError::AlreadyListening),
-    //     };
-    //     let mut buffer = vec![2; 0];
-    //     client_stream.read_exact(&mut buffer[0..2]).await?;
-
-    //     if buffer[1] & 0b1000_0000 != 0 {
-    //         buffer.push(client_stream.read_u8().await?);
-    //         if buffer[2] & 0b1000_0000 != 0 {
-    //             buffer.push(client_stream.read_u8().await?);
-    //             if buffer[3] & 0b1000_0000 != 0 {
-    //                 buffer.push(client_stream.read_u8().await?);
-    //             }
-    //         }
-    //     }
-
-    //     let bytes_needed = {
-    //         match mfixedheader(&buffer) {
-    //             Ok((&[], header)) => header.remaining_length,
-    //             e => {
-    //                 println!("Met an error while parsing fixed header: {:#?}", e);
-    //                 return Err(MqttError::InvalidPacket);
-    //             }
-    //         }
-    //     };
-
-    //     println!("Reading {} more bytes", bytes_needed);
-
-    //     buffer.resize(buffer.len() + bytes_needed as usize, 0);
-    //     client_stream.read_exact(&mut buffer[2..]).await?;
-
-    //     match mpacket(&buffer) {
-    //         Ok((&[], packet)) => {
-    //             *self.client_receiver.lock().await = Some(client_stream);
-    //             Ok(packet)
-    //         }
-    //         _ => Err(MqttError::InvalidPacket),
-    //     }
-    // }
 
     pub async fn subscribe(
         &mut self,

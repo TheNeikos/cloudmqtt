@@ -4,6 +4,9 @@ use futures::StreamExt;
 use mqtt_format::v3::{
     packet::MPacket, strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
 };
+use tracing::error;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[derive(Parser, Debug)]
 #[clap(author, version, about)]
@@ -19,6 +22,19 @@ struct Args {
 
 #[tokio::main]
 async fn main() {
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_timer(tracing_subscriber::fmt::time::uptime());
+
+    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(filter_layer)
+        .init();
+
+    tracing::info!("Starting up");
+
     let args = Args::parse();
 
     let mut client = MqttClient::connect_v3_unsecured(
@@ -67,8 +83,20 @@ async fn main() {
         .build();
     let mut packet_stream = Box::pin(packet_stream.stream());
 
-    while let Some(Ok(packet)) = packet_stream.next().await {
-        let packet: MqttPacket = packet;
+    loop {
+        let packet = match packet_stream.next().await {
+            Some(Ok(packet)) => packet,
+            None => {
+                error!("Stream closed unexpectedly");
+                break;
+            }
+            Some(Err(error)) => {
+                error!(?error, "Stream errored");
+                break;
+            }
+        };
+
+        let packet = packet.get_packet().unwrap();
         println!("Received: {packet:#?}");
     }
 }

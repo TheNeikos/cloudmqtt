@@ -94,10 +94,16 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
         futures::stream::try_unfold((), |()| async {
             let client = self.client;
 
-            let next_message = client
-                .next_message()
-                .await
-                .ok_or(MqttError::ConnectionClosed)?;
+            let next_message = {
+                let mut mutex = client.client_receiver.lock().await;
+
+                let client_stream = match mutex.as_mut() {
+                    Some(cs) => cs,
+                    None => return Err(MqttError::ConnectionClosed),
+                };
+
+                MqttClient::read_one_packet(client_stream).await?
+            };
 
             let packet = next_message.get_packet()?;
             match packet {
@@ -107,6 +113,15 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                         client
                             .received_packet_storage
                             .push_to_storage(next_message.clone());
+
+                        let mut mutex = client.client_sender.lock().await;
+
+                        let client_stream = match mutex.as_mut() {
+                            Some(cs) => cs,
+                            None => return Err(MqttError::ConnectionClosed),
+                        };
+
+                        MqttClient::acknowledge_packet(client_stream, packet).await?;
                     }
                 }
                 _ => (),
