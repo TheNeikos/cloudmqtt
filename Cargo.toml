@@ -19,8 +19,6 @@ bin = [
     "tokio/rt-multi-thread",
     "tokio/macros",
     "tracing-subscriber",
-    "tui",
-    "crossterm",
 ]
 
 [dependencies]
