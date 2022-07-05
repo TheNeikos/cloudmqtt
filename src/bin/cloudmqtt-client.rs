@@ -75,7 +75,7 @@ async fn main() {
                 .iter()
                 .map(|sub| MSubscriptionRequest {
                     topic: MString { value: sub },
-                    qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
+                    qos: mqtt_format::v3::qos::MQualityOfService::ExactlyOnce,
                 })
                 .collect::<Vec<_>>(),
         )

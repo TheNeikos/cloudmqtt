@@ -220,9 +220,35 @@ impl<'message> MPacket<'message> {
                 // Variable 1-6
                 id.write_to(&mut writer).await?;
             }
-            MPacket::Pubrec { id: _ } => todo!(),
+            MPacket::Pubrec { id } => {
+                let packet_type = 0b0101_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 2;
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                id.write_to(&mut writer).await?;
+            }
             MPacket::Pubrel { id: _ } => todo!(),
-            MPacket::Pubcomp { id: _ } => todo!(),
+            MPacket::Pubcomp { id } => {
+                let packet_type = 0b0111_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 2;
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                id.write_to(&mut writer).await?;
+            }
             MPacket::Subscribe { id, subscriptions } => {
                 let packet_type = 0b1000_0010;
 
