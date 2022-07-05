@@ -16,3 +16,8 @@ jobs:
         # If you chose API tokens for write access OR if you have a private cache
         authToken: '${{ secrets.CACHIX_AUTH_TOKEN }}'
     - run: nix --extra-experimental-features "nix-command flakes" flake check
+  license:
+    runs-on: ubuntu-latest
+    steps:
+      - name: License Checker
+        uses: kt3k/license_checker@v1.0.1
