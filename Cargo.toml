@@ -19,14 +19,11 @@ bin = [
     "tokio/rt-multi-thread",
     "tokio/macros",
     "tracing-subscriber",
-    "tui",
-    "crossterm",
 ]
 
 [dependencies]
 bytes = "1.1.0"
 clap = { version = "3.2.6", optional = true, features = ["derive"] }
-crossterm = { version = "0.24.0", optional = true }
 dashmap = "5.3.4"
 futures = "0.3.21"
 mqtt-format = { version = "0.1.0", path = "mqtt-format" }
@@ -48,7 +45,6 @@ tracing = "0.1.35"
 tracing-subscriber = { version = "0.3.14", optional = true, features = [
     "env-filter",
 ] }
-tui = { version = "0.18.0", optional = true }
 
 [dev-dependencies]
 static_assertions = "1.1.0"
