@@ -1,0 +1,12 @@
+image: nixos/nix:2.9.2
+
+build:
+  tags: [kubernetes-runner]
+  variables:
+    CACHIX_CACHE_NAME: cloudmqtt
+  before_script:
+    - nix-env --install --attr nixpkgs.cachix
+    - cachix use "$CACHIX_CACHE_NAME"
+  script:
+    - nix --extra-experimental-features "nix-command flakes" flake check
+    - nix path-info --all | cachix push $CACHIX_CACHE_NAME
