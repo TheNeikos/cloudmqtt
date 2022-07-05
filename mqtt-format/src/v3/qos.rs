@@ -2,7 +2,7 @@ use futures::{AsyncWrite, AsyncWriteExt};
 
 use super::errors::{MPacketHeaderError, MPacketWriteError};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MQualityOfService {
     AtMostOnce,
     AtLeastOnce,

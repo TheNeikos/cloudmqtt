@@ -12,13 +12,13 @@ use super::{
     qos::{mquality_of_service, MQualityOfService},
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MPacketHeader {
     pub kind: MPacketKind,
     pub remaining_length: u32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MPacketKind {
     Connect,
     Connack,

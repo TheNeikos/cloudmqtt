@@ -1,6 +1,6 @@
 use super::{qos::MQualityOfService, strings::MString};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MLastWill<'message> {
     pub topic: MString<'message>,
     pub payload: &'message [u8],

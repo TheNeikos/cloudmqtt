@@ -20,7 +20,7 @@ use super::{
     MSResult,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MPacket<'message> {
     Connect {
         protocol_name: MString<'message>,
@@ -133,7 +133,7 @@ impl<'message> MPacket<'message> {
                 writer.write_all(&[packet_type]).await?;
 
                 let remaining_length = 10
-                    + MString::get_len(&client_id)
+                    + MString::get_len(client_id)
                     + will.as_ref().map(MLastWill::get_len).unwrap_or_default()
                     + username.as_ref().map(MString::get_len).unwrap_or_default()
                     + password.as_ref().map(|p| 2 + p.len()).unwrap_or_default();
@@ -173,12 +173,12 @@ impl<'message> MPacket<'message> {
                     writer
                         .write_all(&(will.payload.len() as u16).to_be_bytes())
                         .await?;
-                    writer.write_all(&will.payload).await?;
+                    writer.write_all(will.payload).await?;
                 }
 
                 // Payload Username
                 if let Some(username) = username {
-                    MString::write_to(&username, &mut writer).await?;
+                    MString::write_to(username, &mut writer).await?;
                 }
 
                 if let Some(password) = password {
@@ -189,16 +189,16 @@ impl<'message> MPacket<'message> {
                 }
             }
             MPacket::Connack {
-                session_present,
-                connect_return_code,
+                session_present: _,
+                connect_return_code: _,
             } => todo!(),
             MPacket::Publish {
-                dup,
-                qos,
-                retain,
-                topic_name,
-                id,
-                payload,
+                dup: _,
+                qos: _,
+                retain: _,
+                topic_name: _,
+                id: _,
+                payload: _,
             } => todo!(),
             MPacket::Puback { id } => {
                 let packet_type = 0b0100_0000;
@@ -214,9 +214,9 @@ impl<'message> MPacket<'message> {
                 // Variable 1-6
                 id.write_to(&mut writer).await?;
             }
-            MPacket::Pubrec { id } => todo!(),
-            MPacket::Pubrel { id } => todo!(),
-            MPacket::Pubcomp { id } => todo!(),
+            MPacket::Pubrec { id: _ } => todo!(),
+            MPacket::Pubrel { id: _ } => todo!(),
+            MPacket::Pubcomp { id: _ } => todo!(),
             MPacket::Subscribe { id, subscriptions } => {
                 let packet_type = 0b1000_0010;
 
@@ -235,14 +235,14 @@ impl<'message> MPacket<'message> {
                 subscriptions.write_to(&mut writer).await?;
             }
             MPacket::Suback {
-                id,
-                subscription_acks,
+                id: _,
+                subscription_acks: _,
             } => todo!(),
             MPacket::Unsubscribe {
-                id,
-                unsubscriptions,
+                id: _,
+                unsubscriptions: _,
             } => todo!(),
-            MPacket::Unsuback { id } => todo!(),
+            MPacket::Unsuback { id: _ } => todo!(),
             MPacket::Pingreq => {
                 let packet_type = 0b1100_0000;
                 let variable_length = 0b0;
@@ -544,7 +544,7 @@ mod tests {
     use crate::v3::{packet::MPacket, strings::MString, will::MLastWill};
 
     use super::mpacket;
-    use std::{num::NonZeroUsize, pin::Pin};
+    use std::pin::Pin;
 
     use pretty_assertions::assert_eq;
 
@@ -602,7 +602,7 @@ mod tests {
             0xF0,
         ];
 
-        let (rest, conn) = mpacket(input).unwrap();
+        let (_rest, conn) = mpacket(input).unwrap();
 
         assert_eq!(
             conn,

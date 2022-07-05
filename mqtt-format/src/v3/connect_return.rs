@@ -2,7 +2,7 @@ use nom::error::FromExternalError;
 
 use super::{errors::MPacketHeaderError, MSResult};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MConnectReturnCode {
     Accepted,
     ProtocolNotAccepted,

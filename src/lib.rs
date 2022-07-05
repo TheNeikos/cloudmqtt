@@ -13,21 +13,18 @@ use mqtt_format::v3::{
     subscription_request::{MSubscriptionRequest, MSubscriptionRequests},
     will::MLastWill,
 };
-use packet_storage::PacketStorage;
 use packet_stream::{NoOPAck, PacketStreamBuilder};
 use tokio::{
     io::{AsyncReadExt, ReadHalf, WriteHalf},
     net::{TcpStream, ToSocketAddrs},
-    sync::{Mutex, MutexGuard},
+    sync::Mutex,
 };
 use tokio_util::{compat::TokioAsyncWriteCompatExt, sync::CancellationToken};
 
-pub use packet_storage::MqttPacket;
 use tracing::{debug, trace};
 
 pub mod client_stream;
 pub mod error;
-mod packet_storage;
 pub mod packet_stream;
 
 fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, MqttError> {
@@ -41,12 +38,25 @@ fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, MqttError> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct MqttPacket {
+    buffer: Bytes,
+}
+
+impl MqttPacket {
+    pub(crate) fn new(buffer: Bytes) -> Self {
+        Self { buffer }
+    }
+
+    pub fn get_packet(&self) -> Result<MPacket<'_>, MqttError> {
+        parse_packet(&self.buffer)
+    }
+}
+
 pub struct MqttClient {
     session_present: bool,
     client_receiver: Mutex<Option<ReadHalf<client_stream::MqttClientStream>>>,
     client_sender: Arc<Mutex<Option<WriteHalf<client_stream::MqttClientStream>>>>,
-    received_packet_storage: PacketStorage,
-    sent_packet_storage: PacketStorage,
     keep_alive_duration: u16,
 }
 
@@ -106,15 +116,13 @@ impl MqttClient {
             session_present,
             client_receiver: Mutex::new(Some(read_half)),
             client_sender: Arc::new(Mutex::new(Some(write_half))),
-            sent_packet_storage: PacketStorage::new(),
-            received_packet_storage: PacketStorage::new(),
             keep_alive_duration: connection_params.keep_alive,
         })
     }
 
     pub fn hearbeat(
         &self,
-        cancel_token: Option<CancellationToken>,
+        _cancel_token: Option<CancellationToken>,
     ) -> impl std::future::Future<Output = Result<(), MqttError>> {
         let keep_alive_duration = self.keep_alive_duration;
         let sender = self.client_sender.clone();

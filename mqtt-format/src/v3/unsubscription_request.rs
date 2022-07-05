@@ -5,7 +5,7 @@ use super::{
     MSResult,
 };
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MUnsubscriptionRequests<'message> {
     count: usize,
     data: &'message [u8],
@@ -24,7 +24,7 @@ impl<'message> IntoIterator for MUnsubscriptionRequests<'message> {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MUnsubscriptionIter<'message> {
     count: usize,
     data: &'message [u8],
@@ -54,7 +54,7 @@ pub fn munsubscriptionrequests(input: &[u8]) -> MSResult<'_, MUnsubscriptionRequ
     Ok((input, MUnsubscriptionRequests { count, data }))
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MUnsubscriptionRequest<'message> {
     pub topic: MString<'message>,
 }

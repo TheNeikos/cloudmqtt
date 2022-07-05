@@ -1,8 +1,8 @@
 use clap::Parser;
-use cloudmqtt::{packet_stream::Acknowledge, MqttClient, MqttConnectionParams, MqttPacket};
+use cloudmqtt::{packet_stream::Acknowledge, MqttClient, MqttConnectionParams};
 use futures::StreamExt;
 use mqtt_format::v3::{
-    packet::MPacket, strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
+    strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
 };
 use tracing::error;
 use tracing_subscriber::layer::SubscriberExt;
@@ -37,7 +37,7 @@ async fn main() {
 
     let args = Args::parse();
 
-    let mut client = MqttClient::connect_v3_unsecured(
+    let client = MqttClient::connect_v3_unsecured(
         &args.addr,
         MqttConnectionParams {
             clean_session: false,
@@ -68,7 +68,7 @@ async fn main() {
                 .subscriptions
                 .iter()
                 .map(|sub| MSubscriptionRequest {
-                    topic: MString { value: &sub },
+                    topic: MString { value: sub },
                     qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
                 })
                 .collect::<Vec<_>>(),

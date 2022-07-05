@@ -1,6 +1,6 @@
 use std::future::Ready;
 
-use crate::{error::MqttError, packet_storage::MqttPacket, MqttClient};
+use crate::{error::MqttError, MqttClient, MqttPacket};
 use futures::Stream;
 use mqtt_format::v3::{packet::MPacket, qos::MQualityOfService};
 
@@ -106,25 +106,22 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
             };
 
             let packet = next_message.get_packet()?;
-            match packet {
-                MPacket::Publish { qos, .. } => {
-                    if qos != MQualityOfService::AtMostOnce {
-                        self.ack_fn.handle(next_message.clone());
-                        // client
-                        //     .received_packet_storage
-                        //     .push_to_storage(next_message.clone());
+            if let MPacket::Publish { qos, .. } = packet {
+                if qos != MQualityOfService::AtMostOnce {
+                    self.ack_fn.handle(next_message.clone());
+                    // client
+                    //     .received_packet_storage
+                    //     .push_to_storage(next_message.clone());
 
-                        let mut mutex = client.client_sender.lock().await;
+                    let mut mutex = client.client_sender.lock().await;
 
-                        let client_stream = match mutex.as_mut() {
-                            Some(cs) => cs,
-                            None => return Err(MqttError::ConnectionClosed),
-                        };
+                    let client_stream = match mutex.as_mut() {
+                        Some(cs) => cs,
+                        None => return Err(MqttError::ConnectionClosed),
+                    };
 
-                        MqttClient::acknowledge_packet(client_stream, packet).await?;
-                    }
+                    MqttClient::acknowledge_packet(client_stream, packet).await?;
                 }
-                _ => (),
             }
 
             Ok(Some((next_message, ())))
@@ -138,7 +135,7 @@ mod tests {
 
     use crate::{packet_stream::Acknowledge, MqttClient, MqttPacket};
 
-    #[allow(unreachable_code, unused)]
+    #[allow(unreachable_code, unused, clippy::diverging_sub_expression)]
     async fn check_making_stream_builder() {
         let client: MqttClient = todo!();
 

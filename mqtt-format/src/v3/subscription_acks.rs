@@ -2,13 +2,13 @@ use nom::{error::FromExternalError, multi::many1_count};
 
 use super::{errors::MPacketHeaderError, MSResult};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MSubscriptionAcks<'message> {
     pub acks: &'message [MSubscriptionAck],
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MSubscriptionAck {
     MaximumQualityAtMostOnce = 0x00,
     MaximumQualityAtLeastOnce = 0x01,

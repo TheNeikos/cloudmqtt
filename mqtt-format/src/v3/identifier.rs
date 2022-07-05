@@ -3,7 +3,7 @@ use nom::{number::complete::be_u16, Parser};
 
 use super::{errors::MPacketWriteError, MSResult};
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MPacketIdentifier(pub u16);
 
 pub fn mpacketidentifier(input: &[u8]) -> MSResult<'_, MPacketIdentifier> {
