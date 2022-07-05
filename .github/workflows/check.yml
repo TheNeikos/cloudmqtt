@@ -1,9 +1,14 @@
 name: "Check CloudMQTT"
+
 on:
-  pull_request:
   push:
-    branches:
-      - main
+    branches: [main, staging, trying]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   checks:
     runs-on: ubuntu-latest
