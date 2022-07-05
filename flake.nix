@@ -89,17 +89,19 @@
             cargoVendorDir = null;
             doRemapSourcePathPrefix = false;
 
-            cargoBuildCommand = "cargo miri test";
+            cargoBuildCommand = "cargo miri test --workspace --offline";
             doCheck = false;
 
             nativeBuildInputs = [ xargo ];
 
-            preInstallPhases = [ "ensureTargetDir" ];
-            ensureTargetDir = ''
+            preBuild = ''
+              mkdir -p home
+              cd home
               mkdir -p ''${CARGO_TARGET_DIR:-target}
+              export HOME="$(pwd)"
             '';
             XARGO_RUST_SRC = "${unstableRustTarget}/lib/rustlib/src/rust/library";
-            RUST_BACKTRACE=1;
+            RUST_BACKTRACE = 1;
           };
         };
 
