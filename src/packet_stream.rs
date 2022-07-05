@@ -9,6 +9,7 @@ use std::future::Ready;
 use crate::{error::MqttError, MqttClient, MqttPacket};
 use futures::Stream;
 use mqtt_format::v3::{packet::MPacket, qos::MQualityOfService};
+use tracing::{debug, error, trace};
 
 pub struct Acknowledge;
 
@@ -100,37 +101,83 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
         futures::stream::try_unfold((), |()| async {
             let client = self.client;
 
-            let next_message = {
-                let mut mutex = client.client_receiver.lock().await;
-
-                let client_stream = match mutex.as_mut() {
-                    Some(cs) => cs,
-                    None => return Err(MqttError::ConnectionClosed),
-                };
-
-                MqttClient::read_one_packet(client_stream).await?
-            };
-
-            let packet = next_message.get_packet()?;
-            if let MPacket::Publish { qos, .. } = packet {
-                if qos != MQualityOfService::AtMostOnce {
-                    self.ack_fn.handle(next_message.clone());
-                    // client
-                    //     .received_packet_storage
-                    //     .push_to_storage(next_message.clone());
-
-                    let mut mutex = client.client_sender.lock().await;
+            loop {
+                let next_message = {
+                    let mut mutex = client.client_receiver.lock().await;
 
                     let client_stream = match mutex.as_mut() {
                         Some(cs) => cs,
                         None => return Err(MqttError::ConnectionClosed),
                     };
 
-                    MqttClient::acknowledge_packet(client_stream, packet).await?;
-                }
-            }
+                    MqttClient::read_one_packet(client_stream).await?
+                };
 
-            Ok(Some((next_message, ())))
+                let packet = next_message.get_packet()?;
+                match packet {
+                    MPacket::Publish {
+                        qos, id: Some(id), ..
+                    } => {
+                        match qos {
+                            MQualityOfService::AtMostOnce => {}
+                            MQualityOfService::AtLeastOnce => {
+                                self.ack_fn.handle(next_message.clone());
+                                // client
+                                //     .received_packet_storage
+                                //     .push_to_storage(next_message.clone());
+
+                                let mut mutex = client.client_sender.lock().await;
+
+                                let client_stream = match mutex.as_mut() {
+                                    Some(cs) => cs,
+                                    None => return Err(MqttError::ConnectionClosed),
+                                };
+
+                                MqttClient::acknowledge_packet(client_stream, packet).await?;
+                            }
+                            MQualityOfService::ExactlyOnce => {
+                                if client.received_packets.contains(&id.0) {
+                                    debug!(?packet, "Received duplicate packet");
+                                    continue;
+                                }
+
+                                self.ack_fn.handle(next_message.clone());
+
+                                trace!(?packet, "Inserting packet into received");
+                                client.received_packets.insert(id.0);
+
+                                let mut mutex = client.client_sender.lock().await;
+
+                                let client_stream = match mutex.as_mut() {
+                                    Some(cs) => cs,
+                                    None => return Err(MqttError::ConnectionClosed),
+                                };
+
+                                MqttClient::acknowledge_packet(client_stream, packet).await?;
+                            }
+                        }
+                    }
+                    MPacket::Pubrel { id } => {
+                        if client.received_packets.contains(&id.0) {
+                            let mut mutex = client.client_sender.lock().await;
+
+                            let client_stream = match mutex.as_mut() {
+                                Some(cs) => cs,
+                                None => return Err(MqttError::ConnectionClosed),
+                            };
+
+                            MqttClient::acknowledge_packet(client_stream, packet).await?;
+                        } else {
+                            error!("Received a pubrel for a packet we did not expect");
+
+                            return Ok(None);
+                        }
+                    }
+                    _ => (),
+                }
+
+                return Ok(Some((next_message, ())));
+            }
         })
     }
 }

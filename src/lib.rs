@@ -8,6 +8,7 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 
 use bytes::{BufMut, Bytes, BytesMut};
 use client_stream::MqttClientStream;
+use dashmap::DashSet;
 use error::MqttError;
 use futures::{io::BufWriter, AsyncWriteExt};
 use mqtt_format::v3::{
@@ -63,6 +64,7 @@ pub struct MqttClient {
     session_present: bool,
     client_receiver: Mutex<Option<ReadHalf<client_stream::MqttClientStream>>>,
     client_sender: Arc<Mutex<Option<WriteHalf<client_stream::MqttClientStream>>>>,
+    received_packets: DashSet<u16>,
     keep_alive_duration: u16,
 }
 
@@ -70,7 +72,9 @@ macro_rules! write_packet {
     ($writer:expr, $packet:expr) => {
         async {
             let mut buf = BufWriter::new($writer.compat_write());
-            $packet.write_to(Pin::new(&mut buf)).await?;
+            let packet = $packet;
+            trace!(?packet, "Sending packet");
+            packet.write_to(Pin::new(&mut buf)).await?;
             buf.flush().await?;
 
             Ok::<(), MqttError>(())
@@ -123,6 +127,7 @@ impl MqttClient {
             client_receiver: Mutex::new(Some(read_half)),
             client_sender: Arc::new(Mutex::new(Some(write_half))),
             keep_alive_duration: connection_params.keep_alive,
+            received_packets: DashSet::new(),
         })
     }
 
@@ -134,8 +139,10 @@ impl MqttClient {
         let sender = self.client_sender.clone();
         async move {
             loop {
-                tokio::time::sleep(Duration::from_secs((keep_alive_duration as u64 * 100) / 80))
-                    .await;
+                tokio::time::sleep(Duration::from_secs(
+                    ((keep_alive_duration as u64 * 100) / 80).max(2),
+                ))
+                .await;
 
                 let mut mutex = sender.lock().await;
 
@@ -199,18 +206,48 @@ impl MqttClient {
         mut writer: W,
         packet: MPacket<'_>,
     ) -> Result<(), MqttError> {
-        let id = match packet {
-            MPacket::Publish { id, qos, .. } if qos != MQualityOfService::AtMostOnce => id.unwrap(),
+        match packet {
+            MPacket::Publish {
+                qos: MQualityOfService::AtMostOnce,
+                ..
+            } => {}
+            MPacket::Publish {
+                id: Some(id),
+                qos: qos @ MQualityOfService::AtLeastOnce,
+                ..
+            } => {
+                trace!(?id, ?qos, "Acknowledging publish");
+
+                let packet = MPacket::Puback { id };
+
+                write_packet!(&mut writer, packet).await?;
+
+                trace!(?id, "Acknowledged publish");
+            }
+            MPacket::Publish {
+                id: Some(id),
+                qos: qos @ MQualityOfService::ExactlyOnce,
+                ..
+            } => {
+                trace!(?id, ?qos, "Acknowledging publish");
+
+                let packet = MPacket::Pubrec { id };
+
+                write_packet!(&mut writer, packet).await?;
+
+                trace!(?id, "Acknowledged publish");
+            }
+            MPacket::Pubrel { id } => {
+                trace!(?id, "Acknowledging pubrel");
+
+                let packet = MPacket::Pubcomp { id };
+
+                write_packet!(&mut writer, packet).await?;
+
+                trace!(?id, "Acknowledged publish");
+            }
             _ => panic!("Tried to acknowledge a non-publish packet"),
         };
-
-        trace!(?id, "Acknowledging publish");
-
-        let packet = MPacket::Puback { id };
-
-        write_packet!(&mut writer, packet).await?;
-
-        trace!(?id, "Acknowledged publish");
 
         Ok(())
     }
