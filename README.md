@@ -2,7 +2,7 @@
 
 [![Crates.io](https://img.shields.io/crates/v/cloudmqtt.svg)](https://crates.io/crates/cloudmqtt)
 [![Docs.rs](https://docs.rs/cloudmqtt/badge.svg)](https://docs.rs/cloudmqtt)
-[![CI](https://github.com/TheNeikos/cloudmqtt/workflows/CI/badge.svg)](https://github.com/TheNeikos/cloudmqtt/actions)
+[![Check CloudMQTT](https://github.com/TheNeikos/cloudmqtt/actions/workflows/check.yml/badge.svg?branch=main&event=push)](https://github.com/TheNeikos/cloudmqtt/actions/workflows/check.yml)
 
 A simple and straightforward to use MQTT client (and in the future server).
 
