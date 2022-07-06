@@ -78,6 +78,8 @@
             pkgs.cargo-deny
             pkgs.cargo-expand
             pkgs.cargo-bloat
+
+            pkgs.gitlint
           ];
         };
       }
