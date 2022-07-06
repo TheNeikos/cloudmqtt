@@ -57,6 +57,9 @@
           };
         };
 
+        packages.cloudmqtt = cloudmqtt;
+        packages.default = packages.cloudmqtt;
+
         apps.cloudmqtt = flake-utils.lib.mkApp {
           name = "cloudmqtt";
           drv = cloudmqtt;
