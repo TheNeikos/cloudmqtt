@@ -2,6 +2,12 @@
 name = "mqtt-format"
 version = "0.1.0"
 edition = "2021"
+description = "A pure Rust MQTT packet parser and serializer"
+readme = "README.md"
+repository = "https://github.com/TheNeikos/cloudmqtt"
+license = "MPL-2.0"
+keywords = ["mqtt", "cloud"]
+categories = ["embedded", "parsing"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
