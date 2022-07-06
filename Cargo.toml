@@ -8,6 +8,7 @@ readme = "README.md"
 repository = "https://github.com/TheNeikos/cloudmqtt"
 license = "MPL-2.0"
 keywords = ["mqtt", "cloud"]
+categories = ["embedded"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
