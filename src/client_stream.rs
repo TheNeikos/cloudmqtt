@@ -8,6 +8,7 @@ use tokio::io::{AsyncRead, AsyncWrite};
 
 pub enum MqttClientStream {
     UnsecuredTcp(tokio::net::TcpStream),
+    MemoryDuplex(tokio::io::DuplexStream),
 }
 
 impl AsyncWrite for MqttClientStream {
@@ -20,6 +21,9 @@ impl AsyncWrite for MqttClientStream {
             MqttClientStream::UnsecuredTcp(direct) => {
                 std::pin::Pin::new(direct).poll_write(cx, buf)
             }
+            MqttClientStream::MemoryDuplex(duplex) => {
+                std::pin::Pin::new(duplex).poll_write(cx, buf)
+            }
         }
     }
 
@@ -29,6 +33,7 @@ impl AsyncWrite for MqttClientStream {
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         match &mut *self {
             MqttClientStream::UnsecuredTcp(direct) => std::pin::Pin::new(direct).poll_flush(cx),
+            MqttClientStream::MemoryDuplex(duplex) => std::pin::Pin::new(duplex).poll_flush(cx),
         }
     }
 
@@ -38,6 +43,7 @@ impl AsyncWrite for MqttClientStream {
     ) -> std::task::Poll<Result<(), std::io::Error>> {
         match &mut *self {
             MqttClientStream::UnsecuredTcp(direct) => std::pin::Pin::new(direct).poll_shutdown(cx),
+            MqttClientStream::MemoryDuplex(duplex) => std::pin::Pin::new(duplex).poll_shutdown(cx),
         }
     }
 }
@@ -50,6 +56,7 @@ impl AsyncRead for MqttClientStream {
     ) -> std::task::Poll<std::io::Result<()>> {
         match &mut *self {
             MqttClientStream::UnsecuredTcp(direct) => std::pin::Pin::new(direct).poll_read(cx, buf),
+            MqttClientStream::MemoryDuplex(duplex) => std::pin::Pin::new(duplex).poll_read(cx, buf),
         }
     }
 }
