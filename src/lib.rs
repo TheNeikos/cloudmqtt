@@ -68,6 +68,15 @@ pub struct MqttClient {
     keep_alive_duration: u16,
 }
 
+impl std::fmt::Debug for MqttClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MqttClient")
+            .field("session_present", &self.session_present)
+            .field("keep_alive_duration", &self.keep_alive_duration)
+            .finish_non_exhaustive()
+    }
+}
+
 macro_rules! write_packet {
     ($writer:expr, $packet:expr) => {
         async {
