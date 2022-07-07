@@ -159,6 +159,8 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                     }
                     MPacket::Pubrel { id } => {
                         if client.received_packets.contains(&id.0) {
+                            self.ack_fn.handle(next_message.clone());
+
                             let mut mutex = client.client_sender.lock().await;
 
                             let client_stream = match mutex.as_mut() {
