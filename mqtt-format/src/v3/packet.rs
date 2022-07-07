@@ -195,9 +195,24 @@ impl<'message> MPacket<'message> {
                 }
             }
             MPacket::Connack {
-                session_present: _,
-                connect_return_code: _,
-            } => todo!(),
+                session_present,
+                connect_return_code,
+            } => {
+                let packet_type = 0b0010_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 2;
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                writer
+                    .write_all(&[*session_present as u8, *connect_return_code as u8])
+                    .await?;
+            }
             MPacket::Publish {
                 dup: _,
                 qos: _,

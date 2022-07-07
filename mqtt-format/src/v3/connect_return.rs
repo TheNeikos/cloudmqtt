@@ -9,13 +9,14 @@ use nom::error::FromExternalError;
 use super::{errors::MPacketHeaderError, MSResult};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[repr(u8)]
 pub enum MConnectReturnCode {
-    Accepted,
-    ProtocolNotAccepted,
-    IdentifierRejected,
-    ServerUnavailable,
-    BadUsernamePassword,
-    NotAuthorized,
+    Accepted = 0x0,
+    ProtocolNotAccepted = 0x1,
+    IdentifierRejected = 0x2,
+    ServerUnavailable = 0x3,
+    BadUsernamePassword = 0x4,
+    NotAuthorized = 0x5,
 }
 
 pub fn mconnectreturn(input: &[u8]) -> MSResult<'_, MConnectReturnCode> {
