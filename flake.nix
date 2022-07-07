@@ -28,6 +28,9 @@
         };
 
         rustTarget = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain;
+        unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override {
+          extensions = [ "rust-src" "miri" ];
+        });
         craneLib = (crane.mkLib pkgs).overrideToolchain rustTarget;
 
         tomlInfo = craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
@@ -73,11 +76,13 @@
 
           nativeBuildInputs = [
             rustTarget
+            #unstableRustTarget
 
             pkgs.cargo-msrv
             pkgs.cargo-deny
             pkgs.cargo-expand
             pkgs.cargo-bloat
+            pkgs.cargo-fuzz
 
             pkgs.gitlint
           ];
