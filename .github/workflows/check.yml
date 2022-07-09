@@ -42,5 +42,5 @@ jobs:
           python-version: '3.x'
       - name: Install gitlint
         run: pip install gitlint
-      - run: gitlint --commits ${{ env.GITHUB_BASE_REF }}..${{ env.GITHUB_HEAD_REF }}
+      - run: gitlint --commits ${GITHUB_BASE_REF}..${GITHUB_HEAD_REF}
 
