@@ -31,6 +31,7 @@ jobs:
         uses: kt3k/license_checker@v1.0.6
   dco-check:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@master
         with:
@@ -41,4 +42,5 @@ jobs:
           python-version: '3.x'
       - name: Install gitlint
         run: pip install gitlint
-      - run: gitlint --commits $(git merge-base origin/main HEAD)..
+      - run: gitlint --commits ${{ env.GITHUB_BASE_REF }}..${{ env.GITHUB_HEAD_REF }}
+
