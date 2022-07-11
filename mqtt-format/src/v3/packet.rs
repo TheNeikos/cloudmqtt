@@ -195,9 +195,24 @@ impl<'message> MPacket<'message> {
                 }
             }
             MPacket::Connack {
-                session_present: _,
-                connect_return_code: _,
-            } => todo!(),
+                session_present,
+                connect_return_code,
+            } => {
+                let packet_type = 0b0010_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 2;
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                writer
+                    .write_all(&[*session_present as u8, *connect_return_code as u8])
+                    .await?;
+            }
             MPacket::Publish {
                 dup: _,
                 qos: _,
@@ -356,6 +371,14 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                     input,
                     nom::error::ErrorKind::MapRes,
                     MPacketHeaderError::ForbiddenReservedValue,
+                )));
+            }
+
+            if will_flag == 0 && will_qos != 0 {
+                return Err(nom::Err::Error(nom::error::Error::from_external_error(
+                    input,
+                    nom::error::ErrorKind::MapRes,
+                    MPacketHeaderError::InconsistentWillFlag,
                 )));
             }
 
@@ -588,6 +611,33 @@ mod tests {
 
         assert_eq!(rest, &[]);
         assert_eq!(disc, MPacket::Disconnect);
+    }
+
+    #[test]
+    fn check_will_consistency() {
+        let input = &[
+            0b0001_0000,
+            17,
+            0x0,
+            0x4, // String length
+            b'M',
+            b'Q',
+            b'T',
+            b'T',
+            0x4,         // Level
+            0b0000_1000, // Connect flags, with Will QoS = 1 and will flag = 0
+            0x0,
+            0x10, // Keel Alive in secs
+            0x0,  // Client Identifier
+            0x5,
+            b'H',
+            b'E',
+            b'L',
+            b'L',
+            b'O',
+        ];
+
+        mpacket(input).unwrap_err();
     }
 
     #[tokio::test]

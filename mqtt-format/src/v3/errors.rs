@@ -24,6 +24,8 @@ pub enum MPacketHeaderError {
     InvalidConnectReturnCode(u8),
     #[error("Received an invalid SUBACK")]
     InvalidSubscriptionAck(u8),
+    #[error("The will flag and QoS are inconsistent")]
+    InconsistentWillFlag,
 }
 
 #[derive(Debug, thiserror::Error)]

@@ -22,7 +22,7 @@ use mqtt_format::v3::{
 };
 use packet_stream::{NoOPAck, PacketStreamBuilder};
 use tokio::{
-    io::{AsyncReadExt, ReadHalf, WriteHalf},
+    io::{AsyncReadExt, DuplexStream, ReadHalf, WriteHalf},
     net::{TcpStream, ToSocketAddrs},
     sync::Mutex,
 };
@@ -68,6 +68,15 @@ pub struct MqttClient {
     keep_alive_duration: u16,
 }
 
+impl std::fmt::Debug for MqttClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MqttClient")
+            .field("session_present", &self.session_present)
+            .field("keep_alive_duration", &self.keep_alive_duration)
+            .finish_non_exhaustive()
+    }
+}
+
 macro_rules! write_packet {
     ($writer:expr, $packet:expr) => {
         async {
@@ -83,29 +92,12 @@ macro_rules! write_packet {
 }
 
 impl MqttClient {
-    pub async fn connect_v3_unsecured<Addr: ToSocketAddrs>(
-        addr: Addr,
-        connection_params: MqttConnectionParams<'_>,
+    async fn do_v3_connect(
+        packet: MPacket<'_>,
+        stream: MqttClientStream,
+        keep_alive_duration: u16,
     ) -> Result<MqttClient, MqttError> {
-        let stream = TcpStream::connect(addr).await?;
-
-        tracing::debug!("Connected via TCP to {}", stream.peer_addr()?);
-
-        let packet = MPacket::Connect {
-            protocol_name: MString { value: "MQTT" },
-            protocol_level: 4,
-            clean_session: connection_params.clean_session,
-            will: connection_params.will,
-            username: connection_params.username,
-            password: connection_params.password,
-            keep_alive: connection_params.keep_alive,
-            client_id: connection_params.client_id,
-        };
-
-        trace!(?packet, "Connecting");
-
-        let (mut read_half, mut write_half) =
-            tokio::io::split(MqttClientStream::UnsecuredTcp(stream));
+        let (mut read_half, mut write_half) = tokio::io::split(stream);
 
         write_packet!(&mut write_half, packet).await?;
 
@@ -126,9 +118,44 @@ impl MqttClient {
             session_present,
             client_receiver: Mutex::new(Some(read_half)),
             client_sender: Arc::new(Mutex::new(Some(write_half))),
-            keep_alive_duration: connection_params.keep_alive,
+            keep_alive_duration,
             received_packets: DashSet::new(),
         })
+    }
+
+    pub async fn connect_v3_duplex(
+        duplex: DuplexStream,
+        connection_params: MqttConnectionParams<'_>,
+    ) -> Result<MqttClient, MqttError> {
+        tracing::debug!("Connecting via duplex");
+        let packet = connection_params.to_packet();
+
+        MqttClient::do_v3_connect(
+            packet,
+            MqttClientStream::MemoryDuplex(duplex),
+            connection_params.keep_alive,
+        )
+        .await
+    }
+
+    pub async fn connect_v3_unsecured_tcp<Addr: ToSocketAddrs>(
+        addr: Addr,
+        connection_params: MqttConnectionParams<'_>,
+    ) -> Result<MqttClient, MqttError> {
+        let stream = TcpStream::connect(addr).await?;
+
+        tracing::debug!("Connected via TCP to {}", stream.peer_addr()?);
+
+        let packet = connection_params.to_packet();
+
+        trace!(?packet, "Connecting");
+
+        MqttClient::do_v3_connect(
+            packet,
+            MqttClientStream::UnsecuredTcp(stream),
+            connection_params.keep_alive,
+        )
+        .await
     }
 
     pub fn hearbeat(
@@ -314,4 +341,18 @@ mod tests {
     use crate::MqttClient;
 
     assert_impl_all!(MqttClient: Send, Sync);
+}
+impl<'a> MqttConnectionParams<'a> {
+    fn to_packet(&self) -> MPacket<'a> {
+        MPacket::Connect {
+            protocol_name: MString { value: "MQTT" },
+            protocol_level: 4,
+            clean_session: self.clean_session,
+            will: self.will,
+            username: self.username,
+            password: self.password,
+            keep_alive: self.keep_alive,
+            client_id: self.client_id,
+        }
+    }
 }

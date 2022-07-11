@@ -43,7 +43,7 @@ async fn main() {
 
     let args = Args::parse();
 
-    let client = MqttClient::connect_v3_unsecured(
+    let client = MqttClient::connect_v3_unsecured_tcp(
         &args.addr,
         MqttConnectionParams {
             clean_session: false,
