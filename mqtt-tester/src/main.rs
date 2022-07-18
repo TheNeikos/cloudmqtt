@@ -11,6 +11,9 @@ use client_report::create_client_report;
 struct Cli {
     #[clap(subcommand)]
     command: Commands,
+
+    #[clap(long, default_value = "NonZeroUsize::from(10)")]
+    parallelism: std::num::NonZeroUsize,
 }
 
 #[derive(Subcommand, Debug)]
@@ -27,7 +30,7 @@ async fn main() -> miette::Result<()> {
 
     match args.command {
         Commands::TestClient { executable } => {
-            let report = create_client_report(executable).await?;
+            let report = create_client_report(executable, args.parallelism).await?;
         }
     }
 
