@@ -1,4 +1,5 @@
 mod client_report;
+mod command;
 mod report;
 
 use std::path::PathBuf;
