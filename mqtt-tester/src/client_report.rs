@@ -18,7 +18,22 @@ async fn open_connection_with(path: &Path) -> miette::Result<Command> {
 }
 
 pub async fn create_client_report(client_exe_path: PathBuf) -> miette::Result<Vec<Report>> {
-    Ok(vec![Report {
+    use futures::stream::StreamExt;
+
+    let reports = vec![
+        check_invalid_utf8_is_rejected(&client_exe_path)
+    ];
+
+    futures::stream::iter(reports)
+        .buffered(10) // only execute 10 tests in parallel
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+}
+
+async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
+    Ok(Report {
         name: String::from("Check if invalid UTF-8 is rejected"),
         description: String::from("Invalid UTF-8 is not allowed per the MQTT spec.\
                                   Any receiver should immediately close the connection upon receiving such a packet."),
@@ -29,8 +44,7 @@ pub async fn create_client_report(client_exe_path: PathBuf) -> miette::Result<Ve
             let to_client = client.stdin.take().unwrap();
             let from_client = client.stdout.take().unwrap();
 
-
             ReportResult::Success
         },
-    }])
+    })
 }
