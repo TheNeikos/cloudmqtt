@@ -19,8 +19,12 @@ members = ["mqtt-format", "mqtt-tester"]
 name = "cloudmqtt-client"
 required-features = ["bin"]
 
+[[bin]]
+name = "cloudmqtt-test-client"
+required-features = ["bin"]
+
 [features]
-bin = ["clap", "tokio/rt-multi-thread", "tokio/macros", "tracing-subscriber"]
+bin = ["clap", "tokio/rt-multi-thread", "tokio/macros", "tokio/io-std", "tracing-subscriber"]
 
 [dependencies]
 bytes = "1.1.0"
