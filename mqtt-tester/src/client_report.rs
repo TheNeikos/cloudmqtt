@@ -17,15 +17,16 @@ async fn open_connection_with(path: &Path) -> miette::Result<Command> {
     Ok(command)
 }
 
-pub async fn create_client_report(client_exe_path: PathBuf) -> miette::Result<Vec<Report>> {
+pub async fn create_client_report(
+    client_exe_path: PathBuf,
+    parallelism: std::num::NonZeroUsize,
+) -> miette::Result<Vec<Report>> {
     use futures::stream::StreamExt;
 
-    let reports = vec![
-        check_invalid_utf8_is_rejected(&client_exe_path)
-    ];
+    let reports = vec![check_invalid_utf8_is_rejected(&client_exe_path)];
 
     futures::stream::iter(reports)
-        .buffered(10) // only execute 10 tests in parallel
+        .buffered(parallelism.get())
         .collect::<Vec<_>>()
         .await
         .into_iter()
