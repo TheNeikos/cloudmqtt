@@ -21,12 +21,13 @@ enum Commands {
     },
 }
 
-fn main() -> miette::Result<()> {
+#[tokio::main]
+async fn main() -> miette::Result<()> {
     let args = Cli::parse();
 
     match args.command {
         Commands::TestClient { executable } => {
-            let report = create_client_report(executable)?;
+            let report = create_client_report(executable).await?;
         }
     }
 
