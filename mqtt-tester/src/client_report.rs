@@ -2,8 +2,6 @@ use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::time::Duration;
 
-use miette::IntoDiagnostic;
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::process::Command;
 
 use crate::report::{Report, ReportResult};
@@ -40,14 +38,13 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([
-            [
+            crate::command::ClientCommand::Send(&[
                 0b0010_0000, // CONNACK
                 0b0000_0010, // Remaining length
                 0b0000_0000, // No session present
                 0b0000_0000, // Connection accepted
-            ]
-            .iter(),
-            [
+            ]),
+            crate::command::ClientCommand::Send(&[
                 0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
                 0b0000_0111, // Length
                 // Now the variable header
@@ -58,8 +55,7 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
                 0b0000_0000, // Packet identifier
                 0b0000_0001,
                 0x1,         // Payload
-            ]
-            .iter(),
+            ]),
         ]);
 
     let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
