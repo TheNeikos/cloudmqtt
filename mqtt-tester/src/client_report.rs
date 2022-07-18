@@ -36,54 +36,42 @@ pub async fn create_client_report(
 }
 
 async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
-    let mut client = open_connection_with(&client_exe_path)
-        .await?
-        .spawn()
-        .into_diagnostic()?;
-
-    let mut to_client = client.stdin.take().unwrap();
-    let mut from_client = client.stdout.take().unwrap();
-
-    tokio::spawn(async move { from_client.read_to_end(&mut vec![]).await });
-
-    let connack = &[
-        0b0010_0000, // CONNACK
-        0b0000_0010, // Remaining length
-        0b0000_0000, // No session present
-        0b0000_0000, // Connection accepted
-    ];
-
-    to_client.write_all(connack).await.into_diagnostic()?;
-
-    let invalid_publish = &[
-        0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
-        0b0000_0111, // Length
-        // Now the variable header
-        0b0000_0000,
-        0b0000_0010,
-        0x61,
-        0xC1,        // An invalid UTF-8 byte
-        0b0000_0000, // Packet identifier
-        0b0000_0001,
-        0x1, // Payload
-    ];
-
-    to_client
-        .write_all(invalid_publish)
+    let output = open_connection_with(&client_exe_path)
         .await
-        .into_diagnostic()?;
+        .map(crate::command::Command::new)?
+        .wait_for_write([
+            [
+                0b0010_0000, // CONNACK
+                0b0000_0010, // Remaining length
+                0b0000_0000, // No session present
+                0b0000_0000, // Connection accepted
+            ]
+            .iter(),
+            [
+                0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
+                0b0000_0111, // Length
+                // Now the variable header
+                0b0000_0000,
+                0b0000_0010,
+                0x61,
+                0xC1,        // An invalid UTF-8 byte
+                0b0000_0000, // Packet identifier
+                0b0000_0001,
+                0x1,         // Payload
+            ]
+            .iter(),
+        ]);
 
-    let (result, output) =
-        match tokio::time::timeout(Duration::from_millis(100), client.wait_with_output()).await {
-            Ok(Ok(out)) => {
-                if out.status.success() {
-                    (ReportResult::Failure, Some(out.stderr))
-                } else {
-                    (ReportResult::Success, Some(out.stderr))
-                }
+    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
+        Ok(Ok(out)) => {
+            if out.status.success() {
+                (ReportResult::Failure, Some(out.stderr))
+            } else {
+                (ReportResult::Success, Some(out.stderr))
             }
-            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
-        };
+        }
+        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    };
 
     Ok(Report {
         name: String::from("Check if invalid UTF-8 is rejected"),
