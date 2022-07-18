@@ -13,19 +13,14 @@ categories = ["embedded"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [workspace]
-members = ["mqtt-format"]
+members = ["mqtt-format", "mqtt-tester"]
 
 [[bin]]
 name = "cloudmqtt-client"
 required-features = ["bin"]
 
 [features]
-bin = [
-    "clap",
-    "tokio/rt-multi-thread",
-    "tokio/macros",
-    "tracing-subscriber",
-]
+bin = ["clap", "tokio/rt-multi-thread", "tokio/macros", "tracing-subscriber"]
 
 [dependencies]
 bytes = "1.1.0"
