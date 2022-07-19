@@ -2,10 +2,12 @@ mod client_report;
 mod command;
 mod report;
 
-use std::path::PathBuf;
+use std::{path::PathBuf, process::exit};
 
 use clap::{Parser, Subcommand};
 use client_report::create_client_report;
+use miette::IntoDiagnostic;
+use report::{print_report, ReportResult};
 
 #[derive(Parser, Debug)]
 #[clap(author, version)]
@@ -31,9 +33,47 @@ async fn main() -> miette::Result<()> {
 
     match args.command {
         Commands::TestClient { executable } => {
-            let report = create_client_report(executable, args.parallelism).await?;
+            let reports = create_client_report(executable, args.parallelism).await?;
 
-            println!("Report: {:#?}", report);
+            let mut stdout = std::io::stdout().lock();
+            for report in &reports {
+                print_report(report, &mut stdout).into_diagnostic()?;
+            }
+
+            if reports.iter().any(|r| r.result != ReportResult::Success) {
+                struct ReportSummary {
+                    successes: usize,
+                    failures: usize,
+                    inconclusive: usize,
+                }
+
+                let summary = reports.iter().fold(
+                    ReportSummary {
+                        successes: 0,
+                        failures: 0,
+                        inconclusive: 0,
+                    },
+                    |mut sum, rep| {
+                        match rep.result {
+                            ReportResult::Success => sum.successes += 1,
+                            ReportResult::Failure => sum.failures += 1,
+                            ReportResult::Inconclusive => sum.inconclusive += 1,
+                        }
+
+                        sum
+                    },
+                );
+
+                println!();
+                println!(
+                    "{} tests total, {} success, {} failures, {} inconclusive",
+                    reports.len(),
+                    summary.successes,
+                    summary.failures,
+                    summary.inconclusive
+                );
+                exit(1);
+            }
         }
     }
 

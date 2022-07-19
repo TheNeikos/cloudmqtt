@@ -1,4 +1,6 @@
-#[derive(Debug)]
+use std::io::Write;
+
+#[derive(Debug, PartialEq, Eq)]
 pub enum ReportResult {
     Success,
     Failure,
@@ -29,4 +31,30 @@ impl std::fmt::Debug for Report {
             )
             .finish()
     }
+}
+
+pub fn print_report(report: &Report, mut writer: impl Write) -> Result<(), std::io::Error> {
+    use ansi_term::Colour::{Blue, Green, Red, Yellow};
+    write!(writer, "{} ... ", Blue.paint(&report.name))?;
+
+    match report.result {
+        ReportResult::Success => write!(writer, "{}", Green.paint("ok"))?,
+        ReportResult::Failure => {
+            writeln!(writer, "{}", Red.paint("failed"))?;
+            writeln!(writer, "  {}", report.description)?;
+            if let Some(output) = report.output.as_ref() {
+                writeln!(
+                    writer,
+                    "{}",
+                    textwrap::indent(&String::from_utf8_lossy(output), "> ")
+                )?;
+            } else {
+                write!(writer, "  {}", Red.paint("No extra output"))?;
+            }
+        }
+        ReportResult::Inconclusive => write!(writer, "{}", Yellow.paint("inconclusive"))?,
+    }
+
+    writeln!(writer)?;
+    Ok(())
 }

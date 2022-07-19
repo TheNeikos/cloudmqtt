@@ -6,8 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+ansi_term = "0.12.1"
 bytes = "1.1.0"
 clap = { version = "3.2.8", features = ["derive"] }
 futures = "0.3"
 miette = { version = "5.1.1", features = ["fancy"] }
+textwrap = "0.15.0"
 tokio = { version = "1.20", features = ["macros", "process", "rt", "rt-multi-thread", "io-util", "time"] }
