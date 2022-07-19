@@ -38,7 +38,7 @@ pub async fn create_client_report(
 }
 
 async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(&client_exe_path)
+    let output = open_connection_with(client_exe_path)
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([
@@ -85,7 +85,7 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
 }
 
 async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(&client_exe_path)
+    let output = open_connection_with(client_exe_path)
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([

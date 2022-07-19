@@ -31,9 +31,7 @@ impl Command {
 
         for command in commands {
             match command {
-                ClientCommand::Send(bytes) => {
-                    to_client.write_all(&bytes).await.into_diagnostic()?
-                }
+                ClientCommand::Send(bytes) => to_client.write_all(bytes).await.into_diagnostic()?,
                 ClientCommand::WaitFor(expected_bytes) => {
                     let mut buf = Vec::with_capacity(expected_bytes.len());
                     match tokio::time::timeout(
