@@ -54,18 +54,19 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
                 0xC1,        // An invalid UTF-8 byte
                 0b0000_0000, // Packet identifier
                 0b0000_0001,
-                0x1,         // Payload
+                0x1, // Payload
             ]),
         ]);
 
     let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
-        Ok(Ok(out)) => {
+        Ok(Ok(out)) => (
             if out.status.success() {
-                (ReportResult::Failure, Some(out.stderr))
+                ReportResult::Failure
             } else {
-                (ReportResult::Success, Some(out.stderr))
-            }
-        }
+                ReportResult::Failure
+            },
+            Some(out.stderr),
+        ),
         Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
     };
 
