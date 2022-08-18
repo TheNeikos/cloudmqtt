@@ -20,6 +20,7 @@ pub mod client;
 pub mod error;
 pub mod mqtt_stream;
 pub mod packet_stream;
+pub mod server;
 
 fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, MqttError> {
     match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(input) {

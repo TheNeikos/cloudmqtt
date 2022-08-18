@@ -22,4 +22,6 @@ pub enum MqttError {
     InvalidConnectionResponse,
     #[error("The server rejected the connection with the given code")]
     ConnectionRejected(MConnectReturnCode),
+    #[error("Duplex source closed unexpectedly")]
+    DuplexSourceClosed,
 }
