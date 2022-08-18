@@ -6,11 +6,9 @@
 
 use std::{pin::Pin, sync::Arc, time::Duration};
 
-use bytes::{BufMut, BytesMut};
 use dashmap::DashSet;
 use futures::{io::BufWriter, AsyncWriteExt};
 use mqtt_format::v3::{
-    header::mfixedheader,
     identifier::MPacketIdentifier,
     packet::MPacket,
     qos::MQualityOfService,
@@ -19,16 +17,15 @@ use mqtt_format::v3::{
     will::MLastWill,
 };
 use tokio::{
-    io::{AsyncReadExt, DuplexStream, ReadHalf, WriteHalf},
+    io::{DuplexStream, ReadHalf, WriteHalf},
     net::{TcpStream, ToSocketAddrs},
     sync::Mutex,
 };
 use tokio_util::{compat::TokioAsyncWriteCompatExt, sync::CancellationToken};
-use tracing::{debug, trace};
+use tracing::trace;
 
-use crate::error::MqttError;
+use crate::{error::MqttError, mqtt_stream::MqttStream};
 use crate::packet_stream::{NoOPAck, PacketStreamBuilder};
-use crate::{client_stream::MqttStream, MqttPacket};
 
 pub struct MqttClient {
     session_present: bool,
@@ -71,7 +68,7 @@ impl MqttClient {
 
         write_packet!(&mut write_half, packet).await?;
 
-        let maybe_connect = MqttClient::read_one_packet(&mut read_half).await?;
+        let maybe_connect = crate::read_one_packet(&mut read_half).await?;
 
         let session_present = match maybe_connect.get_packet()? {
             MPacket::Connack {
@@ -163,49 +160,6 @@ impl MqttClient {
                 }
             }
         }
-    }
-
-    pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
-        mut reader: W,
-    ) -> Result<MqttPacket, MqttError> {
-        debug!("Reading a packet");
-
-        let mut buffer = BytesMut::new();
-        buffer.put_u16(reader.read_u16().await?);
-
-        trace!(
-            "Packet has reported size on first byte: 0b{size:08b} = {size}",
-            size = buffer[1] & 0b0111_1111
-        );
-        if buffer[1] & 0b1000_0000 != 0 {
-            trace!("Reading one more byte from size");
-            buffer.put_u8(reader.read_u8().await?);
-            if buffer[2] & 0b1000_0000 != 0 {
-                trace!("Reading one more byte from size");
-                buffer.put_u8(reader.read_u8().await?);
-                if buffer[3] & 0b1000_0000 != 0 {
-                    trace!("Reading one more byte from size");
-                    buffer.put_u8(reader.read_u8().await?);
-                }
-            }
-        }
-
-        trace!("Parsing fixed header");
-
-        let (_, header) = mfixedheader(&buffer).map_err(|_| MqttError::InvalidPacket)?;
-
-        trace!("Reading remaining length: {}", header.remaining_length);
-
-        buffer.reserve(header.remaining_length as usize);
-        let mut buffer = buffer.limit(header.remaining_length as usize);
-
-        reader.read_buf(&mut buffer).await?;
-
-        let packet = crate::parse_packet(buffer.get_ref())?;
-
-        trace!(?packet, "Received full packet");
-
-        Ok(MqttPacket::new(buffer.into_inner().freeze()))
     }
 
     pub(crate) async fn acknowledge_packet<W: tokio::io::AsyncWrite + Unpin>(
