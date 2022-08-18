@@ -28,12 +28,12 @@ use tracing::{debug, trace};
 
 use crate::error::MqttError;
 use crate::packet_stream::{NoOPAck, PacketStreamBuilder};
-use crate::{client_stream::MqttClientStream, MqttPacket};
+use crate::{client_stream::MqttStream, MqttPacket};
 
 pub struct MqttClient {
     session_present: bool,
-    client_receiver: Mutex<Option<ReadHalf<MqttClientStream>>>,
-    client_sender: Arc<Mutex<Option<WriteHalf<MqttClientStream>>>>,
+    client_receiver: Mutex<Option<ReadHalf<MqttStream>>>,
+    client_sender: Arc<Mutex<Option<WriteHalf<MqttStream>>>>,
     received_packets: DashSet<u16>,
     keep_alive_duration: u16,
 }
@@ -64,7 +64,7 @@ macro_rules! write_packet {
 impl MqttClient {
     async fn do_v3_connect(
         packet: MPacket<'_>,
-        stream: MqttClientStream,
+        stream: MqttStream,
         keep_alive_duration: u16,
     ) -> Result<MqttClient, MqttError> {
         let (mut read_half, mut write_half) = tokio::io::split(stream);
@@ -102,7 +102,7 @@ impl MqttClient {
 
         MqttClient::do_v3_connect(
             packet,
-            MqttClientStream::MemoryDuplex(duplex),
+            MqttStream::MemoryDuplex(duplex),
             connection_params.keep_alive,
         )
         .await
@@ -122,7 +122,7 @@ impl MqttClient {
 
         MqttClient::do_v3_connect(
             packet,
-            MqttClientStream::UnsecuredTcp(stream),
+            MqttStream::UnsecuredTcp(stream),
             connection_params.keep_alive,
         )
         .await
@@ -307,11 +307,11 @@ impl MqttClient {
         &self.received_packets
     }
 
-    pub(crate) fn client_sender(&self) -> &Mutex<Option<WriteHalf<MqttClientStream>>> {
+    pub(crate) fn client_sender(&self) -> &Mutex<Option<WriteHalf<MqttStream>>> {
         self.client_sender.as_ref()
     }
 
-    pub(crate) fn client_receiver(&self) -> &Mutex<Option<ReadHalf<MqttClientStream>>> {
+    pub(crate) fn client_receiver(&self) -> &Mutex<Option<ReadHalf<MqttStream>>> {
         &self.client_receiver
     }
 }

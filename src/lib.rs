@@ -9,8 +9,8 @@ use error::MqttError;
 use mqtt_format::v3::packet::MPacket;
 
 pub mod client;
-pub mod client_stream;
 pub mod error;
+pub mod mqtt_stream;
 pub mod packet_stream;
 
 fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, MqttError> {
