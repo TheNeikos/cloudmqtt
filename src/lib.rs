@@ -163,7 +163,7 @@ impl MqttClient {
     /// # Return
     ///
     /// Returns Ok(()) only if the `cancel_token` was cancelled, otherwise does not return.
-    pub fn hearbeat(
+    pub fn heartbeat(
         &self,
         cancel_token: Option<CancellationToken>,
     ) -> impl std::future::Future<Output = Result<(), MqttError>> {
@@ -182,7 +182,7 @@ impl MqttClient {
                             Some(cs) => cs,
                             None => return Err(MqttError::ConnectionClosed),
                         };
-                        trace!("Sending hearbeat");
+                        trace!("Sending heartbeat");
 
                         let packet = MPacket::Pingreq;
 
