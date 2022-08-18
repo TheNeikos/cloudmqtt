@@ -7,7 +7,7 @@
 use std::pin::Pin;
 
 use bytes::Bytes;
-use cloudmqtt::{error::MqttError, MqttClient, MqttConnectionParams};
+use cloudmqtt::{client::MqttClient, client::MqttConnectionParams, error::MqttError};
 use mqtt_format::v3::{connect_return::MConnectReturnCode, packet::MPacket, strings::MString};
 use tokio::io::AsyncWriteExt;
 

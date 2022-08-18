@@ -6,7 +6,7 @@
 
 use std::future::Ready;
 
-use crate::{error::MqttError, MqttClient, MqttPacket};
+use crate::{client::MqttClient, error::MqttError, MqttPacket};
 use futures::Stream;
 use mqtt_format::v3::{packet::MPacket, qos::MQualityOfService};
 use tracing::{debug, error, trace};
@@ -103,7 +103,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
 
             loop {
                 let next_message = {
-                    let mut mutex = client.client_receiver.lock().await;
+                    let mut mutex = client.client_receiver().lock().await;
 
                     let client_stream = match mutex.as_mut() {
                         Some(cs) => cs,
@@ -126,7 +126,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                                 //     .received_packet_storage
                                 //     .push_to_storage(next_message.clone());
 
-                                let mut mutex = client.client_sender.lock().await;
+                                let mut mutex = client.client_sender().lock().await;
 
                                 let client_stream = match mutex.as_mut() {
                                     Some(cs) => cs,
@@ -136,7 +136,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                                 MqttClient::acknowledge_packet(client_stream, packet).await?;
                             }
                             MQualityOfService::ExactlyOnce => {
-                                if client.received_packets.contains(&id.0) {
+                                if client.received_packets().contains(&id.0) {
                                     debug!(?packet, "Received duplicate packet");
                                     continue;
                                 }
@@ -144,9 +144,9 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                                 self.ack_fn.handle(next_message.clone());
 
                                 trace!(?packet, "Inserting packet into received");
-                                client.received_packets.insert(id.0);
+                                client.received_packets().insert(id.0);
 
-                                let mut mutex = client.client_sender.lock().await;
+                                let mut mutex = client.client_sender().lock().await;
 
                                 let client_stream = match mutex.as_mut() {
                                     Some(cs) => cs,
@@ -158,10 +158,10 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                         }
                     }
                     MPacket::Pubrel { id } => {
-                        if client.received_packets.contains(&id.0) {
+                        if client.received_packets().contains(&id.0) {
                             self.ack_fn.handle(next_message.clone());
 
-                            let mut mutex = client.client_sender.lock().await;
+                            let mut mutex = client.client_sender().lock().await;
 
                             let client_stream = match mutex.as_mut() {
                                 Some(cs) => cs,
@@ -188,7 +188,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
 mod tests {
     use futures::StreamExt;
 
-    use crate::{packet_stream::Acknowledge, MqttClient, MqttPacket};
+    use crate::{client::MqttClient, packet_stream::Acknowledge, MqttPacket};
 
     #[allow(unreachable_code, unused, clippy::diverging_sub_expression)]
     async fn check_making_stream_builder() {
