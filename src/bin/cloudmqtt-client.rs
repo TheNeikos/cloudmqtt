@@ -66,7 +66,7 @@ async fn main() {
     .await
     .unwrap();
 
-    tokio::spawn(client.hearbeat(None));
+    tokio::spawn(client.heartbeat(None));
 
     client
         .subscribe(
