@@ -4,10 +4,16 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use bytes::{Bytes, BytesMut, BufMut};
+use std::pin::Pin;
+
+use bytes::{BufMut, Bytes, BytesMut};
 use error::MqttError;
-use mqtt_format::v3::{packet::MPacket, header::mfixedheader};
+use futures::io::BufWriter;
+use futures::AsyncWriteExt;
+use mqtt_format::v3::{header::mfixedheader, packet::MPacket};
 use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWrite;
+use tokio_util::compat::TokioAsyncWriteCompatExt;
 use tracing::{debug, trace};
 
 pub mod client;
@@ -82,4 +88,16 @@ pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
     trace!(?packet, "Received full packet");
 
     Ok(MqttPacket::new(buffer.into_inner().freeze()))
+}
+
+pub(crate) async fn write_packet<W: AsyncWrite + std::marker::Unpin>(
+    writer: &mut W,
+    packet: MPacket<'_>,
+) -> Result<(), MqttError> {
+    let mut buf = BufWriter::new(writer.compat_write());
+    trace!(?packet, "Sending packet");
+    packet.write_to(Pin::new(&mut buf)).await?;
+    buf.flush().await?;
+
+    Ok::<(), MqttError>(())
 }

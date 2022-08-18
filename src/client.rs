@@ -7,7 +7,6 @@
 use std::{pin::Pin, sync::Arc, time::Duration};
 
 use dashmap::DashSet;
-use futures::{io::BufWriter, AsyncWriteExt};
 use mqtt_format::v3::{
     identifier::MPacketIdentifier,
     packet::MPacket,
@@ -21,11 +20,11 @@ use tokio::{
     net::{TcpStream, ToSocketAddrs},
     sync::Mutex,
 };
-use tokio_util::{compat::TokioAsyncWriteCompatExt, sync::CancellationToken};
+use tokio_util::sync::CancellationToken;
 use tracing::trace;
 
-use crate::{error::MqttError, mqtt_stream::MqttStream};
 use crate::packet_stream::{NoOPAck, PacketStreamBuilder};
+use crate::{error::MqttError, mqtt_stream::MqttStream};
 
 pub struct MqttClient {
     session_present: bool,
@@ -44,20 +43,6 @@ impl std::fmt::Debug for MqttClient {
     }
 }
 
-macro_rules! write_packet {
-    ($writer:expr, $packet:expr) => {
-        async {
-            let mut buf = BufWriter::new($writer.compat_write());
-            let packet = $packet;
-            trace!(?packet, "Sending packet");
-            packet.write_to(Pin::new(&mut buf)).await?;
-            buf.flush().await?;
-
-            Ok::<(), MqttError>(())
-        }
-    };
-}
-
 impl MqttClient {
     async fn do_v3_connect(
         packet: MPacket<'_>,
@@ -66,7 +51,7 @@ impl MqttClient {
     ) -> Result<MqttClient, MqttError> {
         let (mut read_half, mut write_half) = tokio::io::split(stream);
 
-        write_packet!(&mut write_half, packet).await?;
+        crate::write_packet(&mut write_half, packet).await?;
 
         let maybe_connect = crate::read_one_packet(&mut read_half).await?;
 
@@ -153,7 +138,7 @@ impl MqttClient {
 
                         let packet = MPacket::Pingreq;
 
-                        write_packet!(&mut client_stream, packet).await?;
+                        crate::write_packet(&mut client_stream, packet).await?;
                     },
 
                     _ = cancel_token.cancelled() => break Ok(()),
@@ -180,7 +165,7 @@ impl MqttClient {
 
                 let packet = MPacket::Puback { id };
 
-                write_packet!(&mut writer, packet).await?;
+                crate::write_packet(&mut writer, packet).await?;
 
                 trace!(?id, "Acknowledged publish");
             }
@@ -193,7 +178,7 @@ impl MqttClient {
 
                 let packet = MPacket::Pubrec { id };
 
-                write_packet!(&mut writer, packet).await?;
+                crate::write_packet(&mut writer, packet).await?;
 
                 trace!(?id, "Acknowledged publish");
             }
@@ -202,7 +187,7 @@ impl MqttClient {
 
                 let packet = MPacket::Pubcomp { id };
 
-                write_packet!(&mut writer, packet).await?;
+                crate::write_packet(&mut writer, packet).await?;
 
                 trace!(?id, "Acknowledged publish");
             }
@@ -243,7 +228,7 @@ impl MqttClient {
             },
         };
 
-        write_packet!(stream, packet).await?;
+        crate::write_packet(stream, packet).await?;
 
         Ok(())
     }
