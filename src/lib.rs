@@ -158,30 +158,39 @@ impl MqttClient {
         .await
     }
 
+    /// Run a heartbeat for the client
+    ///
+    /// # Return
+    ///
+    /// Returns Ok(()) only if the `cancel_token` was cancelled, otherwise does not return.
     pub fn hearbeat(
         &self,
-        _cancel_token: Option<CancellationToken>,
+        cancel_token: Option<CancellationToken>,
     ) -> impl std::future::Future<Output = Result<(), MqttError>> {
         let keep_alive_duration = self.keep_alive_duration;
         let sender = self.client_sender.clone();
+        let cancel_token = cancel_token.unwrap_or_else(CancellationToken::new);
         async move {
             loop {
-                tokio::time::sleep(Duration::from_secs(
-                    ((keep_alive_duration as u64 * 100) / 80).max(2),
-                ))
-                .await;
+                tokio::select! {
+                    _ = tokio::time::sleep(Duration::from_secs(
+                        ((keep_alive_duration as u64 * 100) / 80).max(2),
+                    )) => {
+                        let mut mutex = sender.lock().await;
 
-                let mut mutex = sender.lock().await;
+                        let mut client_stream = match mutex.as_mut() {
+                            Some(cs) => cs,
+                            None => return Err(MqttError::ConnectionClosed),
+                        };
+                        trace!("Sending hearbeat");
 
-                let mut client_stream = match mutex.as_mut() {
-                    Some(cs) => cs,
-                    None => return Err(MqttError::ConnectionClosed),
-                };
-                trace!("Sending hearbeat");
+                        let packet = MPacket::Pingreq;
 
-                let packet = MPacket::Pingreq;
+                        write_packet!(&mut client_stream, packet).await?;
+                    },
 
-                write_packet!(&mut client_stream, packet).await?;
+                    _ = cancel_token.cancelled() => break Ok(()),
+                }
             }
         }
     }
