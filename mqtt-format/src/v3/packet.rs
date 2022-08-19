@@ -214,13 +214,37 @@ impl<'message> MPacket<'message> {
                     .await?;
             }
             MPacket::Publish {
-                dup: _,
-                qos: _,
-                retain: _,
-                topic_name: _,
-                id: _,
-                payload: _,
-            } => todo!(),
+                dup,
+                qos,
+                retain,
+                topic_name,
+                id,
+                payload,
+            } => {
+                let packet_type = 0b0011_0000;
+                let dup_mask = if *dup { 0b0000_1000 } else { 0 };
+                let qos_mask = qos.to_byte() << 1;
+                let retain_mask = *retain as u8;
+
+                // Header 1
+                writer
+                    .write_all(&[packet_type | dup_mask | qos_mask | retain_mask])
+                    .await?;
+
+                let remaining_length = MString::get_len(topic_name)
+                    + id.as_ref().map(MPacketIdentifier::get_len).unwrap_or(0)
+                    + payload.len();
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable Header
+                MString::write_to(topic_name, &mut writer).await?;
+                if let Some(id) = id {
+                    MPacketIdentifier::write_to(id, &mut writer).await?;
+                }
+                writer.write_all(payload).await?;
+            }
             MPacket::Puback { id } => {
                 let packet_type = 0b0100_0000;
 

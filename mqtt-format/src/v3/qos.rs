@@ -15,6 +15,16 @@ pub enum MQualityOfService {
     ExactlyOnce,
 }
 
+impl MQualityOfService {
+    pub fn to_byte(self) -> u8 {
+        match self {
+            MQualityOfService::AtMostOnce => 0x0,
+            MQualityOfService::AtLeastOnce => 0x1,
+            MQualityOfService::ExactlyOnce => 0x2,
+        }
+    }
+}
+
 pub fn mquality_of_service(lower: u8) -> Result<MQualityOfService, MPacketHeaderError> {
     match lower {
         0b00 => Ok(MQualityOfService::AtMostOnce),
