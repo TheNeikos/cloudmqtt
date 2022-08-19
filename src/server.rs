@@ -5,9 +5,12 @@
 //
 
 use dashmap::DashMap;
-use mqtt_format::v3::{connect_return::MConnectReturnCode, packet::MPacket, strings::MString};
+use mqtt_format::v3::{
+    connect_return::MConnectReturnCode, packet::MPacket, qos::MQualityOfService, strings::MString,
+    will::MLastWill,
+};
 use tokio::{
-    io::DuplexStream,
+    io::{AsyncWriteExt, DuplexStream},
     net::{TcpListener, ToSocketAddrs},
 };
 
@@ -35,8 +38,30 @@ enum ClientError {
     Packet(#[from] PacketIOError),
 }
 
+#[derive(Debug, Default)]
 struct ClientState {
     conn: Option<MqttStream>,
+    keep_alive: u16,
+    will: Option<ClientWill>,
+}
+
+#[derive(Debug)]
+struct ClientWill {
+    pub topic: String,
+    pub payload: Vec<u8>,
+    pub qos: MQualityOfService,
+    pub retain: bool,
+}
+
+impl<'a, 'message> From<&'a MLastWill<'message>> for ClientWill {
+    fn from(will: &MLastWill) -> Self {
+        ClientWill {
+            topic: will.topic.to_string(),
+            payload: will.payload.to_vec(),
+            qos: will.qos,
+            retain: will.retain,
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -91,11 +116,15 @@ impl MqttServer {
         if let MPacket::Connect {
             client_id,
             clean_session,
-            ..
+            protocol_name: _,
+            protocol_level: _,
+            will,
+            username: _,
+            password: _,
+            keep_alive,
         } = packet.get_packet()?
         {
-            let client_id = ClientId::try_from(client_id);
-            let client_id: ClientId = { unimplemented!() };
+            let client_id = ClientId::try_from(client_id)?;
 
             let session_present = if clean_session {
                 let _ = self.clients.remove(&client_id);
@@ -112,11 +141,13 @@ impl MqttServer {
             crate::write_packet(&mut client, conn_ack).await?;
 
             {
-                let state = self
+                let mut state = self
                     .clients
                     .entry(client_id)
-                    .or_insert_with(|| ClientState { conn: None });
+                    .or_insert_with(ClientState::default);
                 state.conn = Some(client);
+                state.keep_alive = keep_alive;
+                state.will = will.as_ref().map(Into::into);
             }
         } else {
         }

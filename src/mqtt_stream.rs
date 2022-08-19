@@ -6,6 +6,7 @@
 
 use tokio::io::{AsyncRead, AsyncWrite};
 
+#[derive(Debug)]
 pub enum MqttStream {
     UnsecuredTcp(tokio::net::TcpStream),
     MemoryDuplex(tokio::io::DuplexStream),
