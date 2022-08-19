@@ -1,0 +1,24 @@
+use cloudmqtt::server::MqttServer;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
+
+
+#[tokio::main]
+async fn main() {
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_timer(tracing_subscriber::fmt::time::uptime());
+
+    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(filter_layer)
+        .init();
+
+    tracing::info!("Starting server");
+
+    let mut server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883").await.unwrap();
+
+    server.accept_new_clients().await.unwrap();
+}

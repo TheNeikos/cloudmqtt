@@ -19,6 +19,10 @@ members = ["mqtt-format"]
 name = "cloudmqtt-client"
 required-features = ["bin"]
 
+[[bin]]
+name = "cloudmqtt-server"
+required-features = ["bin"]
+
 [features]
 bin = [
     "clap",
