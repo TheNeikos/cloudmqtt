@@ -13,6 +13,7 @@ use tokio::{
     io::{AsyncWriteExt, DuplexStream},
     net::{TcpListener, ToSocketAddrs},
 };
+use tracing::debug;
 
 use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 
@@ -150,6 +151,10 @@ impl MqttServer {
                 state.will = will.as_ref().map(Into::into);
             }
         } else {
+            // Disconnect and don't worry about errors
+            if let Err(e) = client.shutdown().await {
+                debug!("Client could not shut down cleanly: {e}");
+            }
         }
 
         Ok(())
