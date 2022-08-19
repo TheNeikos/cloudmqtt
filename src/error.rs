@@ -6,8 +6,12 @@
 
 use mqtt_format::v3::connect_return::MConnectReturnCode;
 
+use crate::PacketIOError;
+
 #[derive(Debug, thiserror::Error)]
 pub enum MqttError {
+    #[error("An error occured during the handling of a packet")]
+    Packet(#[from] PacketIOError),
     #[error("An IO Error occurred")]
     Io(#[from] std::io::Error),
     #[error("An error during writing to Buffer occurred")]

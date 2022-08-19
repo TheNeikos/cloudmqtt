@@ -11,7 +11,7 @@ use tokio::{
     net::{TcpListener, ToSocketAddrs},
 };
 
-use crate::{error::MqttError, mqtt_stream::MqttStream};
+use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 
 pub struct MqttServer {
     clients: DashMap<ClientId, ClientState>,
@@ -31,6 +31,8 @@ impl<'message> TryFrom<MString<'message>> for ClientId {
 
 #[derive(Debug, thiserror::Error)]
 enum ClientError {
+    #[error("An error occured during the handling of a packet")]
+    Packet(#[from] PacketIOError),
 }
 
 struct ClientState {
@@ -118,5 +120,7 @@ impl MqttServer {
             }
         } else {
         }
+
+        Ok(())
     }
 }
