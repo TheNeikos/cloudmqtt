@@ -298,6 +298,7 @@ impl MqttServer {
                         }
                         MPacket::Disconnect => {
                             last_will.take();
+                            debug!("Client disconnected gracefully");
                             break;
                         }
                         packet => info!("Received packet: {packet:?}"),
@@ -307,6 +308,10 @@ impl MqttServer {
                 if let Some(will) = last_will {
                     debug!(?will, "Sending out will");
                     let _ = published_packets.send(will);
+                }
+
+                if let Err(e) = client_connection.writer.lock().await.shutdown().await {
+                    debug!("Client could not shut down cleanly: {e}");
                 }
 
                 Ok::<(), ClientError>(())
