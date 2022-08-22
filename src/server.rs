@@ -4,7 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use dashmap::DashMap;
 use mqtt_format::v3::{
@@ -215,23 +215,34 @@ impl MqttServer {
                 }
             });
 
+            let keep_alive = *keep_alive;
+
             tokio::spawn(async move {
                 let client_id = client_id;
                 let client_connection = client_connection;
                 let mut reader = client_connection.reader.lock().await;
+                let keep_alive_duration = Duration::from_secs((keep_alive as u64 * 150) / 100);
 
                 loop {
-                    let packet = match crate::read_one_packet(&mut *reader).await {
-                        Ok(packet) => packet,
-                        Err(e) => {
-                            debug!("Could not read the next client packet: {e}");
+                    let packet = tokio::select! {
+                        packet = crate::read_one_packet(&mut *reader) => {
+                            match packet {
+                                Ok(packet) => packet,
+                                Err(e) => {
+                                    debug!("Could not read the next client packet: {e}");
+                                    break;
+                                }
+                            }
+                        },
+                        _timeout = tokio::time::sleep(keep_alive_duration) => {
+                            debug!("Client timed out");
                             break;
                         }
                     };
 
                     match packet.get_packet() {
                         MPacket::Publish {
-                            dup,
+                            dup: _,
                             qos,
                             retain,
                             topic_name,
