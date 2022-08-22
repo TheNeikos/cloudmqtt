@@ -25,7 +25,7 @@ struct Args {
     #[clap(long, value_parser)]
     client_id: String,
 
-    #[clap(long, value_parser)]
+    #[clap(long, value_parser, required = true)]
     subscriptions: Vec<String>,
 }
 
