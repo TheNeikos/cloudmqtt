@@ -26,6 +26,7 @@ use super::{
     MSResult,
 };
 
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MPacket<'message> {
     Connect {
