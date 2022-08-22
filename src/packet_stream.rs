@@ -113,7 +113,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                     crate::read_one_packet(client_stream).await?
                 };
 
-                let packet = next_message.get_packet()?;
+                let packet = next_message.get_packet();
                 match packet {
                     MPacket::Publish {
                         qos, id: Some(id), ..

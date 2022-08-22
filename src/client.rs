@@ -55,19 +55,19 @@ impl MqttClient {
 
         let maybe_connect = crate::read_one_packet(&mut read_half).await?;
 
-        let session_present = match maybe_connect.get_packet()? {
+        let session_present = match maybe_connect.get_packet() {
             MPacket::Connack {
                 session_present,
                 connect_return_code,
             } => match connect_return_code {
                 mqtt_format::v3::connect_return::MConnectReturnCode::Accepted => session_present,
-                code => return Err(MqttError::ConnectionRejected(code)),
+                code => return Err(MqttError::ConnectionRejected(*code)),
             },
             _ => return Err(MqttError::InvalidConnectionResponse),
         };
 
         Ok(MqttClient {
-            session_present,
+            session_present: *session_present,
             client_receiver: Mutex::new(Some(read_half)),
             client_sender: Arc::new(Mutex::new(Some(write_half))),
             keep_alive_duration,
@@ -149,7 +149,7 @@ impl MqttClient {
 
     pub(crate) async fn acknowledge_packet<W: tokio::io::AsyncWrite + Unpin>(
         mut writer: W,
-        packet: MPacket<'_>,
+        packet: &MPacket<'_>,
     ) -> Result<(), MqttError> {
         match packet {
             MPacket::Publish {
@@ -163,7 +163,7 @@ impl MqttClient {
             } => {
                 trace!(?id, ?qos, "Acknowledging publish");
 
-                let packet = MPacket::Puback { id };
+                let packet = MPacket::Puback { id: *id };
 
                 crate::write_packet(&mut writer, packet).await?;
 
@@ -176,7 +176,7 @@ impl MqttClient {
             } => {
                 trace!(?id, ?qos, "Acknowledging publish");
 
-                let packet = MPacket::Pubrec { id };
+                let packet = MPacket::Pubrec { id: *id };
 
                 crate::write_packet(&mut writer, packet).await?;
 
@@ -185,7 +185,7 @@ impl MqttClient {
             MPacket::Pubrel { id } => {
                 trace!(?id, "Acknowledging pubrel");
 
-                let packet = MPacket::Pubcomp { id };
+                let packet = MPacket::Pubcomp { id: *id };
 
                 crate::write_packet(&mut writer, packet).await?;
 

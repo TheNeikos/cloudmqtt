@@ -5,6 +5,7 @@
 //
 
 use std::pin::Pin;
+use std::sync::Arc;
 
 use bytes::{BufMut, Bytes, BytesMut};
 use futures::io::BufWriter;
@@ -15,6 +16,7 @@ use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWrite;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
 use tracing::{debug, trace};
+use yoke::Yoke;
 
 pub mod client;
 pub mod error;
@@ -33,18 +35,22 @@ fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, PacketIOError> {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct MqttPacket {
-    buffer: Bytes,
+    packet: Yoke<MPacket<'static>, Arc<Bytes>>,
+}
+
+impl std::fmt::Debug for MqttPacket {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MqttPacket")
+            .field("packet", self.packet.get())
+            .finish()
+    }
 }
 
 impl MqttPacket {
-    pub(crate) fn new(buffer: Bytes) -> Self {
-        Self { buffer }
-    }
-
-    pub fn get_packet(&self) -> Result<MPacket<'_>, PacketIOError> {
-        parse_packet(&self.buffer)
+    pub fn get_packet(&self) -> &MPacket<'_> {
+        self.packet.get()
     }
 }
 
@@ -94,11 +100,15 @@ pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
 
     reader.read_buf(&mut buffer).await?;
 
-    let packet = crate::parse_packet(buffer.get_ref())?;
+    let packet = MqttPacket {
+        packet: Yoke::try_attach_to_cart(Arc::new(buffer.into_inner().freeze()), |data| {
+            parse_packet(data)
+        })?,
+    };
 
     trace!(?packet, "Received full packet");
 
-    Ok(MqttPacket::new(buffer.into_inner().freeze()))
+    Ok(packet)
 }
 
 pub(crate) async fn write_packet<W: AsyncWrite + std::marker::Unpin>(

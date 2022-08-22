@@ -136,11 +136,11 @@ impl MqttServer {
             username: _,
             password: _,
             keep_alive,
-        } = packet.get_packet()?
+        } = packet.get_packet()
         {
-            let client_id = ClientId::try_from(client_id)?;
+            let client_id = ClientId::try_from(*client_id)?;
 
-            let session_present = if clean_session {
+            let session_present = if *clean_session {
                 let _ = self.clients.remove(&client_id);
                 false
             } else {
@@ -229,7 +229,7 @@ impl MqttServer {
                         }
                     };
 
-                    match packet.get_packet()? {
+                    match packet.get_packet() {
                         MPacket::Publish {
                             dup,
                             qos,
@@ -241,8 +241,8 @@ impl MqttServer {
                             let message = MqttMessage {
                                 author_id: client_id.clone(),
                                 topic: topic_name.to_string(),
-                                retain,
-                                qos,
+                                retain: *retain,
+                                qos: *qos,
                                 payload: payload.to_vec(),
                             };
 
@@ -251,7 +251,7 @@ impl MqttServer {
                                 todo!()
                             }
 
-                            if qos == MQualityOfService::AtLeastOnce {
+                            if *qos == MQualityOfService::AtLeastOnce {
                                 let packet = MPacket::Puback { id: id.unwrap() };
                                 let mut writer = client_connection.writer.lock().await;
                                 crate::write_packet(&mut *writer, packet).await?;
