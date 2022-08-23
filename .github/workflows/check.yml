@@ -31,6 +31,7 @@ jobs:
         uses: kt3k/license_checker@v1.0.6
   dco-check:
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
       - uses: actions/checkout@master
         with:
