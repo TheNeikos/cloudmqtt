@@ -1,2 +1,2 @@
-status = ["checks", "license", "dco-check"]
+status = ["checks", "license"]
 update_base_for_deletes = true
