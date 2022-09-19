@@ -4,17 +4,23 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#[cfg(feature = "std")]
 use std::pin::Pin;
 
+#[cfg(feature = "std")]
 use futures::AsyncWriteExt;
+
 use nom::{
     bits, bytes::complete::take, error::FromExternalError, number::complete::be_u16,
     sequence::tuple, IResult, Parser,
 };
 
+#[cfg(feature = "std")]
+use super::errors::MPacketWriteError;
+
 use super::{
     connect_return::{mconnectreturn, MConnectReturnCode},
-    errors::{MPacketHeaderError, MPacketWriteError},
+    errors::MPacketHeaderError,
     header::{mfixedheader, MPacketHeader, MPacketKind},
     identifier::{mpacketidentifier, MPacketIdentifier},
     qos::{mquality_of_service, MQualityOfService},
@@ -82,6 +88,7 @@ pub enum MPacket<'message> {
     Disconnect,
 }
 
+#[cfg(feature = "std")]
 impl<'message> MPacket<'message> {
     pub async fn write_to<W: futures::AsyncWrite>(
         &self,
@@ -305,6 +312,7 @@ impl<'message> MPacket<'message> {
     }
 }
 
+#[cfg(feature = "std")]
 fn bools_to_u8(bools: [bool; 8]) -> u8 {
     (bools[0] as u8) << 7
         | (bools[1] as u8) << 6

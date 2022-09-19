@@ -4,10 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#[cfg(feature = "std")]
 use futures::{AsyncWrite, AsyncWriteExt};
+
 use nom::{bytes::complete::take, number::complete::be_u16, IResult, Parser};
 use nom_supreme::ParserExt;
 
+#[cfg(feature = "std")]
 use super::errors::MPacketWriteError;
 
 /// A v3 MQTT string as defined in section 1.5.3
@@ -29,6 +32,7 @@ impl<'message> MString<'message> {
         2 + mstr.value.len()
     }
 
+    #[cfg(feature = "std")]
     pub(crate) async fn write_to<W: AsyncWrite>(
         mstr: &MString<'_>,
         writer: &mut std::pin::Pin<&mut W>,
@@ -95,6 +99,7 @@ mod tests {
         )
     }
 
+    #[cfg(feature = "std")]
     #[tokio::test]
     async fn check_simple_string_roundtrip() {
         let input = [0x00, 0x05, 0x41, 0xF0, 0xAA, 0x9B, 0x94];

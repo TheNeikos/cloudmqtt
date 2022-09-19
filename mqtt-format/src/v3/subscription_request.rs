@@ -4,12 +4,16 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#[cfg(feature = "std")]
 use futures::{AsyncWrite, AsyncWriteExt};
+
 use nom::{multi::many1_count, Parser};
 use nom_supreme::ParserExt;
 
+#[cfg(feature = "std")]
+use super::errors::MPacketWriteError;
+
 use super::{
-    errors::MPacketWriteError,
     qos::{mquality_of_service, MQualityOfService},
     strings::{mstring, MString},
     MSResult,
@@ -22,6 +26,7 @@ pub struct MSubscriptionRequests<'message> {
 }
 
 impl<'message> MSubscriptionRequests<'message> {
+    #[cfg(feature = "std")]
     pub(crate) async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,
@@ -29,6 +34,8 @@ impl<'message> MSubscriptionRequests<'message> {
         writer.write_all(self.data).await?;
         Ok(())
     }
+
+    #[cfg(feature = "std")]
     pub(crate) fn get_len(&self) -> usize {
         self.data.len()
     }
@@ -84,6 +91,7 @@ pub struct MSubscriptionRequest<'message> {
 }
 
 impl<'message> MSubscriptionRequest<'message> {
+    #[cfg(feature = "std")]
     pub async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,

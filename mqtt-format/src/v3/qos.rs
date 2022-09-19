@@ -4,9 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#[cfg(feature = "std")]
 use futures::{AsyncWrite, AsyncWriteExt};
 
-use super::errors::{MPacketHeaderError, MPacketWriteError};
+#[cfg(feature = "std")]
+use super::errors::MPacketWriteError;
+
+use super::errors::MPacketHeaderError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MQualityOfService {
@@ -23,7 +27,9 @@ pub fn mquality_of_service(lower: u8) -> Result<MQualityOfService, MPacketHeader
         inv_qos => Err(MPacketHeaderError::InvalidQualityOfService(inv_qos)),
     }
 }
+
 impl MQualityOfService {
+    #[cfg(feature = "std")]
     pub async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,
