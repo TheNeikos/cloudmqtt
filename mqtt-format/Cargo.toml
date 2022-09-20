@@ -19,4 +19,4 @@ thiserror = "1.0.31"
 
 [dev-dependencies]
 pretty_assertions = "1.2.1"
-tokio = { version = "1.19.2", features = ["test-util", "macros"] }
+tokio = { version = "1.21.1", features = ["test-util", "macros"] }
