@@ -30,7 +30,7 @@ bin = [
 [dependencies]
 bytes = "1.1.0"
 clap = { version = "3.2.6", optional = true, features = ["derive"] }
-dashmap = "5.3.4"
+dashmap = "5.4.0"
 futures = "0.3.24"
 mqtt-format = { version = "0.2.0", path = "mqtt-format" }
 nom = { version = "7.1.1" }
@@ -41,13 +41,13 @@ tokio = { version = "1.21.1", default-features = false, features = [
     "sync",
     "macros",
 ] }
-tokio-util = { version = "0.7.3", features = [
+tokio-util = { version = "0.7.4", features = [
     "futures-io",
     "io",
     "io-util",
     "compat",
 ] }
-tracing = "0.1.35"
+tracing = "0.1.36"
 tracing-subscriber = { version = "0.3.14", optional = true, features = [
     "env-filter",
 ] }
