@@ -31,7 +31,7 @@ bin = [
 bytes = "1.1.0"
 clap = { version = "3.2.6", optional = true, features = ["derive"] }
 dashmap = "5.3.4"
-futures = "0.3.21"
+futures = "0.3.24"
 mqtt-format = { version = "0.2.0", path = "mqtt-format" }
 nom = { version = "7.1.1" }
 thiserror = "1.0.31"
