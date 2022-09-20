@@ -41,13 +41,13 @@ tokio = { version = "1.21.1", default-features = false, features = [
     "sync",
     "macros",
 ] }
-tokio-util = { version = "0.7.3", features = [
+tokio-util = { version = "0.7.4", features = [
     "futures-io",
     "io",
     "io-util",
     "compat",
 ] }
-tracing = "0.1.35"
+tracing = "0.1.36"
 tracing-subscriber = { version = "0.3.14", optional = true, features = [
     "env-filter",
 ] }
