@@ -14,7 +14,7 @@ use mqtt_format::v3::{
 use tokio::{
     io::{AsyncWriteExt, DuplexStream, ReadHalf, WriteHalf},
     net::{TcpListener, ToSocketAddrs},
-    sync::{broadcast, Mutex},
+    sync::{Mutex},
 };
 use tracing::{debug, error, info, trace};
 
@@ -322,14 +322,14 @@ impl MqttServer {
                             debug!("Client disconnected gracefully");
                             break;
                         }
-                        MPacket::Subscribe { id, subscriptions } => {
+                        MPacket::Subscribe { id: _, subscriptions } => {
                             subscription_manager
                                 .subscribe(
                                     Arc::new(ClientInformation {
                                         client_id: client_id.clone(),
                                         client_sender: published_packets_send.clone(),
                                     }),
-                                    subscriptions.clone(),
+                                    *subscriptions,
                                 )
                                 .await;
                         }

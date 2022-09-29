@@ -154,7 +154,7 @@ impl SubscriptionManager {
         debug!(?message, "Routing message");
         let routing = self.subscriptions.load();
 
-        let qos = message.qos();
+        let _qos = message.qos();
         let topic = message.topic();
 
         let topic_names = TopicName::parse_from(topic);
@@ -192,7 +192,7 @@ impl PartialEq for ClientSubscription {
 
 impl ClientSubscription {
     fn publish_message(&self, packet: MqttMessage) {
-        self.client.client_sender.send(packet);
+        let _ = self.client.client_sender.send(packet);
     }
 }
 
