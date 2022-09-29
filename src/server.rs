@@ -232,7 +232,9 @@ impl MqttServer {
                             // 3. If QoS == 1 -> Send into writer && Store Message waiting for Puback
                             // 4. If QoS == 2 -> Send into writer && Store Message waiting for PubRec
                         }
-                        None => break,
+                        None => {
+                            debug!(?publisher_client_id, "No more senders, stopping sending cycle");
+                        }
                     }
                 }
             });
