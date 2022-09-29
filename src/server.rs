@@ -18,10 +18,15 @@ use tokio::{
 };
 use tracing::{debug, error, info, trace};
 
-use crate::{error::MqttError, mqtt_stream::MqttStream, MqttPacket, PacketIOError};
+use crate::{
+    error::MqttError,
+    mqtt_stream::MqttStream,
+    topics::{ClientInformation, SubscriptionManager},
+    MqttPacket, PacketIOError,
+};
 
 #[derive(Debug, Clone)]
-struct MqttMessage {
+pub struct MqttMessage {
     author_id: Arc<ClientId>,
     topic: String,
     payload: Vec<u8>,
@@ -39,16 +44,36 @@ impl MqttMessage {
             author_id,
         }
     }
+
+    pub fn qos(&self) -> MQualityOfService {
+        self.qos
+    }
+
+    pub fn retain(&self) -> bool {
+        self.retain
+    }
+
+    pub fn payload(&self) -> &[u8] {
+        self.payload.as_ref()
+    }
+
+    pub fn topic(&self) -> &str {
+        self.topic.as_ref()
+    }
+
+    pub fn author_id(&self) -> &ClientId {
+        self.author_id.as_ref()
+    }
 }
 
 pub struct MqttServer {
     clients: DashMap<ClientId, ClientSession>,
     client_source: ClientSource,
-    published_packets: broadcast::Sender<MqttMessage>,
+    subscription_manager: SubscriptionManager,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct ClientId(String);
+pub struct ClientId(String);
 
 impl<'message> TryFrom<MString<'message>> for ClientId {
     type Error = ClientError;
@@ -59,7 +84,7 @@ impl<'message> TryFrom<MString<'message>> for ClientId {
 }
 
 #[derive(Debug, thiserror::Error)]
-enum ClientError {
+pub enum ClientError {
     #[error("An error occured during the handling of a packet")]
     Packet(#[from] PacketIOError),
 }
@@ -106,12 +131,11 @@ impl MqttServer {
         addr: Addr,
     ) -> Result<Self, MqttError> {
         let bind = TcpListener::bind(addr).await?;
-        let (published_packets, _) = broadcast::channel(100);
 
         Ok(MqttServer {
             clients: DashMap::new(),
             client_source: ClientSource::UnsecuredTcp(bind),
-            published_packets,
+            subscription_manager: SubscriptionManager::new(),
         })
     }
 
@@ -154,11 +178,11 @@ impl MqttServer {
 
             crate::write_packet(&mut client, conn_ack).await?;
 
-            let (reader, writer) = tokio::io::split(client);
+            let (client_reader, client_writer) = tokio::io::split(client);
 
             let client_connection = Arc::new(ClientConnection {
-                reader: Mutex::new(reader),
-                writer: Mutex::new(writer),
+                reader: Mutex::new(client_reader),
+                writer: Mutex::new(client_writer),
             });
 
             {
@@ -175,19 +199,17 @@ impl MqttServer {
                 .as_ref()
                 .map(|will| MqttMessage::from_last_will(will, client_id.clone()));
 
-            let published_packets = self.published_packets.clone();
-            let mut published_packets_rec = published_packets.subscribe();
+            let published_packets = self.subscription_manager.clone();
+            let (published_packets_send, mut published_packets_rec) =
+                tokio::sync::mpsc::unbounded_channel::<MqttMessage>();
 
-            let published_conn = client_connection.clone();
-            let published_client_id = client_id.clone();
+            let publisher_conn = client_connection.clone();
+            let publisher_client_id = client_id.clone();
             tokio::spawn(async move {
-                let client_id = published_client_id;
-                let published_conn = published_conn;
-
                 loop {
                     match published_packets_rec.recv().await {
-                        Ok(packet) => {
-                            if packet.author_id == client_id {
+                        Some(packet) => {
+                            if packet.author_id == publisher_client_id {
                                 trace!(?packet, "Skipping sending message to oneself");
                                 continue;
                             }
@@ -203,25 +225,27 @@ impl MqttServer {
                                 payload: &packet.payload,
                             };
 
-                            let mut writer = published_conn.writer.lock().await;
+                            let mut writer = publisher_conn.writer.lock().await;
                             crate::write_packet(&mut *writer, packet).await.unwrap();
                             // 1. Check if subscription matches
                             // 2. If Qos == 0 -> Send into writer
                             // 3. If QoS == 1 -> Send into writer && Store Message waiting for Puback
                             // 4. If QoS == 2 -> Send into writer && Store Message waiting for PubRec
                         }
-                        Err(_) => todo!(),
+                        None => break,
                     }
                 }
             });
 
             let keep_alive = *keep_alive;
+            let subscription_manager = self.subscription_manager.clone();
 
             tokio::spawn(async move {
                 let client_id = client_id;
                 let client_connection = client_connection;
                 let mut reader = client_connection.reader.lock().await;
                 let keep_alive_duration = Duration::from_secs((keep_alive as u64 * 150) / 100);
+                let subscription_manager = subscription_manager;
 
                 loop {
                     let packet = tokio::select! {
@@ -257,10 +281,7 @@ impl MqttServer {
                                 payload: payload.to_vec(),
                             };
 
-                            if let Err(_) = published_packets.send(message) {
-                                error!("Could not broadcast message");
-                                todo!()
-                            }
+                            subscription_manager.route_message(message).await;
 
                             if *qos == MQualityOfService::AtLeastOnce {
                                 let packet = MPacket::Puback { id: id.unwrap() };
@@ -301,13 +322,24 @@ impl MqttServer {
                             debug!("Client disconnected gracefully");
                             break;
                         }
+                        MPacket::Subscribe { id, subscriptions } => {
+                            subscription_manager
+                                .subscribe(
+                                    Arc::new(ClientInformation {
+                                        client_id: client_id.clone(),
+                                        client_sender: published_packets_send.clone(),
+                                    }),
+                                    subscriptions.clone(),
+                                )
+                                .await;
+                        }
                         packet => info!("Received packet: {packet:?}"),
                     }
                 }
 
                 if let Some(will) = last_will {
                     debug!(?will, "Sending out will");
-                    let _ = published_packets.send(will);
+                    let _ = published_packets.route_message(will);
                 }
 
                 if let Err(e) = client_connection.writer.lock().await.shutdown().await {

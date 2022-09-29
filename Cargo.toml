@@ -24,12 +24,7 @@ name = "cloudmqtt-server"
 required-features = ["bin"]
 
 [features]
-bin = [
-    "clap",
-    "tokio/rt-multi-thread",
-    "tokio/macros",
-    "tracing-subscriber",
-]
+bin = ["clap", "tokio/rt-multi-thread", "tokio/macros", "tracing-subscriber"]
 
 [dependencies]
 bytes = "1.3.0"
@@ -45,6 +40,8 @@ tokio = { version = "1.23.0", default-features = false, features = [
     "sync",
     "macros",
 ] }
+arc-swap = "1.5.1"
+rpds = "0.12.0"
 tokio-util = { version = "0.7.4", features = [
     "futures-io",
     "io",
