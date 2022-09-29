@@ -107,16 +107,14 @@ impl TopicFilter {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SubscriptionManager {
     subscriptions: Arc<ArcSwap<SubscriptionTopic>>,
 }
 
 impl SubscriptionManager {
     pub fn new() -> SubscriptionManager {
-        SubscriptionManager {
-            subscriptions: Default::default(),
-        }
+        Default::default()
     }
 
     pub async fn subscribe(
