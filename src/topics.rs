@@ -216,9 +216,16 @@ impl SubscriptionTopic {
 
 #[cfg(test)]
 mod tests {
-    use crate::topics::{ClientSubscription, TopicFilter};
+    use std::sync::Arc;
 
-    use super::SubscriptionTopic;
+    use mqtt_format::v3::qos::MQualityOfService;
+
+    use crate::{
+        server::ClientId,
+        topics::{ClientSubscription, TopicFilter},
+    };
+
+    use super::{ClientInformation, SubscriptionTopic};
 
     macro_rules! build_subs {
         (@topic "#") => {
@@ -249,6 +256,17 @@ mod tests {
         };
     }
 
+    fn client_subscription(qos: MQualityOfService) -> ClientSubscription {
+        let (client_sender, _) = tokio::sync::mpsc::unbounded_channel();
+        ClientSubscription {
+            client: Arc::new(ClientInformation {
+                client_id: Arc::new(ClientId::new(String::from("test-sub"))),
+                client_sender,
+            }),
+            qos,
+        }
+    }
+
     #[test]
     fn check_macro_builder() {
         let real = SubscriptionTopic {
@@ -256,9 +274,7 @@ mod tests {
             children: [(
                 TopicFilter::SingleWildcard,
                 SubscriptionTopic {
-                    subscriptions: vec![ClientSubscription {
-                        qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                    }],
+                    subscriptions: vec![client_subscription(MQualityOfService::AtLeastOnce)],
                     children: Default::default(),
                 },
             )]
@@ -268,7 +284,7 @@ mod tests {
 
         let built = build_subs! {
             "+" => {
-                subscriptions: [ ClientSubscription { qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce, } ],
+                subscriptions: [ client_subscription(MQualityOfService::AtLeastOnce) ],
                 children: {}
             }
         };
@@ -283,9 +299,7 @@ mod tests {
             children: [(
                 TopicFilter::Named(String::from("foo")),
                 SubscriptionTopic {
-                    subscriptions: vec![ClientSubscription {
-                        qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                    }],
+                    subscriptions: vec![client_subscription(MQualityOfService::AtLeastOnce)],
                     ..Default::default()
                 },
             )]
@@ -297,9 +311,7 @@ mod tests {
             let mut new = SubscriptionTopic::default();
             new.add_subscription(
                 vec![TopicFilter::Named(String::from("foo"))].into(),
-                ClientSubscription {
-                    qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                },
+                client_subscription(MQualityOfService::AtLeastOnce),
             );
             new
         };
@@ -312,20 +324,12 @@ mod tests {
         let check = build_subs! {
             "foo" => {
                 subscriptions: [
-                    ClientSubscription {
-                        qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                    },
-                    ClientSubscription {
-                        qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                    },
+                    client_subscription(MQualityOfService::AtLeastOnce),
+                    client_subscription(MQualityOfService::AtLeastOnce),
                 ],
                 children: {
                     "+" => {
-                        subscriptions: [
-                            ClientSubscription {
-                                qos: mqtt_format::v3::qos::MQualityOfService::AtMostOnce,
-                            },
-                        ],
+                        subscriptions: [ client_subscription(MQualityOfService::AtMostOnce) ],
                         children: {}
                     }
                 }
@@ -336,24 +340,18 @@ mod tests {
             let mut new = build_subs! {
                 "foo" => {
                     subscriptions: [
-                        ClientSubscription {
-                            qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                        },
+                        client_subscription(MQualityOfService::AtLeastOnce)
                     ],
                     children: {}
                 }
             };
             new.add_subscription(
                 vec![TopicFilter::Named("foo".to_owned())].into(),
-                ClientSubscription {
-                    qos: mqtt_format::v3::qos::MQualityOfService::AtLeastOnce,
-                },
+                client_subscription(MQualityOfService::AtLeastOnce),
             );
             new.add_subscription(
                 TopicFilter::parse_from("foo/+".to_string()),
-                ClientSubscription {
-                    qos: mqtt_format::v3::qos::MQualityOfService::AtMostOnce,
-                },
+                client_subscription(MQualityOfService::AtMostOnce),
             );
             new
         };

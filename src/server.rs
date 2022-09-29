@@ -14,7 +14,7 @@ use mqtt_format::v3::{
 use tokio::{
     io::{AsyncWriteExt, DuplexStream, ReadHalf, WriteHalf},
     net::{TcpListener, ToSocketAddrs},
-    sync::{Mutex},
+    sync::Mutex,
 };
 use tracing::{debug, error, info, trace};
 
@@ -74,6 +74,12 @@ pub struct MqttServer {
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ClientId(String);
+
+impl ClientId {
+    pub(crate) fn new(id: String) -> Self {
+        ClientId(id)
+    }
+}
 
 impl<'message> TryFrom<MString<'message>> for ClientId {
     type Error = ClientError;
@@ -233,7 +239,10 @@ impl MqttServer {
                             // 4. If QoS == 2 -> Send into writer && Store Message waiting for PubRec
                         }
                         None => {
-                            debug!(?publisher_client_id, "No more senders, stopping sending cycle");
+                            debug!(
+                                ?publisher_client_id,
+                                "No more senders, stopping sending cycle"
+                            );
                         }
                     }
                 }
@@ -324,7 +333,10 @@ impl MqttServer {
                             debug!("Client disconnected gracefully");
                             break;
                         }
-                        MPacket::Subscribe { id: _, subscriptions } => {
+                        MPacket::Subscribe {
+                            id: _,
+                            subscriptions,
+                        } => {
                             subscription_manager
                                 .subscribe(
                                     Arc::new(ClientInformation {
