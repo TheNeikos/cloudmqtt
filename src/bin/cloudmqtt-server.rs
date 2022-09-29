@@ -8,7 +8,6 @@ use cloudmqtt::server::MqttServer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 
-
 #[tokio::main]
 async fn main() {
     let fmt_layer = tracing_subscriber::fmt::layer()
@@ -24,7 +23,9 @@ async fn main() {
 
     tracing::info!("Starting server");
 
-    let mut server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883").await.unwrap();
+    let mut server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883")
+        .await
+        .unwrap();
 
     server.accept_new_clients().await.unwrap();
 }
