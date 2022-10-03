@@ -29,7 +29,7 @@ bin = [
 
 [dependencies]
 bytes = "1.2.1"
-clap = { version = "3.2.22", optional = true, features = ["derive"] }
+clap = { version = "4.0.8", optional = true, features = ["derive"] }
 dashmap = "5.4.0"
 futures = "0.3.24"
 mqtt-format = { version = "0.2.0", path = "mqtt-format" }
