@@ -243,6 +243,7 @@ impl MqttServer {
                                 ?publisher_client_id,
                                 "No more senders, stopping sending cycle"
                             );
+                            break;
                         }
                     }
                 }
