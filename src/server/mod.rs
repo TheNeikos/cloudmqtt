@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+mod subscriptions;
+
 use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use dashmap::DashMap;
@@ -18,12 +20,8 @@ use tokio::{
 };
 use tracing::{debug, error, info, trace};
 
-use crate::{
-    error::MqttError,
-    mqtt_stream::MqttStream,
-    topics::{ClientInformation, SubscriptionManager},
-    MqttPacket, PacketIOError,
-};
+use crate::{error::MqttError, mqtt_stream::MqttStream, MqttPacket, PacketIOError};
+use subscriptions::{ClientInformation, SubscriptionManager};
 
 #[derive(Debug, Clone)]
 pub struct MqttMessage {
