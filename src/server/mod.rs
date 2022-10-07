@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+mod message;
 mod subscriptions;
 
 use std::{collections::VecDeque, sync::Arc, time::Duration};
@@ -11,7 +12,6 @@ use std::{collections::VecDeque, sync::Arc, time::Duration};
 use dashmap::DashMap;
 use mqtt_format::v3::{
     connect_return::MConnectReturnCode, packet::MPacket, qos::MQualityOfService, strings::MString,
-    will::MLastWill,
 };
 use tokio::{
     io::{AsyncWriteExt, DuplexStream, ReadHalf, WriteHalf},
@@ -23,46 +23,7 @@ use tracing::{debug, error, info, trace};
 use crate::{error::MqttError, mqtt_stream::MqttStream, MqttPacket, PacketIOError};
 use subscriptions::{ClientInformation, SubscriptionManager};
 
-#[derive(Debug, Clone)]
-pub struct MqttMessage {
-    author_id: Arc<ClientId>,
-    topic: String,
-    payload: Vec<u8>,
-    retain: bool,
-    qos: MQualityOfService,
-}
-
-impl MqttMessage {
-    fn from_last_will(will: &MLastWill, author_id: Arc<ClientId>) -> MqttMessage {
-        MqttMessage {
-            topic: will.topic.to_string(),
-            payload: will.payload.to_vec(),
-            qos: will.qos,
-            retain: will.retain,
-            author_id,
-        }
-    }
-
-    pub fn qos(&self) -> MQualityOfService {
-        self.qos
-    }
-
-    pub fn retain(&self) -> bool {
-        self.retain
-    }
-
-    pub fn payload(&self) -> &[u8] {
-        self.payload.as_ref()
-    }
-
-    pub fn topic(&self) -> &str {
-        self.topic.as_ref()
-    }
-
-    pub fn author_id(&self) -> &ClientId {
-        self.author_id.as_ref()
-    }
-}
+use self::message::MqttMessage;
 
 pub struct MqttServer {
     clients: DashMap<ClientId, ClientSession>,
