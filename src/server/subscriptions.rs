@@ -27,27 +27,19 @@ impl TopicName {
         TopicName(topic.split('/').map(|t| t.to_owned()).collect())
     }
 
-    fn pop_front(&mut self) -> Option<String> {
-        self.0.pop_front()
-    }
-
-    fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
-
     fn get_matches<'a>(
         &'a self,
         idx: usize,
         routing: &'a SubscriptionTopic,
     ) -> Box<dyn Iterator<Item = &'a ClientSubscription> + 'a> {
-        let mwild = routing
+        let multi_wild = routing
             .children
             .get(&TopicFilter::MultiWildcard)
             .into_iter()
             .flat_map(|child| child.subscriptions.iter())
             .inspect(|sub| trace!(?sub, "Matching MultiWildcard topic"));
 
-        let swild = routing
+        let single_wild = routing
             .children
             .get(&TopicFilter::SingleWildcard)
             .into_iter()
@@ -71,8 +63,8 @@ impl TopicName {
         };
 
         Box::new(
-            mwild
-                .chain(swild)
+            multi_wild
+                .chain(single_wild)
                 .chain(nested_named.into_iter().flatten())
                 .chain(current_named.into_iter().flatten()),
         )
@@ -96,14 +88,6 @@ impl TopicFilter {
                 name => TopicFilter::Named(name.to_owned()),
             })
             .collect()
-    }
-
-    pub fn try_into_named(self) -> Result<String, Self> {
-        if let Self::Named(v) = self {
-            Ok(v)
-        } else {
-            Err(self)
-        }
     }
 }
 
@@ -220,12 +204,9 @@ mod tests {
 
     use mqtt_format::v3::qos::MQualityOfService;
 
-    use crate::{
-        server::ClientId,
-        topics::{ClientSubscription, TopicFilter},
-    };
+    use crate::server::{subscriptions::TopicFilter, ClientId};
 
-    use super::{ClientInformation, SubscriptionTopic};
+    use super::{ClientInformation, ClientSubscription, SubscriptionTopic};
 
     macro_rules! build_subs {
         (@topic "#") => {

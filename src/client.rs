@@ -9,7 +9,10 @@ use std::{pin::Pin, sync::Arc, time::Duration};
 use dashmap::DashSet;
 use mqtt_format::v3::{
     identifier::MPacketIdentifier,
-    packet::MPacket,
+    packet::{
+        MConnack, MConnect, MPacket, MPingreq, MPuback, MPubcomp, MPublish, MPubrec, MPubrel,
+        MSubscribe,
+    },
     qos::MQualityOfService,
     strings::MString,
     subscription_request::{MSubscriptionRequest, MSubscriptionRequests},
@@ -56,10 +59,10 @@ impl MqttClient {
         let maybe_connect = crate::read_one_packet(&mut read_half).await?;
 
         let session_present = match maybe_connect.get_packet() {
-            MPacket::Connack {
+            MPacket::Connack(MConnack {
                 session_present,
                 connect_return_code,
-            } => match connect_return_code {
+            }) => match connect_return_code {
                 mqtt_format::v3::connect_return::MConnectReturnCode::Accepted => session_present,
                 code => return Err(MqttError::ConnectionRejected(*code)),
             },
@@ -136,7 +139,7 @@ impl MqttClient {
                         };
                         trace!("Sending heartbeat");
 
-                        let packet = MPacket::Pingreq;
+                        let packet = MPingreq;
 
                         crate::write_packet(&mut client_stream, packet).await?;
                     },
@@ -152,40 +155,40 @@ impl MqttClient {
         packet: &MPacket<'_>,
     ) -> Result<(), MqttError> {
         match packet {
-            MPacket::Publish {
+            MPacket::Publish(MPublish {
                 qos: MQualityOfService::AtMostOnce,
                 ..
-            } => {}
-            MPacket::Publish {
+            }) => {}
+            MPacket::Publish(MPublish {
                 id: Some(id),
                 qos: qos @ MQualityOfService::AtLeastOnce,
                 ..
-            } => {
+            }) => {
                 trace!(?id, ?qos, "Acknowledging publish");
 
-                let packet = MPacket::Puback { id: *id };
+                let packet = MPuback { id: *id };
 
                 crate::write_packet(&mut writer, packet).await?;
 
                 trace!(?id, "Acknowledged publish");
             }
-            MPacket::Publish {
+            MPacket::Publish(MPublish {
                 id: Some(id),
                 qos: qos @ MQualityOfService::ExactlyOnce,
                 ..
-            } => {
+            }) => {
                 trace!(?id, ?qos, "Acknowledging publish");
 
-                let packet = MPacket::Pubrec { id: *id };
+                let packet = MPubrec { id: *id };
 
                 crate::write_packet(&mut writer, packet).await?;
 
                 trace!(?id, "Acknowledged publish");
             }
-            MPacket::Pubrel { id } => {
+            MPacket::Pubrel(MPubrel { id }) => {
                 trace!(?id, "Acknowledging pubrel");
 
-                let packet = MPacket::Pubcomp { id: *id };
+                let packet = MPubcomp { id: *id };
 
                 crate::write_packet(&mut writer, packet).await?;
 
@@ -220,7 +223,7 @@ impl MqttClient {
             req.write_to(&mut Pin::new(&mut requests)).await?;
         }
 
-        let packet = MPacket::Subscribe {
+        let packet = MSubscribe {
             id: MPacketIdentifier(2),
             subscriptions: MSubscriptionRequests {
                 count: subscription_requests.len(),
@@ -266,7 +269,7 @@ pub struct MqttConnectionParams<'conn> {
 
 impl<'a> MqttConnectionParams<'a> {
     fn to_packet(&self) -> MPacket<'a> {
-        MPacket::Connect {
+        MConnect {
             protocol_name: MString { value: "MQTT" },
             protocol_level: 4,
             clean_session: self.clean_session,
@@ -276,6 +279,7 @@ impl<'a> MqttConnectionParams<'a> {
             keep_alive: self.keep_alive,
             client_id: self.client_id,
         }
+        .into()
     }
 }
 

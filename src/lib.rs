@@ -3,11 +3,12 @@
 //   License, v. 2.0. If a copy of the MPL was not distributed with this
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
+#![doc = include_str!("../README.md")]
 
 use std::pin::Pin;
 use std::sync::Arc;
 
-use bytes::{BufMut, Bytes, BytesMut};
+use bytes::{BufMut, BytesMut};
 use futures::io::BufWriter;
 use futures::AsyncWriteExt;
 use mqtt_format::v3::errors::MPacketWriteError;
@@ -20,9 +21,12 @@ use yoke::Yoke;
 
 pub mod client;
 pub mod error;
+pub mod mqtt_packet;
 pub mod mqtt_stream;
 pub mod packet_stream;
 pub mod server;
+
+pub use mqtt_packet::{MqttPacket, MqttSubPacket};
 
 fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, PacketIOError> {
     match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(input) {
@@ -32,25 +36,6 @@ fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, PacketIOError> {
             tracing::error!(?error, "Could not parse packet");
             Err(PacketIOError::InvalidParsedPacket)
         }
-    }
-}
-
-#[derive(Clone)]
-pub struct MqttPacket {
-    packet: Yoke<MPacket<'static>, Arc<Bytes>>,
-}
-
-impl std::fmt::Debug for MqttPacket {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MqttPacket")
-            .field("packet", self.packet.get())
-            .finish()
-    }
-}
-
-impl MqttPacket {
-    pub fn get_packet(&self) -> &MPacket<'_> {
-        self.packet.get()
     }
 }
 
@@ -100,11 +85,10 @@ pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
 
     reader.read_buf(&mut buffer).await?;
 
-    let packet = MqttPacket {
-        packet: Yoke::try_attach_to_cart(Arc::new(buffer.into_inner().freeze()), |data| {
-            parse_packet(data)
-        })?,
-    };
+    let packet = MqttPacket::new(Yoke::try_attach_to_cart(
+        Arc::new(buffer.into_inner().freeze()),
+        |data| parse_packet(data),
+    )?);
 
     trace!(?packet, "Received full packet");
 
@@ -113,9 +97,10 @@ pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
 
 pub(crate) async fn write_packet<W: AsyncWrite + std::marker::Unpin>(
     writer: &mut W,
-    packet: MPacket<'_>,
+    packet: impl Into<MPacket<'_>>,
 ) -> Result<(), PacketIOError> {
     let mut buf = BufWriter::new(writer.compat_write());
+    let packet = packet.into();
     trace!(?packet, "Sending packet");
     packet.write_to(Pin::new(&mut buf)).await?;
     buf.flush().await?;

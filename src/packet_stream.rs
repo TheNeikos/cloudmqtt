@@ -8,7 +8,10 @@ use std::future::Ready;
 
 use crate::{client::MqttClient, error::MqttError, MqttPacket};
 use futures::Stream;
-use mqtt_format::v3::{packet::MPacket, qos::MQualityOfService};
+use mqtt_format::v3::{
+    packet::{MPacket, MPublish, MPubrel},
+    qos::MQualityOfService,
+};
 use tracing::{debug, error, trace};
 
 pub struct Acknowledge;
@@ -115,9 +118,9 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
 
                 let packet = next_message.get_packet();
                 match packet {
-                    MPacket::Publish {
+                    MPacket::Publish(MPublish {
                         qos, id: Some(id), ..
-                    } => {
+                    }) => {
                         match qos {
                             MQualityOfService::AtMostOnce => {}
                             MQualityOfService::AtLeastOnce => {
@@ -157,7 +160,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                             }
                         }
                     }
-                    MPacket::Pubrel { id } => {
+                    MPacket::Pubrel(MPubrel { id }) => {
                         if client.received_packets().contains(&id.0) {
                             self.ack_fn.handle(next_message.clone());
 
