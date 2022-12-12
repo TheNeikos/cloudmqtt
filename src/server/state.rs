@@ -26,22 +26,17 @@
 
 use std::{
     collections::VecDeque,
-    pin::Pin,
     sync::{atomic::AtomicU16, Arc},
 };
 
 use arc_swap::{ArcSwap, ArcSwapOption};
 use dashmap::{mapref::entry::Entry, DashMap};
-use mqtt_format::v3::{
-    identifier::MPacketIdentifier,
-    packet::{MPacket, MPublish},
-    qos::MQualityOfService,
-};
+use mqtt_format::v3::{identifier::MPacketIdentifier, packet::MPublish, qos::MQualityOfService};
 use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, error};
+use tracing::debug;
 
-use crate::{error::MqttError, mqtt_stream::MqttStream, MqttPacket, MqttSubPacket};
+use crate::{error::MqttError, MqttPacket, MqttSubPacket};
 
 use super::ClientConnection;
 
@@ -83,7 +78,7 @@ impl ClientState {
             tokio::spawn(async move {
                 let mut lock = old_conn.writer.lock().await;
 
-                lock.shutdown().await;
+                let _ = lock.shutdown().await;
             });
         }
 
