@@ -163,6 +163,7 @@ pub struct ClientInformation {
 #[derive(Debug, Clone)]
 struct ClientSubscription {
     client: Arc<ClientInformation>,
+    #[allow(dead_code)]
     qos: MQualityOfService,
 }
 

@@ -58,6 +58,7 @@ use self::{message::MqttMessage, state::ClientState};
 pub struct ClientId(String);
 
 impl ClientId {
+    #[allow(dead_code)]
     pub(crate) fn new(id: String) -> Self {
         ClientId(id)
     }
@@ -86,6 +87,7 @@ pub struct ClientConnection {
 #[derive(Debug)]
 enum ClientSource {
     UnsecuredTcp(TcpListener),
+    #[allow(dead_code)]
     Duplex(tokio::sync::mpsc::Receiver<DuplexStream>),
 }
 
