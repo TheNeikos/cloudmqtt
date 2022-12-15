@@ -11,6 +11,9 @@ categories = ["embedded", "parsing"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+yoke = ["dep:yoke"]
+
 [dependencies]
 futures = "0.3.25"
 nom = "7.1.1"
