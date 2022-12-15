@@ -137,6 +137,7 @@ impl ClientState {
         }
     }
 
+    #[allow(dead_code)]
     pub async fn send_message(
         &self,
         minimal_qos: MQualityOfService,
@@ -177,6 +178,7 @@ impl ClientState {
         }
     }
 
+    #[allow(dead_code)]
     fn get_next_packet_entry(&self) -> Option<Entry<MPacketIdentifier, StoredMessage>> {
         if self.stored_messages.len() == u16::MAX as usize {
             debug!("We are storing u16::MAX messages, cannot allocate more messages");
