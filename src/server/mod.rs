@@ -226,7 +226,7 @@ impl MqttServer {
             let (published_packets_send, mut published_packets_rec) =
                 tokio::sync::mpsc::unbounded_channel::<MqttMessage>();
 
-            let _send_loop = {
+            let send_loop = {
                 let publisher_conn = client_connection.clone();
                 let publisher_client_id = client_id.clone();
                 tokio::spawn(async move {
@@ -268,9 +268,10 @@ impl MqttServer {
                 })
             };
 
-            let _read_loop = {
+            let read_loop = {
                 let keep_alive = keep_alive;
                 let subscription_manager = server.subscription_manager.clone();
+                let client_id = client_id.clone();
 
                 tokio::spawn(async move {
                     let client_id = client_id;
@@ -384,6 +385,23 @@ impl MqttServer {
                     Ok::<(), ClientError>(())
                 })
             };
+
+            let (send_err, read_err) = tokio::join!(send_loop, read_loop);
+            match send_err {
+                Ok(_) => (),
+                Err(join_error) => error!(
+                    "Send loop of client {} had an unexpected error: {join_error}",
+                    &client_id.0
+                ),
+            }
+
+            match read_err {
+                Ok(_) => (),
+                Err(join_error) => error!(
+                    "Read loop of client {} had an unexpected error: {join_error}",
+                    &client_id.0
+                ),
+            }
 
             Ok(())
         }
