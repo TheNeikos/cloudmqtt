@@ -27,6 +27,7 @@
 //!
 //!
 //! [MQTT Spec]: http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/os/mqtt-v3.1.1-os.html
+#![deny(missing_docs)]
 
 mod message;
 mod state;
@@ -54,6 +55,7 @@ use subscriptions::{ClientInformation, SubscriptionManager};
 
 use self::{message::MqttMessage, state::ClientState};
 
+/// The unique id (per server) of a connecting client
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ClientId(String);
 
@@ -72,14 +74,16 @@ impl<'message> TryFrom<MString<'message>> for ClientId {
     }
 }
 
+/// An error that occurred while communicating with a client
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
+    /// An error occurred during the sending/receiving of a packet
     #[error("An error occured during the handling of a packet")]
     Packet(#[from] PacketIOError),
 }
 
 #[derive(Debug)]
-pub struct ClientConnection {
+pub(crate) struct ClientConnection {
     reader: Mutex<ReadHalf<MqttStream>>,
     writer: Mutex<WriteHalf<MqttStream>>,
 }
@@ -110,6 +114,16 @@ impl ClientSource {
     }
 }
 
+/// A complete MQTT Server
+///
+/// This server should be seen as a toolkit to integrate with your application.
+///
+/// To use it, you first need to get a new instance of it, check out any of the `serve_*` methods
+/// that create a new instance.
+/// Then, you need to start listening for new connections in a long lived future.
+///
+/// Check out the server example for a working version.
+///
 pub struct MqttServer {
     clients: DashMap<ClientId, ClientState>,
     client_source: ClientSource,
@@ -117,6 +131,7 @@ pub struct MqttServer {
 }
 
 impl MqttServer {
+    /// Create a new MQTT server listening on the given `SocketAddr`
     pub async fn serve_v3_unsecured_tcp<Addr: ToSocketAddrs>(
         addr: Addr,
     ) -> Result<Self, MqttError> {
@@ -129,6 +144,7 @@ impl MqttServer {
         })
     }
 
+    /// Start accepting new clients connecting to the server
     pub async fn accept_new_clients(&mut self) -> Result<(), MqttError> {
         loop {
             let client = self.client_source.accept().await?;

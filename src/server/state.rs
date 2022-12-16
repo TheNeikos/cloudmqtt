@@ -72,7 +72,7 @@ pub struct ClientState {
 }
 
 impl ClientState {
-    pub async fn set_new_connection(&self, conn: Arc<ClientConnection>) {
+    pub(crate) async fn set_new_connection(&self, conn: Arc<ClientConnection>) {
         let token = self
             .connection_token
             .swap(Arc::new(CancellationToken::new()));
