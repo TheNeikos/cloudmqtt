@@ -92,16 +92,16 @@ impl TopicFilter {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct SubscriptionManager {
+pub(crate) struct SubscriptionManager {
     subscriptions: Arc<ArcSwap<SubscriptionTopic>>,
 }
 
 impl SubscriptionManager {
-    pub fn new() -> SubscriptionManager {
+    pub(crate) fn new() -> SubscriptionManager {
         Default::default()
     }
 
-    pub async fn subscribe(
+    pub(crate) async fn subscribe(
         &self,
         client: Arc<ClientInformation>,
         subscriptions: MSubscriptionRequests<'_>,
@@ -132,7 +132,7 @@ impl SubscriptionManager {
         });
     }
 
-    pub async fn route_message(&self, message: MqttMessage) {
+    pub(crate) async fn route_message(&self, message: MqttMessage) {
         debug!(?message, "Routing message");
         let routing = self.subscriptions.load();
 
@@ -155,9 +155,9 @@ impl SubscriptionManager {
 }
 
 #[derive(Debug)]
-pub struct ClientInformation {
-    pub client_id: Arc<ClientId>,
-    pub client_sender: tokio::sync::mpsc::UnboundedSender<MqttMessage>,
+pub(crate) struct ClientInformation {
+    pub(crate) client_id: Arc<ClientId>,
+    pub(crate) client_sender: tokio::sync::mpsc::UnboundedSender<MqttMessage>,
 }
 
 #[derive(Debug, Clone)]
