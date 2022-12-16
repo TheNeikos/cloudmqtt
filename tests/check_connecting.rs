@@ -8,7 +8,11 @@ use std::pin::Pin;
 
 use bytes::Bytes;
 use cloudmqtt::{client::MqttClient, client::MqttConnectionParams, error::MqttError};
-use mqtt_format::v3::{connect_return::MConnectReturnCode, packet::MPacket, strings::MString};
+use mqtt_format::v3::{
+    connect_return::MConnectReturnCode,
+    packet::{MConnack, MPacket},
+    strings::MString,
+};
 use tokio::io::AsyncWriteExt;
 
 #[tokio::test]
@@ -29,10 +33,10 @@ async fn check_simple_connect() {
         },
     );
 
-    let response = MPacket::Connack {
+    let response = MPacket::Connack(MConnack {
         session_present: false,
         connect_return_code: mqtt_format::v3::connect_return::MConnectReturnCode::Accepted,
-    };
+    });
 
     let mut buf = Vec::new();
     response
@@ -66,10 +70,10 @@ async fn check_invalid_connect() {
         },
     );
 
-    let response = MPacket::Connack {
+    let response = MPacket::Connack(MConnack {
         session_present: false,
         connect_return_code: mqtt_format::v3::connect_return::MConnectReturnCode::NotAuthorized,
-    };
+    });
 
     let mut buf = Vec::new();
     response

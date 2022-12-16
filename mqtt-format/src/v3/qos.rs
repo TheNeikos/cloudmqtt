@@ -8,11 +8,21 @@ use futures::{AsyncWrite, AsyncWriteExt};
 
 use super::errors::{MPacketHeaderError, MPacketWriteError};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MQualityOfService {
     AtMostOnce,
     AtLeastOnce,
     ExactlyOnce,
+}
+
+impl MQualityOfService {
+    pub fn to_byte(self) -> u8 {
+        match self {
+            MQualityOfService::AtMostOnce => 0x0,
+            MQualityOfService::AtLeastOnce => 0x1,
+            MQualityOfService::ExactlyOnce => 0x2,
+        }
+    }
 }
 
 pub fn mquality_of_service(lower: u8) -> Result<MQualityOfService, MPacketHeaderError> {

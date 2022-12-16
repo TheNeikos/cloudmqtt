@@ -3,6 +3,7 @@
 //   License, v. 2.0. If a copy of the MPL was not distributed with this
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
+#![allow(clippy::forget_copy)]
 
 use std::pin::Pin;
 
@@ -26,61 +27,178 @@ use super::{
     MSResult,
 };
 
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MConnect<'message> {
+    pub protocol_name: MString<'message>,
+    pub protocol_level: u8,
+    pub clean_session: bool,
+    pub will: Option<MLastWill<'message>>,
+    pub username: Option<MString<'message>>,
+    pub password: Option<&'message [u8]>,
+    pub keep_alive: u16,
+    pub client_id: MString<'message>,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MConnack {
+    pub session_present: bool,
+    pub connect_return_code: MConnectReturnCode,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPublish<'message> {
+    pub dup: bool,
+    pub qos: MQualityOfService,
+    pub retain: bool,
+    pub topic_name: MString<'message>,
+    pub id: Option<MPacketIdentifier>,
+    pub payload: &'message [u8],
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPuback {
+    pub id: MPacketIdentifier,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPubrec {
+    pub id: MPacketIdentifier,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPubrel {
+    pub id: MPacketIdentifier,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPubcomp {
+    pub id: MPacketIdentifier,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MSubscribe<'message> {
+    pub id: MPacketIdentifier,
+    pub subscriptions: MSubscriptionRequests<'message>,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MSuback<'message> {
+    pub id: MPacketIdentifier,
+    pub subscription_acks: MSubscriptionAcks<'message>,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MUnsubscribe<'message> {
+    pub id: MPacketIdentifier,
+    pub unsubscriptions: MUnsubscriptionRequests<'message>,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MUnsuback {
+    pub id: MPacketIdentifier,
+}
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPingreq;
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MPingresp;
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MDisconnect;
+
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MPacket<'message> {
-    Connect {
-        protocol_name: MString<'message>,
-        protocol_level: u8,
-        clean_session: bool,
-        will: Option<MLastWill<'message>>,
-        username: Option<MString<'message>>,
-        password: Option<&'message [u8]>,
-        keep_alive: u16,
-        client_id: MString<'message>,
-    },
-    Connack {
-        session_present: bool,
-        connect_return_code: MConnectReturnCode,
-    },
-    Publish {
-        dup: bool,
-        qos: MQualityOfService,
-        retain: bool,
-        topic_name: MString<'message>,
-        id: Option<MPacketIdentifier>,
-        payload: &'message [u8],
-    },
-    Puback {
-        id: MPacketIdentifier,
-    },
-    Pubrec {
-        id: MPacketIdentifier,
-    },
-    Pubrel {
-        id: MPacketIdentifier,
-    },
-    Pubcomp {
-        id: MPacketIdentifier,
-    },
-    Subscribe {
-        id: MPacketIdentifier,
-        subscriptions: MSubscriptionRequests<'message>,
-    },
-    Suback {
-        id: MPacketIdentifier,
-        subscription_acks: MSubscriptionAcks<'message>,
-    },
-    Unsubscribe {
-        id: MPacketIdentifier,
-        unsubscriptions: MUnsubscriptionRequests<'message>,
-    },
-    Unsuback {
-        id: MPacketIdentifier,
-    },
-    Pingreq,
-    Pingresp,
-    Disconnect,
+    Connect(MConnect<'message>),
+    Connack(MConnack),
+    Publish(MPublish<'message>),
+    Puback(MPuback),
+    Pubrec(MPubrec),
+    Pubrel(MPubrel),
+    Pubcomp(MPubcomp),
+    Subscribe(MSubscribe<'message>),
+    Suback(MSuback<'message>),
+    Unsubscribe(MUnsubscribe<'message>),
+    Unsuback(MUnsuback),
+    Pingreq(MPingreq),
+    Pingresp(MPingresp),
+    Disconnect(MDisconnect),
 }
+
+macro_rules! impl_conversion_packet {
+    ($var:ident => $kind:ty) => {
+        impl<'message> TryFrom<MPacket<'message>> for $kind {
+            type Error = ();
+
+            fn try_from(value: MPacket<'message>) -> Result<Self, Self::Error> {
+                if let MPacket::$var(var) = value {
+                    Ok(var)
+                } else {
+                    Err(())
+                }
+            }
+        }
+
+        impl<'other, 'message> TryFrom<&'other MPacket<'message>> for &'other $kind {
+            type Error = ();
+
+            fn try_from(value: &'other MPacket<'message>) -> Result<Self, Self::Error> {
+                if let MPacket::$var(var) = value {
+                    Ok(var)
+                } else {
+                    Err(())
+                }
+            }
+        }
+
+        impl<'other, 'message> TryFrom<&'other MPacket<'message>> for $kind {
+            type Error = ();
+
+            fn try_from(value: &'other MPacket<'message>) -> Result<Self, Self::Error> {
+                if let MPacket::$var(var) = value {
+                    Ok(*var)
+                } else {
+                    Err(())
+                }
+            }
+        }
+
+        impl<'message> From<$kind> for MPacket<'message> {
+            fn from(v: $kind) -> Self {
+                Self::$var(v)
+            }
+        }
+    };
+}
+
+impl_conversion_packet!(Connect => MConnect<'message>);
+impl_conversion_packet!(Connack => MConnack);
+impl_conversion_packet!(Publish => MPublish<'message>);
+impl_conversion_packet!(Puback => MPuback);
+impl_conversion_packet!(Pubrec => MPubrec);
+impl_conversion_packet!(Pubrel => MPubrel);
+impl_conversion_packet!(Pubcomp => MPubcomp);
+impl_conversion_packet!(Subscribe => MSubscribe<'message>);
+impl_conversion_packet!(Suback => MSuback<'message>);
+impl_conversion_packet!(Unsuback => MUnsuback);
+impl_conversion_packet!(Pingreq => MPingreq);
+impl_conversion_packet!(Pingresp => MPingresp);
+impl_conversion_packet!(Disconnect => MDisconnect);
 
 impl<'message> MPacket<'message> {
     pub async fn write_to<W: futures::AsyncWrite>(
@@ -123,7 +241,7 @@ impl<'message> MPacket<'message> {
         }
 
         match self {
-            MPacket::Connect {
+            MPacket::Connect(MConnect {
                 protocol_name,
                 protocol_level,
                 clean_session,
@@ -132,7 +250,7 @@ impl<'message> MPacket<'message> {
                 password,
                 keep_alive,
                 client_id,
-            } => {
+            }) => {
                 let packet_type = 0b0001_0000;
 
                 // Header 1
@@ -194,10 +312,10 @@ impl<'message> MPacket<'message> {
                     writer.write_all(password).await?;
                 }
             }
-            MPacket::Connack {
+            MPacket::Connack(MConnack {
                 session_present,
                 connect_return_code,
-            } => {
+            }) => {
                 let packet_type = 0b0010_0000;
 
                 // Header 1
@@ -213,15 +331,39 @@ impl<'message> MPacket<'message> {
                     .write_all(&[*session_present as u8, *connect_return_code as u8])
                     .await?;
             }
-            MPacket::Publish {
-                dup: _,
-                qos: _,
-                retain: _,
-                topic_name: _,
-                id: _,
-                payload: _,
-            } => todo!(),
-            MPacket::Puback { id } => {
+            MPacket::Publish(MPublish {
+                dup,
+                qos,
+                retain,
+                topic_name,
+                id,
+                payload,
+            }) => {
+                let packet_type = 0b0011_0000;
+                let dup_mask = if *dup { 0b0000_1000 } else { 0 };
+                let qos_mask = qos.to_byte() << 1;
+                let retain_mask = *retain as u8;
+
+                // Header 1
+                writer
+                    .write_all(&[packet_type | dup_mask | qos_mask | retain_mask])
+                    .await?;
+
+                let remaining_length = MString::get_len(topic_name)
+                    + id.as_ref().map(MPacketIdentifier::get_len).unwrap_or(0)
+                    + payload.len();
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable Header
+                MString::write_to(topic_name, &mut writer).await?;
+                if let Some(id) = id {
+                    MPacketIdentifier::write_to(id, &mut writer).await?;
+                }
+                writer.write_all(payload).await?;
+            }
+            MPacket::Puback(MPuback { id }) => {
                 let packet_type = 0b0100_0000;
 
                 // Header 1
@@ -235,7 +377,7 @@ impl<'message> MPacket<'message> {
                 // Variable 1-6
                 id.write_to(&mut writer).await?;
             }
-            MPacket::Pubrec { id } => {
+            MPacket::Pubrec(MPubrec { id }) => {
                 let packet_type = 0b0101_0000;
 
                 // Header 1
@@ -249,8 +391,8 @@ impl<'message> MPacket<'message> {
                 // Variable 1-6
                 id.write_to(&mut writer).await?;
             }
-            MPacket::Pubrel { id: _ } => todo!(),
-            MPacket::Pubcomp { id } => {
+            MPacket::Pubrel(MPubrel { id: _ }) => todo!(),
+            MPacket::Pubcomp(MPubcomp { id }) => {
                 let packet_type = 0b0111_0000;
 
                 // Header 1
@@ -264,7 +406,7 @@ impl<'message> MPacket<'message> {
                 // Variable 1-6
                 id.write_to(&mut writer).await?;
             }
-            MPacket::Subscribe { id, subscriptions } => {
+            MPacket::Subscribe(MSubscribe { id, subscriptions }) => {
                 let packet_type = 0b1000_0010;
 
                 // Header 1
@@ -281,24 +423,24 @@ impl<'message> MPacket<'message> {
 
                 subscriptions.write_to(&mut writer).await?;
             }
-            MPacket::Suback {
+            MPacket::Suback(MSuback {
                 id: _,
                 subscription_acks: _,
-            } => todo!(),
-            MPacket::Unsubscribe {
+            }) => todo!(),
+            MPacket::Unsubscribe(MUnsubscribe {
                 id: _,
                 unsubscriptions: _,
-            } => todo!(),
-            MPacket::Unsuback { id: _ } => todo!(),
-            MPacket::Pingreq => {
+            }) => todo!(),
+            MPacket::Unsuback(MUnsuback { id: _ }) => todo!(),
+            MPacket::Pingreq(MPingreq) => {
                 let packet_type = 0b1100_0000;
                 let variable_length = 0b0;
 
                 // Header
                 writer.write_all(&[packet_type, variable_length]).await?;
             }
-            MPacket::Pingresp => todo!(),
-            MPacket::Disconnect => todo!(),
+            MPacket::Pingresp(MPingresp) => todo!(),
+            MPacket::Disconnect(MDisconnect) => todo!(),
         }
 
         Ok(())
@@ -426,7 +568,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (
                 input,
-                MPacket::Connect {
+                MPacket::Connect(MConnect {
                     protocol_name,
                     protocol_level,
                     clean_session: clean_session == 1,
@@ -435,7 +577,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                     password,
                     client_id,
                     keep_alive,
-                },
+                }),
             )
         }
         MPacketKind::Connack => {
@@ -457,10 +599,10 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (
                 input,
-                MPacket::Connack {
+                MPacket::Connack(MConnack {
                     session_present: session_present == 1,
                     connect_return_code,
-                },
+                }),
             )
         }
         MPacketKind::Publish { dup, qos, retain } => {
@@ -506,42 +648,42 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (
                 input,
-                MPacket::Publish {
+                MPacket::Publish(MPublish {
                     qos,
                     dup,
                     retain,
                     id,
                     topic_name,
                     payload,
-                },
+                }),
             )
         }
         MPacketKind::Puback => {
             let (input, id) = mpacketidentifier(input)?;
 
-            (input, MPacket::Puback { id })
+            (input, MPacket::Puback(MPuback { id }))
         }
         MPacketKind::Pubrec => {
             let (input, id) = mpacketidentifier(input)?;
 
-            (input, MPacket::Pubrec { id })
+            (input, MPacket::Pubrec(MPubrec { id }))
         }
         MPacketKind::Pubrel => {
             let (input, id) = mpacketidentifier(input)?;
 
-            (input, MPacket::Pubrel { id })
+            (input, MPacket::Pubrel(MPubrel { id }))
         }
         MPacketKind::Pubcomp => {
             let (input, id) = mpacketidentifier(input)?;
 
-            (input, MPacket::Pubcomp { id })
+            (input, MPacket::Pubcomp(MPubcomp { id }))
         }
         MPacketKind::Subscribe => {
             let (input, id) = mpacketidentifier(input)?;
 
             let (input, subscriptions) = msubscriptionrequests(input)?;
 
-            (input, MPacket::Subscribe { id, subscriptions })
+            (input, MPacket::Subscribe(MSubscribe { id, subscriptions }))
         }
         MPacketKind::Suback => {
             let (input, id) = mpacketidentifier(input)?;
@@ -550,10 +692,10 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (
                 input,
-                MPacket::Suback {
+                MPacket::Suback(MSuback {
                     id,
                     subscription_acks,
-                },
+                }),
             )
         }
         MPacketKind::Unsubscribe => {
@@ -563,20 +705,20 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
 
             (
                 input,
-                MPacket::Unsubscribe {
+                MPacket::Unsubscribe(MUnsubscribe {
                     id,
                     unsubscriptions,
-                },
+                }),
             )
         }
         MPacketKind::Unsuback => {
             let (input, id) = mpacketidentifier(input)?;
 
-            (input, MPacket::Unsuback { id })
+            (input, MPacket::Unsuback(MUnsuback { id }))
         }
-        MPacketKind::Pingreq => (input, MPacket::Pingreq),
-        MPacketKind::Pingresp => (input, MPacket::Pingresp),
-        MPacketKind::Disconnect => (input, MPacket::Disconnect),
+        MPacketKind::Pingreq => (input, MPacket::Pingreq(MPingreq)),
+        MPacketKind::Pingresp => (input, MPacket::Pingresp(MPingresp)),
+        MPacketKind::Disconnect => (input, MPacket::Disconnect(MDisconnect)),
     };
 
     Ok((input, info))
@@ -596,7 +738,11 @@ pub fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::v3::{packet::MPacket, strings::MString, will::MLastWill};
+    use crate::v3::{
+        packet::{MConnect, MDisconnect, MPacket},
+        strings::MString,
+        will::MLastWill,
+    };
 
     use super::mpacket;
     use std::pin::Pin;
@@ -610,7 +756,7 @@ mod tests {
         let (rest, disc) = mpacket(input).unwrap();
 
         assert_eq!(rest, &[]);
-        assert_eq!(disc, MPacket::Disconnect);
+        assert_eq!(disc, MPacket::Disconnect(MDisconnect));
     }
 
     #[test]
@@ -688,7 +834,7 @@ mod tests {
 
         assert_eq!(
             conn,
-            MPacket::Connect {
+            MPacket::Connect(MConnect {
                 protocol_name: MString { value: "MQTT" },
                 protocol_level: 4,
                 clean_session: true,
@@ -702,7 +848,7 @@ mod tests {
                 password: Some(&[0xF0]),
                 keep_alive: 16,
                 client_id: MString { value: "HELLO" }
-            }
+            })
         );
 
         let mut buf = vec![];

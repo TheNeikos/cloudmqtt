@@ -5,7 +5,10 @@
 //
 
 use clap::Parser;
-use cloudmqtt::{packet_stream::Acknowledge, MqttClient, MqttConnectionParams};
+use cloudmqtt::{
+    client::{MqttClient, MqttConnectionParams},
+    packet_stream::Acknowledge,
+};
 use futures::StreamExt;
 use mqtt_format::v3::{
     strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
@@ -22,7 +25,7 @@ struct Args {
     #[clap(long, value_parser)]
     client_id: String,
 
-    #[clap(long, value_parser)]
+    #[clap(long, value_parser, required = true)]
     subscriptions: Vec<String>,
 }
 
@@ -104,7 +107,7 @@ async fn main() {
             }
         };
 
-        let packet = packet.get_packet().unwrap();
+        let packet = packet.get_packet();
         println!("Received: {packet:#?}");
     }
 }
