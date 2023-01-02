@@ -335,28 +335,30 @@ impl MqttServer {
 
                                 subscription_manager.route_message(message).await;
 
+                                // Handle QoS 1/AtLeastOnce response
                                 if *qos == MQualityOfService::AtLeastOnce {
                                     let packet = MPuback { id: id.unwrap() };
                                     let mut writer = client_connection.writer.lock().await;
                                     crate::write_packet(&mut *writer, packet).await?;
                                 }
 
-                                // tokio::spawn(publish_state_machine -> {
-                                //     if qos == 0  {
-                                //         -> Send message to other clients on topic
-                                //     }
-                                //     if qos == 1 {
-                                //         -> Send PUBACK back
-                                //         -> Send message to other clients on topic with QOS 1
-                                //             published_packets.send(message)
-                                //     }
-                                //     if qos == 2 {
-                                //         -> Store Packet Identifier
-                                //         -> Send message to other clients on topic with QOS 2
-                                //         -> Send PUBREC
-                                //         -> Save in MessageStore with latest state = PUBREC
-                                //     }
-                                // })
+                                if *qos == MQualityOfService::ExactlyOnce {
+                                    let Some(client_state) = clients.get(&client_id) else {
+                                        debug!(?client_id, "Associated state no longer exists");
+                                        break;
+                                    };
+
+                                    if let Err(_err) =
+                                        client_state.save_qos_exactly_once(id.unwrap())
+                                    {
+                                        debug!("Encountered an error while handling a PUBACK");
+                                        break;
+                                    }
+
+                                    let packet = MPubrec { id: id.unwrap() };
+                                    let mut writer = client_connection.writer.lock().await;
+                                    crate::write_packet(&mut *writer, packet).await?;
+                                }
                             }
                             MPacket::Puback(ack @ MPuback { id }) => {
                                 trace!(?client_id, ?ack, "Received puback");
@@ -386,6 +388,22 @@ impl MqttServer {
                                 let mut writer = client_connection.writer.lock().await;
                                 crate::write_packet(&mut *writer, packet).await?;
                                 trace!("Done responding to PUBREC with PUBREL");
+                            }
+                            MPacket::Pubrel(ack @ MPubrel { id }) => {
+                                trace!(?client_id, ?ack, "Received pubrel");
+                                let Some(client_state) = clients.get(&client_id) else {
+                                    debug!(?client_id, "Associated state no longer exists");
+                                    break;
+                                };
+
+                                if let Err(_err) = client_state.receive_pubrel(*id) {
+                                    debug!("Encountered an error while handling a PUBREL");
+                                    break;
+                                }
+                                let packet = MPubcomp { id: *id };
+                                let mut writer = client_connection.writer.lock().await;
+                                crate::write_packet(&mut *writer, packet).await?;
+                                trace!("Done responding to PUBREL with PUBCOMP");
                             }
                             MPacket::Pubcomp(ack @ MPubcomp { id }) => {
                                 trace!(?client_id, ?ack, "Received pubcomp");

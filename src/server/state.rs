@@ -35,11 +35,11 @@ use std::{
 };
 
 use arc_swap::{ArcSwap, ArcSwapOption};
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::{mapref::entry::Entry, DashMap, DashSet};
 use mqtt_format::v3::{identifier::MPacketIdentifier, packet::MPublish, qos::MQualityOfService};
 use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, info, trace};
+use tracing::{debug, trace};
 
 use crate::error::MqttError;
 
@@ -72,7 +72,8 @@ pub struct ClientState {
     connection_token: ArcSwap<CancellationToken>,
     conn: Arc<ArcSwapOption<ClientConnection>>,
     current_id: AtomicU16,
-    stored_messages: DashMap<MPacketIdentifier, StoredMessage>,
+    sent_stored_messages: DashMap<MPacketIdentifier, StoredMessage>,
+    received_messages: DashSet<MPacketIdentifier>,
 }
 
 impl ClientState {
@@ -91,7 +92,7 @@ impl ClientState {
             });
         }
 
-        let mut messages: VecDeque<_> = self.stored_messages.iter().collect();
+        let mut messages: VecDeque<_> = self.sent_stored_messages.iter().collect();
         let last_message_id = {
             let current_id = self.current_id.load(std::sync::atomic::Ordering::SeqCst);
             messages
@@ -105,7 +106,7 @@ impl ClientState {
             messages.rotate_left(last_message_id);
         }
 
-        for stored_message in &self.stored_messages {
+        for stored_message in &self.sent_stored_messages {
             let conn = self.conn.clone();
             let token = self.connection_token.load().clone();
             let msg = match stored_message.value() {
@@ -198,7 +199,7 @@ impl ClientState {
     }
 
     pub fn receive_puback(&self, id: MPacketIdentifier) -> Result<(), ()> {
-        if let Some(msg) = self.stored_messages.get(&id) {
+        if let Some(msg) = self.sent_stored_messages.get(&id) {
             match msg.value() {
                 StoredMessage::Sent(msg) => {
                     if msg.qos() != MQualityOfService::AtLeastOnce {
@@ -220,7 +221,7 @@ impl ClientState {
             }
 
             drop(msg);
-            self.stored_messages.remove(&id);
+            self.sent_stored_messages.remove(&id);
             trace!(?id, "Removed QoS 1 message after acknowledging it");
         } else {
             debug!(?id, "Received a PUBACK for a nonexistent message");
@@ -230,7 +231,7 @@ impl ClientState {
         Ok(())
     }
     pub fn receive_pubrec(&self, id: MPacketIdentifier) -> Result<(), ()> {
-        if let Some(msg) = self.stored_messages.get(&id) {
+        if let Some(msg) = self.sent_stored_messages.get(&id) {
             match msg.value() {
                 StoredMessage::Sent(msg) => {
                     if msg.qos() != MQualityOfService::ExactlyOnce {
@@ -252,7 +253,8 @@ impl ClientState {
             }
 
             drop(msg);
-            self.stored_messages.insert(id, StoredMessage::Acknowledged);
+            self.sent_stored_messages
+                .insert(id, StoredMessage::Acknowledged);
             trace!(?id, "Acknowledged QoS 2 message, storing identifier");
         } else {
             debug!(?id, "Received a PUBREC for a nonexistent message");
@@ -263,7 +265,7 @@ impl ClientState {
     }
 
     pub fn receive_pubcomp(&self, id: MPacketIdentifier) -> Result<(), ()> {
-        if let Some(msg) = self.stored_messages.get(&id) {
+        if let Some(msg) = self.sent_stored_messages.get(&id) {
             match msg.value() {
                 StoredMessage::Sent(_msg) => {
                     debug!(
@@ -278,7 +280,7 @@ impl ClientState {
             }
 
             drop(msg);
-            self.stored_messages.remove(&id);
+            self.sent_stored_messages.remove(&id);
             trace!(?id, "Removed QoS 2 message after completing it");
         } else {
             debug!(?id, "Received a PUBCOMP for a nonexistent message");
@@ -288,8 +290,33 @@ impl ClientState {
         Ok(())
     }
 
+    pub fn receive_pubrel(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if self.received_messages.contains(&id) {
+            self.received_messages.remove(&id);
+        } else {
+            debug!(
+                ?id,
+                "Received a pubrel, but no corresponding message exists"
+            );
+            return Err(());
+        }
+
+        Ok(())
+    }
+
+    pub fn save_qos_exactly_once(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if self.received_messages.contains(&id) {
+            debug!(?id, "Tried to save message id, but it already exists");
+            return Err(());
+        } else {
+            self.received_messages.insert(id);
+        }
+
+        Ok(())
+    }
+
     fn get_next_packet_entry(&self) -> Option<Entry<MPacketIdentifier, StoredMessage>> {
-        if self.stored_messages.len() == u16::MAX as usize {
+        if self.sent_stored_messages.len() == u16::MAX as usize {
             debug!("We are storing u16::MAX messages, cannot allocate more messages");
             return None;
         }
@@ -305,7 +332,7 @@ impl ClientState {
             other => other,
         };
 
-        let entry = self.stored_messages.entry(MPacketIdentifier(next_id));
+        let entry = self.sent_stored_messages.entry(MPacketIdentifier(next_id));
 
         if matches!(entry, Entry::Occupied(_)) {
             self.get_next_packet_entry()
