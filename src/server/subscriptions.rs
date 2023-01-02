@@ -155,10 +155,18 @@ impl SubscriptionManager {
     }
 }
 
-#[derive(Debug)]
 pub(crate) struct ClientInformation {
     pub(crate) client_id: Arc<ClientId>,
     pub(crate) client_sender: tokio::sync::mpsc::UnboundedSender<MqttMessage>,
+}
+
+impl std::fmt::Debug for ClientInformation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClientInformation")
+            .field("client_id", &self.client_id)
+            .field("client_sender", &"..")
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
