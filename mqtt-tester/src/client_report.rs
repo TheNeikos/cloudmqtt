@@ -9,6 +9,8 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use futures::FutureExt;
+use mqtt_format::v3::header::MPacketKind;
+use mqtt_format::v3::qos::MQualityOfService;
 use tokio::process::Command;
 
 use crate::report::{Report, ReportResult};
@@ -49,13 +51,18 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(vec![
-                0b0010_0000, // CONNACK
+                MPacketKind::Connack.to_byte(),
                 0b0000_0010, // Remaining length
                 0b0000_0000, // No session present
                 0b0000_0000, // Connection accepted
             ]),
             crate::command::ClientCommand::Send(vec![
-                0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
+                (MPacketKind::Publish {
+                    dup: false,
+                    qos: MQualityOfService::AtMostOnce,
+                    retain: false,
+                })
+                .to_byte(),
                 0b0000_0111, // Length
                 // Now the variable header
                 0b0000_0000,
@@ -96,13 +103,13 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(vec![
-                0b0010_0000, // CONNACK
+                MPacketKind::Connack.to_byte(),
                 0b0000_0010, // Remaining length
                 0b0000_0000, // No session present
                 0b0000_0000, // Connection accepted
             ]),
             crate::command::ClientCommand::Send(vec![
-                0b1000_0010, // SUBSCRIBE packet
+                MPacketKind::Subscribe.to_byte(),
                 0b0000_1000, // Length
                 // Now the variable header
                 0b0000_0000, // Packet ID

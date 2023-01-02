@@ -600,6 +600,7 @@ dependencies = [
  "clap 3.2.23",
  "futures",
  "miette",
+ "mqtt-format",
  "textwrap 0.15.2",
  "tokio",
 ]
