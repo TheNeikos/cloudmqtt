@@ -215,6 +215,7 @@ impl MqttServer {
             };
 
             send_connack(session_present, MConnectReturnCode::Accepted, &mut client).await?;
+            debug!(?client_id, "Accepted new connection");
 
             let (client_reader, client_writer) = tokio::io::split(client);
 
@@ -223,13 +224,13 @@ impl MqttServer {
                 writer: Mutex::new(client_writer),
             });
 
-            {
-                let state = server
-                    .clients
-                    .entry(client_id.clone())
-                    .or_insert_with(ClientState::default);
-                state.set_new_connection(client_connection.clone()).await;
-            }
+            let client_state = server
+                .clients
+                .entry(client_id.clone())
+                .or_insert_with(ClientState::default);
+            client_state
+                .set_new_connection(client_connection.clone())
+                .await;
 
             let client_id = Arc::new(client_id);
 
@@ -242,34 +243,23 @@ impl MqttServer {
                 tokio::sync::mpsc::unbounded_channel::<MqttMessage>();
 
             let send_loop = {
-                let publisher_conn = client_connection.clone();
                 let publisher_client_id = client_id.clone();
+                let clients = server.clients.clone();
                 tokio::spawn(async move {
                     loop {
                         match published_packets_rec.recv().await {
                             Some(packet) => {
                                 if packet.author_id() == &*publisher_client_id {
-                                    trace!(?packet, "Skipping sending message to onethis");
+                                    trace!(?packet, "Skipping sending message to oneself");
                                     continue;
                                 }
 
-                                let packet = MPublish {
-                                    dup: false,
-                                    qos: MQualityOfService::AtMostOnce,
-                                    retain: packet.retain(),
-                                    topic_name: MString {
-                                        value: packet.topic(),
-                                    },
-                                    id: None,
-                                    payload: packet.payload(),
+                                let Some(client_state) = clients.get(&publisher_client_id) else {
+                                    debug!(?publisher_client_id, "Associated state no longer exists");
+                                    break;
                                 };
 
-                                let mut writer = publisher_conn.writer.lock().await;
-                                crate::write_packet(&mut *writer, packet).await.unwrap();
-                                // 1. Check if subscription matches
-                                // 2. If Qos == 0 -> Send into writer
-                                // 3. If QoS == 1 -> Send into writer && Store Message waiting for Puback
-                                // 4. If QoS == 2 -> Send into writer && Store Message waiting for PubRec
+                                client_state.send_message(packet).await;
                             }
                             None => {
                                 debug!(
@@ -423,6 +413,8 @@ impl MqttServer {
             Ok(())
         }
 
+        trace!("Accepting new client");
+
         let packet = crate::read_one_packet(&mut client).await?;
 
         if let MPacket::Connect(MConnect {
@@ -436,6 +428,7 @@ impl MqttServer {
             keep_alive,
         }) = packet.get_packet()
         {
+            trace!(?client_id, "Connecting client");
             connect_client(
                 self,
                 client,

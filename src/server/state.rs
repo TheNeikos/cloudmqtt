@@ -41,9 +41,9 @@ use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
 
-use crate::{error::MqttError, MqttPacket, MqttSubPacket};
+use crate::{error::MqttError, MqttPacket};
 
-use super::ClientConnection;
+use super::{message::MqttMessage, ClientConnection};
 
 /// A Message that is unacknowledged, at what state depends on the current `packet`
 ///
@@ -137,39 +137,23 @@ impl ClientState {
         }
     }
 
-    #[allow(dead_code)]
-    pub async fn send_message(
-        &self,
-        minimal_qos: MQualityOfService,
-        due_to_subscription: bool,
-        msg: MqttSubPacket<MPublish<'static>>,
-    ) {
-        let entry = self
+    pub async fn send_message(&self, msg: MqttMessage) {
+        let _entry = self
             .get_next_packet_entry()
             .expect("Exhausted available identifier slots");
 
-        let packet = msg.get_packet();
-
-        let actual_qos = minimal_qos.min(packet.qos);
-
-        if actual_qos == MQualityOfService::AtMostOnce {
+        if msg.qos() == MQualityOfService::AtMostOnce {
             let conn = self.conn.clone();
             let token = self.connection_token.load().clone();
-            let entry = *entry.key();
             tokio::spawn(Self::with_connection(token, conn, move |conn| async move {
                 let msg = msg;
-                let packet = msg.get_packet();
                 let packet = MPublish {
                     dup: false,
-                    qos: actual_qos,
-                    retain: due_to_subscription,
-                    topic_name: packet.topic_name,
-                    id: if actual_qos == MQualityOfService::AtMostOnce {
-                        None
-                    } else {
-                        Some(entry)
-                    },
-                    payload: packet.payload,
+                    qos: msg.qos(),
+                    retain: msg.retain(),
+                    topic_name: mqtt_format::v3::strings::MString { value: msg.topic() },
+                    id: None,
+                    payload: msg.payload(),
                 };
                 let mut conn = conn.writer.lock().await;
                 crate::write_packet(&mut *conn, packet).await?;
