@@ -50,7 +50,7 @@ async fn main() {
         Err(e) => print_error_and_quit(&format!("Could not connect: {e}")),
     };
 
-    tokio::spawn(client.hearbeat(None));
+    tokio::spawn(client.heartbeat(None));
 
     let packet_stream = client.build_packet_stream().build();
     let mut packet_stream = Box::pin(packet_stream.stream());
