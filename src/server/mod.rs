@@ -190,7 +190,22 @@ impl MqttServer {
             keep_alive: u16,
             client_id: MString<'message>,
         ) -> Result<(), ClientError> {
+            let empty_client_id = client_id.is_empty();
+
             let client_id = ClientId::try_from(client_id)?;
+
+            // Check MQTT-3.1.37: "If the Client supplies a zero-byte ClientId,
+            // the Client MUST also set CleanSession to 1"
+            if empty_client_id && !clean_session {
+                // Send a CONNACK with code 0x02/IdentifierRejected
+                if let Err(e) =
+                    send_connack(false, MConnectReturnCode::IdentifierRejected, &mut client).await
+                {
+                    debug!("Client could not shut down cleanly: {e}");
+                }
+
+                return Err(ClientError::Packet(PacketIOError::InvalidParsedPacket));
+            }
 
             let session_present = if clean_session {
                 let _ = server.clients.remove(&client_id);
