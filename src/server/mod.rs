@@ -224,13 +224,15 @@ impl MqttServer {
                 writer: Mutex::new(client_writer),
             });
 
-            let client_state = server
-                .clients
-                .entry(client_id.clone())
-                .or_insert_with(ClientState::default);
-            client_state
-                .set_new_connection(client_connection.clone())
-                .await;
+            {
+                let client_state = server
+                    .clients
+                    .entry(client_id.clone())
+                    .or_insert_with(ClientState::default);
+                client_state
+                    .set_new_connection(client_connection.clone())
+                    .await;
+            }
 
             let client_id = Arc::new(client_id);
 
