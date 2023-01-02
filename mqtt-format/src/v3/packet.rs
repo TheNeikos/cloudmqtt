@@ -439,7 +439,13 @@ impl<'message> MPacket<'message> {
                 // Header
                 writer.write_all(&[packet_type, variable_length]).await?;
             }
-            MPacket::Pingresp(MPingresp) => todo!(),
+            MPacket::Pingresp(MPingresp) => {
+                let packet_type = 0b1101_0000;
+                let variable_length = 0b0;
+
+                // Header
+                writer.write_all(&[packet_type, variable_length]).await?;
+            }
             MPacket::Disconnect(MDisconnect) => todo!(),
         }
 
