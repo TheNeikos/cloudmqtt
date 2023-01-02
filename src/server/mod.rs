@@ -39,8 +39,8 @@ use dashmap::DashMap;
 use mqtt_format::v3::{
     connect_return::MConnectReturnCode,
     packet::{
-        MConnack, MConnect, MDisconnect, MPacket, MPingreq, MPingresp, MPuback, MPublish,
-        MSubscribe,
+        MConnack, MConnect, MDisconnect, MPacket, MPingreq, MPingresp, MPuback, MPubcomp, MPublish,
+        MPubrec, MPubrel, MSubscribe,
     },
     qos::MQualityOfService,
     strings::MString,
@@ -290,6 +290,7 @@ impl MqttServer {
                 let keep_alive = keep_alive;
                 let subscription_manager = server.subscription_manager.clone();
                 let client_id = client_id.clone();
+                let clients = server.clients.clone();
 
                 tokio::spawn(async move {
                     let client_id = client_id;
@@ -357,16 +358,46 @@ impl MqttServer {
                                 //     }
                                 // })
                             }
-                            MPacket::Pubrel { .. } => {
-                                // -> Check if MessageStore contains state PUBREC with packet id
+                            MPacket::Puback(ack @ MPuback { id }) => {
+                                trace!(?client_id, ?ack, "Received puback");
+                                let Some(client_state) = clients.get(&client_id) else {
+                                    debug!(?client_id, "Associated state no longer exists");
+                                    break;
+                                };
+
+                                if let Err(_err) = client_state.receive_puback(*id) {
+                                    debug!("Encountered an error while handling a PUBACK");
+                                    break;
+                                }
                             }
-                            MPacket::Pubrec { .. } => {
-                                // -> Discard message
-                                // -> Store PUBREC received
-                                // -> Send PUBREL
+                            MPacket::Pubrec(ack @ MPubrec { id }) => {
+                                trace!(?client_id, ?ack, "Received pubrec");
+                                let Some(client_state) = clients.get(&client_id) else {
+                                    debug!(?client_id, "Associated state no longer exists");
+                                    break;
+                                };
+
+                                if let Err(_err) = client_state.receive_pubrec(*id) {
+                                    debug!("Encountered an error while handling a PUBACK");
+                                    break;
+                                }
+                                trace!(?client_id, "Received PUBREC, responding with PUBREL");
+                                let packet = MPubrel { id: *id };
+                                let mut writer = client_connection.writer.lock().await;
+                                crate::write_packet(&mut *writer, packet).await?;
+                                trace!("Done responding to PUBREC with PUBREL");
                             }
-                            MPacket::Pubcomp { .. } => {
-                                // -> Discard PUBREC
+                            MPacket::Pubcomp(ack @ MPubcomp { id }) => {
+                                trace!(?client_id, ?ack, "Received pubcomp");
+                                let Some(client_state) = clients.get(&client_id) else {
+                                    debug!(?client_id, "Associated state no longer exists");
+                                    break;
+                                };
+
+                                if let Err(_err) = client_state.receive_pubcomp(*id) {
+                                    debug!("Encountered an error while handling a PUBCOMP");
+                                    break;
+                                }
                             }
                             MPacket::Disconnect(MDisconnect) => {
                                 last_will.take();
