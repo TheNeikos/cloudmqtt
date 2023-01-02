@@ -7,6 +7,7 @@
 mod client_report;
 mod command;
 mod report;
+mod util;
 
 use std::{path::PathBuf, process::exit};
 
