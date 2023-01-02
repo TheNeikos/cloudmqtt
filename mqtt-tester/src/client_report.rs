@@ -123,7 +123,7 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
                         id: MPacketIdentifier(1),
                         subscriptions: MSubscriptionRequests {
                             count: 1,
-                            data: &[b'a', b'/', b'b'],
+                            data: b"a/b",
                         },
                     }
                 }))
