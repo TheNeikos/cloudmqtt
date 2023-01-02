@@ -38,7 +38,10 @@ use std::{sync::Arc, time::Duration};
 use dashmap::DashMap;
 use mqtt_format::v3::{
     connect_return::MConnectReturnCode,
-    packet::{MConnack, MConnect, MDisconnect, MPacket, MPuback, MPublish, MSubscribe},
+    packet::{
+        MConnack, MConnect, MDisconnect, MPacket, MPingreq, MPingresp, MPuback, MPublish,
+        MSubscribe,
+    },
     qos::MQualityOfService,
     strings::MString,
     will::MLastWill,
@@ -383,6 +386,15 @@ impl MqttServer {
                                         *subscriptions,
                                     )
                                     .await;
+                            }
+                            MPacket::Pingreq(MPingreq) => {
+                                trace!(
+                                    ?client_id,
+                                    "Received ping request, responding with ping response"
+                                );
+                                let packet = MPingresp;
+                                let mut writer = client_connection.writer.lock().await;
+                                crate::write_packet(&mut *writer, packet).await?;
                             }
                             packet => info!("Received packet: {packet:?}"),
                         }
