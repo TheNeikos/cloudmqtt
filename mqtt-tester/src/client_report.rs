@@ -9,8 +9,13 @@ use std::process::Stdio;
 use std::time::Duration;
 
 use futures::FutureExt;
+use mqtt_format::v3::connect_return::MConnectReturnCode;
 use mqtt_format::v3::header::MPacketKind;
+use mqtt_format::v3::identifier::MPacketIdentifier;
+use mqtt_format::v3::packet::{MConnack, MPacket, MPublish, MSubscribe};
 use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::strings::MString;
+use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 use tokio::process::Command;
 
 use crate::report::{Report, ReportResult};
@@ -50,29 +55,30 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([
-            crate::command::ClientCommand::Send(vec![
-                MPacketKind::Connack.to_byte(),
-                0b0000_0010, // Remaining length
-                0b0000_0000, // No session present
-                0b0000_0000, // Connection accepted
-            ]),
-            crate::command::ClientCommand::Send(vec![
-                (MPacketKind::Publish {
-                    dup: false,
-                    qos: MQualityOfService::AtMostOnce,
-                    retain: false,
-                })
-                .to_byte(),
-                0b0000_0111, // Length
-                // Now the variable header
-                0b0000_0000,
-                0b0000_0010,
-                0x61,
-                0xC1,        // An invalid UTF-8 byte
-                0b0000_0000, // Packet identifier
-                0b0000_0001,
-                0x1, // Payload
-            ]),
+            crate::command::ClientCommand::Send(
+                crate::util::packet_to_vec(MPacket::Connack({
+                    MConnack {
+                        session_present: false,
+                        connect_return_code: MConnectReturnCode::Accepted,
+                    }
+                }))
+                .await?,
+            ),
+            crate::command::ClientCommand::Send(
+                [
+                    0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
+                    0b0000_0111, // Length
+                    // Now the variable header
+                    0b0000_0000,
+                    0b0000_0010,
+                    0x61,
+                    0xC1,        // An invalid UTF-8 byte
+                    0b0000_0000, // Packet identifier
+                    0b0000_0001,
+                    0x1, // Payload
+                ]
+                .to_vec(),
+            ),
         ]);
 
     let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
@@ -102,26 +108,27 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([
-            crate::command::ClientCommand::Send(vec![
-                MPacketKind::Connack.to_byte(),
-                0b0000_0010, // Remaining length
-                0b0000_0000, // No session present
-                0b0000_0000, // Connection accepted
-            ]),
-            crate::command::ClientCommand::Send(vec![
-                MPacketKind::Subscribe.to_byte(),
-                0b0000_1000, // Length
-                // Now the variable header
-                0b0000_0000, // Packet ID
-                0b0000_0001,
-                // First sub
-                0b0000_0000,
-                0b0000_0011, // Length
-                b'a',
-                b'/',
-                b'b',
-                0b0000_0001, // QoS
-            ]),
+            crate::command::ClientCommand::Send(
+                crate::util::packet_to_vec(MPacket::Connack({
+                    MConnack {
+                        session_present: false,
+                        connect_return_code: MConnectReturnCode::Accepted,
+                    }
+                }))
+                .await?,
+            ),
+            crate::command::ClientCommand::Send(
+                crate::util::packet_to_vec(MPacket::Subscribe({
+                    MSubscribe {
+                        id: MPacketIdentifier(1),
+                        subscriptions: MSubscriptionRequests {
+                            count: 1,
+                            data: &[b'a', b'/', b'b'],
+                        },
+                    }
+                }))
+                .await?,
+            ),
         ]);
 
     let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
