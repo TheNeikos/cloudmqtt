@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::sync::Arc;
+
 use cloudmqtt::server::MqttServer;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -23,9 +25,9 @@ async fn main() {
 
     tracing::info!("Starting server");
 
-    let mut server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883")
+    let server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883")
         .await
         .unwrap();
 
-    server.accept_new_clients().await.unwrap();
+    Arc::new(server).accept_new_clients().await.unwrap();
 }

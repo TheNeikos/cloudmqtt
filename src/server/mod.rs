@@ -126,7 +126,7 @@ impl ClientSource {
 ///
 pub struct MqttServer {
     clients: Arc<DashMap<ClientId, ClientState>>,
-    client_source: ClientSource,
+    client_source: Mutex<ClientSource>,
     subscription_manager: SubscriptionManager,
 }
 
@@ -139,18 +139,26 @@ impl MqttServer {
 
         Ok(MqttServer {
             clients: Arc::new(DashMap::new()),
-            client_source: ClientSource::UnsecuredTcp(bind),
+            client_source: Mutex::new(ClientSource::UnsecuredTcp(bind)),
             subscription_manager: SubscriptionManager::new(),
         })
     }
 
     /// Start accepting new clients connecting to the server
-    pub async fn accept_new_clients(&mut self) -> Result<(), MqttError> {
+    pub async fn accept_new_clients(self: Arc<Self>) -> Result<(), MqttError> {
+        let mut client_source = self
+            .client_source
+            .try_lock()
+            .map_err(|_| MqttError::AlreadyListening)?;
+
         loop {
-            let client = self.client_source.accept().await?;
-            if let Err(client_error) = self.accept_client(client).await {
-                tracing::error!("Client error: {}", client_error)
-            }
+            let client = client_source.accept().await?;
+            let server = self.clone();
+            tokio::spawn(async move {
+                if let Err(client_error) = server.accept_client(client).await {
+                    tracing::error!("Client error: {}", client_error)
+                }
+            });
         }
     }
 
@@ -393,24 +401,22 @@ impl MqttServer {
                 })
             };
 
-            tokio::spawn(async move {
-                let (send_err, read_err) = tokio::join!(send_loop, read_loop);
-                match send_err {
-                    Ok(_) => (),
-                    Err(join_error) => error!(
-                        "Send loop of client {} had an unexpected error: {join_error}",
-                        &client_id.0
-                    ),
-                }
+            let (send_err, read_err) = tokio::join!(send_loop, read_loop);
+            match send_err {
+                Ok(_) => (),
+                Err(join_error) => error!(
+                    "Send loop of client {} had an unexpected error: {join_error}",
+                    &client_id.0
+                ),
+            }
 
-                match read_err {
-                    Ok(_) => (),
-                    Err(join_error) => error!(
-                        "Read loop of client {} had an unexpected error: {join_error}",
-                        &client_id.0
-                    ),
-                }
-            });
+            match read_err {
+                Ok(_) => (),
+                Err(join_error) => error!(
+                    "Read loop of client {} had an unexpected error: {join_error}",
+                    &client_id.0
+                ),
+            }
 
             Ok(())
         }
