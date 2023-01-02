@@ -92,16 +92,16 @@ impl TopicFilter {
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct SubscriptionManager {
+pub(crate) struct SubscriptionManager {
     subscriptions: Arc<ArcSwap<SubscriptionTopic>>,
 }
 
 impl SubscriptionManager {
-    pub fn new() -> SubscriptionManager {
+    pub(crate) fn new() -> SubscriptionManager {
         Default::default()
     }
 
-    pub async fn subscribe(
+    pub(crate) async fn subscribe(
         &self,
         client: Arc<ClientInformation>,
         subscriptions: MSubscriptionRequests<'_>,
@@ -132,11 +132,10 @@ impl SubscriptionManager {
         });
     }
 
-    pub async fn route_message(&self, message: MqttMessage) {
+    pub(crate) async fn route_message(&self, message: MqttMessage) {
         debug!(?message, "Routing message");
         let routing = self.subscriptions.load();
 
-        let _qos = message.qos();
         let topic = message.topic();
 
         let topic_names = TopicName::parse_from(topic);
@@ -149,21 +148,30 @@ impl SubscriptionManager {
         debug!(?matches, "Sending to matching subscriptions");
 
         for sub in matches {
-            sub.publish_message(message.clone());
+            let mut message = message.clone();
+            message.set_qos(message.qos().min(sub.qos));
+            sub.publish_message(message);
         }
     }
 }
 
-#[derive(Debug)]
-pub struct ClientInformation {
-    pub client_id: Arc<ClientId>,
-    pub client_sender: tokio::sync::mpsc::UnboundedSender<MqttMessage>,
+pub(crate) struct ClientInformation {
+    pub(crate) client_id: Arc<ClientId>,
+    pub(crate) client_sender: tokio::sync::mpsc::UnboundedSender<MqttMessage>,
+}
+
+impl std::fmt::Debug for ClientInformation {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ClientInformation")
+            .field("client_id", &self.client_id)
+            .field("client_sender", &"..")
+            .finish()
+    }
 }
 
 #[derive(Debug, Clone)]
 struct ClientSubscription {
     client: Arc<ClientInformation>,
-    #[allow(dead_code)]
     qos: MQualityOfService,
 }
 

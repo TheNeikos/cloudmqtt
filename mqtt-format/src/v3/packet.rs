@@ -391,7 +391,20 @@ impl<'message> MPacket<'message> {
                 // Variable 1-6
                 id.write_to(&mut writer).await?;
             }
-            MPacket::Pubrel(MPubrel { id: _ }) => todo!(),
+            MPacket::Pubrel(MPubrel { id }) => {
+                let packet_type = 0b0110_0010;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = 2;
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable 1-6
+                id.write_to(&mut writer).await?;
+            }
             MPacket::Pubcomp(MPubcomp { id }) => {
                 let packet_type = 0b0111_0000;
 
@@ -439,7 +452,13 @@ impl<'message> MPacket<'message> {
                 // Header
                 writer.write_all(&[packet_type, variable_length]).await?;
             }
-            MPacket::Pingresp(MPingresp) => todo!(),
+            MPacket::Pingresp(MPingresp) => {
+                let packet_type = 0b1101_0000;
+                let variable_length = 0b0;
+
+                // Header
+                writer.write_all(&[packet_type, variable_length]).await?;
+            }
             MPacket::Disconnect(MDisconnect) => todo!(),
         }
 

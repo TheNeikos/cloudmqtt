@@ -35,15 +35,15 @@ use std::{
 };
 
 use arc_swap::{ArcSwap, ArcSwapOption};
-use dashmap::{mapref::entry::Entry, DashMap};
+use dashmap::{mapref::entry::Entry, DashMap, DashSet};
 use mqtt_format::v3::{identifier::MPacketIdentifier, packet::MPublish, qos::MQualityOfService};
 use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
-use tracing::debug;
+use tracing::{debug, trace};
 
-use crate::{error::MqttError, MqttPacket, MqttSubPacket};
+use crate::error::MqttError;
 
-use super::ClientConnection;
+use super::{message::MqttMessage, ClientConnection};
 
 /// A Message that is unacknowledged, at what state depends on the current `packet`
 ///
@@ -59,8 +59,12 @@ use super::ClientConnection;
 /// - If a `PUBREL`, then we were in QoS 2, so we wait for a PUBCOMP to arrive with given
 ///   packet identifier after which we discard this state
 #[derive(Debug)]
-struct StoredMessage {
-    packet: MqttPacket,
+enum StoredMessage {
+    /// A QoS 1 or 2 message that has been sent, it is saved here as it may need to be resent on
+    /// reconnect
+    Sent(MqttMessage),
+    /// A QoS 2 message that has been acknowledged but not yet released.
+    Acknowledged,
 }
 
 #[derive(Debug, Default)]
@@ -68,11 +72,12 @@ pub struct ClientState {
     connection_token: ArcSwap<CancellationToken>,
     conn: Arc<ArcSwapOption<ClientConnection>>,
     current_id: AtomicU16,
-    stored_messages: DashMap<MPacketIdentifier, StoredMessage>,
+    sent_stored_messages: DashMap<MPacketIdentifier, StoredMessage>,
+    received_messages: DashSet<MPacketIdentifier>,
 }
 
 impl ClientState {
-    pub async fn set_new_connection(&self, conn: Arc<ClientConnection>) {
+    pub(crate) async fn set_new_connection(&self, conn: Arc<ClientConnection>) {
         let token = self
             .connection_token
             .swap(Arc::new(CancellationToken::new()));
@@ -87,7 +92,7 @@ impl ClientState {
             });
         }
 
-        let mut messages: VecDeque<_> = self.stored_messages.iter().collect();
+        let mut messages: VecDeque<_> = self.sent_stored_messages.iter().collect();
         let last_message_id = {
             let current_id = self.current_id.load(std::sync::atomic::Ordering::SeqCst);
             messages
@@ -101,17 +106,25 @@ impl ClientState {
             messages.rotate_left(last_message_id);
         }
 
-        let messages: Vec<MqttPacket> = messages
-            .into_iter()
-            .map(|entry| MqttPacket::clone(&entry.value().packet))
-            .collect();
-
-        for message in messages {
-            let token = self.connection_token.load().clone();
+        for stored_message in &self.sent_stored_messages {
             let conn = self.conn.clone();
-            tokio::spawn(Self::with_connection(token, conn, |conn| async move {
+            let token = self.connection_token.load().clone();
+            let msg = match stored_message.value() {
+                StoredMessage::Sent(msg) => msg.clone(),
+                StoredMessage::Acknowledged => continue,
+            };
+            let key = *stored_message.key();
+            tokio::spawn(Self::with_connection(token, conn, move |conn| async move {
+                let packet = MPublish {
+                    dup: false,
+                    qos: msg.qos(),
+                    retain: msg.retain(),
+                    topic_name: mqtt_format::v3::strings::MString { value: msg.topic() },
+                    id: Some(key),
+                    payload: msg.payload(),
+                };
                 let mut conn = conn.writer.lock().await;
-                crate::write_packet(&mut *conn, *message.get_packet()).await?;
+                crate::write_packet(&mut *conn, packet).await?;
                 Ok(())
             }));
         }
@@ -137,50 +150,173 @@ impl ClientState {
         }
     }
 
-    #[allow(dead_code)]
-    pub async fn send_message(
-        &self,
-        minimal_qos: MQualityOfService,
-        due_to_subscription: bool,
-        msg: MqttSubPacket<MPublish<'static>>,
-    ) {
+    pub async fn send_message(&self, msg: MqttMessage) {
         let entry = self
             .get_next_packet_entry()
             .expect("Exhausted available identifier slots");
 
-        let packet = msg.get_packet();
+        match msg.qos() {
+            MQualityOfService::AtMostOnce => {
+                let conn = self.conn.clone();
+                let token = self.connection_token.load().clone();
+                tokio::spawn(Self::with_connection(token, conn, move |conn| async move {
+                    let msg = msg;
+                    let packet = MPublish {
+                        dup: false,
+                        qos: msg.qos(),
+                        retain: msg.retain(),
+                        topic_name: mqtt_format::v3::strings::MString { value: msg.topic() },
+                        id: None,
+                        payload: msg.payload(),
+                    };
+                    let mut conn = conn.writer.lock().await;
+                    crate::write_packet(&mut *conn, packet).await?;
+                    Ok(())
+                }));
+            }
+            MQualityOfService::AtLeastOnce | MQualityOfService::ExactlyOnce => {
+                let conn = self.conn.clone();
+                let token = self.connection_token.load().clone();
+                let key = *entry.key();
+                entry.or_insert(StoredMessage::Sent(msg.clone()));
 
-        let actual_qos = minimal_qos.min(packet.qos);
+                tokio::spawn(Self::with_connection(token, conn, move |conn| async move {
+                    let packet = MPublish {
+                        dup: false,
+                        qos: msg.qos(),
+                        retain: msg.retain(),
+                        topic_name: mqtt_format::v3::strings::MString { value: msg.topic() },
+                        id: Some(key),
+                        payload: msg.payload(),
+                    };
+                    let mut conn = conn.writer.lock().await;
+                    crate::write_packet(&mut *conn, packet).await?;
 
-        if actual_qos == MQualityOfService::AtMostOnce {
-            let conn = self.conn.clone();
-            let token = self.connection_token.load().clone();
-            let entry = *entry.key();
-            tokio::spawn(Self::with_connection(token, conn, move |conn| async move {
-                let msg = msg;
-                let packet = msg.get_packet();
-                let packet = MPublish {
-                    dup: false,
-                    qos: actual_qos,
-                    retain: due_to_subscription,
-                    topic_name: packet.topic_name,
-                    id: if actual_qos == MQualityOfService::AtMostOnce {
-                        None
-                    } else {
-                        Some(entry)
-                    },
-                    payload: packet.payload,
-                };
-                let mut conn = conn.writer.lock().await;
-                crate::write_packet(&mut *conn, packet).await?;
-                Ok(())
-            }));
+                    Ok(())
+                }));
+            }
         }
     }
 
-    #[allow(dead_code)]
+    pub fn receive_puback(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if let Some(msg) = self.sent_stored_messages.get(&id) {
+            match msg.value() {
+                StoredMessage::Sent(msg) => {
+                    if msg.qos() != MQualityOfService::AtLeastOnce {
+                        debug!(
+                            ?id,
+                            "Received a PUBACK for a non-QoS 1 message (QoS was {:?})",
+                            msg.qos()
+                        );
+                        return Err(());
+                    }
+                }
+                StoredMessage::Acknowledged => {
+                    debug!(
+                        ?id,
+                        "Received a PUBACK for an already acknowledged QoS 2 message"
+                    );
+                    return Err(());
+                }
+            }
+
+            drop(msg);
+            self.sent_stored_messages.remove(&id);
+            trace!(?id, "Removed QoS 1 message after acknowledging it");
+        } else {
+            debug!(?id, "Received a PUBACK for a nonexistent message");
+            return Err(());
+        }
+
+        Ok(())
+    }
+    pub fn receive_pubrec(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if let Some(msg) = self.sent_stored_messages.get(&id) {
+            match msg.value() {
+                StoredMessage::Sent(msg) => {
+                    if msg.qos() != MQualityOfService::ExactlyOnce {
+                        debug!(
+                            ?id,
+                            "Received a PUBREC for a non-QoS 1 message (QoS was {:?})",
+                            msg.qos()
+                        );
+                        return Err(());
+                    }
+                }
+                StoredMessage::Acknowledged => {
+                    debug!(
+                        ?id,
+                        "Received a PUBREC for an already acknowledged QoS 2 message"
+                    );
+                    return Err(());
+                }
+            }
+
+            drop(msg);
+            self.sent_stored_messages
+                .insert(id, StoredMessage::Acknowledged);
+            trace!(?id, "Acknowledged QoS 2 message, storing identifier");
+        } else {
+            debug!(?id, "Received a PUBREC for a nonexistent message");
+            return Err(());
+        }
+
+        Ok(())
+    }
+
+    pub fn receive_pubcomp(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if let Some(msg) = self.sent_stored_messages.get(&id) {
+            match msg.value() {
+                StoredMessage::Sent(_msg) => {
+                    debug!(
+                        ?id,
+                        "Received a PUBCOMP for an already acknowledged QoS 2 message"
+                    );
+                    return Err(());
+                }
+                StoredMessage::Acknowledged => {
+                    // We good
+                }
+            }
+
+            drop(msg);
+            self.sent_stored_messages.remove(&id);
+            trace!(?id, "Removed QoS 2 message after completing it");
+        } else {
+            debug!(?id, "Received a PUBCOMP for a nonexistent message");
+            return Err(());
+        }
+
+        Ok(())
+    }
+
+    pub fn receive_pubrel(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if self.received_messages.contains(&id) {
+            self.received_messages.remove(&id);
+        } else {
+            debug!(
+                ?id,
+                "Received a pubrel, but no corresponding message exists"
+            );
+            return Err(());
+        }
+
+        Ok(())
+    }
+
+    pub fn save_qos_exactly_once(&self, id: MPacketIdentifier) -> Result<(), ()> {
+        if self.received_messages.contains(&id) {
+            debug!(?id, "Tried to save message id, but it already exists");
+            return Err(());
+        } else {
+            self.received_messages.insert(id);
+        }
+
+        Ok(())
+    }
+
     fn get_next_packet_entry(&self) -> Option<Entry<MPacketIdentifier, StoredMessage>> {
-        if self.stored_messages.len() == u16::MAX as usize {
+        if self.sent_stored_messages.len() == u16::MAX as usize {
             debug!("We are storing u16::MAX messages, cannot allocate more messages");
             return None;
         }
@@ -196,7 +332,7 @@ impl ClientState {
             other => other,
         };
 
-        let entry = self.stored_messages.entry(MPacketIdentifier(next_id));
+        let entry = self.sent_stored_messages.entry(MPacketIdentifier(next_id));
 
         if matches!(entry, Entry::Occupied(_)) {
             self.get_next_packet_entry()

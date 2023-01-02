@@ -62,13 +62,10 @@ pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
         size = buffer[1] & 0b0111_1111
     );
     if buffer[1] & 0b1000_0000 != 0 {
-        trace!("Reading one more byte from size");
         buffer.put_u8(reader.read_u8().await?);
         if buffer[2] & 0b1000_0000 != 0 {
-            trace!("Reading one more byte from size");
             buffer.put_u8(reader.read_u8().await?);
             if buffer[3] & 0b1000_0000 != 0 {
-                trace!("Reading one more byte from size");
                 buffer.put_u8(reader.read_u8().await?);
             }
         }
