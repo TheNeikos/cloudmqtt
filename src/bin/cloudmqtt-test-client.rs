@@ -56,7 +56,7 @@ async fn main() {
     let mut packet_stream = Box::pin(packet_stream.stream());
 
     loop {
-        let packet = match packet_stream.next().await {
+        let _packet = match packet_stream.next().await {
             Some(Ok(packet)) => packet,
             None => {
                 eprintln!("Stream ended, stopping");
