@@ -46,6 +46,38 @@ pub enum MPacketKind {
     Disconnect,
 }
 
+impl MPacketKind {
+    pub fn to_byte(&self) -> u8 {
+        match self {
+            MPacketKind::Connect => 1 << 4,
+            MPacketKind::Connack => 2 << 4,
+            MPacketKind::Publish { dup, qos, retain } => {
+                let upper = 0b0011;
+                let dup = if *dup { 0b1000 } else { 0 };
+                let retain = u8::from(*retain);
+                let qos = match qos {
+                    MQualityOfService::AtMostOnce => 0b0000,
+                    MQualityOfService::AtLeastOnce => 0b0001,
+                    MQualityOfService::ExactlyOnce => 0b0010,
+                } << 1;
+
+                (upper << 4) | dup | retain | qos
+            }
+            MPacketKind::Puback => 4 << 4,
+            MPacketKind::Pubrec => 5 << 4,
+            MPacketKind::Pubrel => (6 << 4) | 2,
+            MPacketKind::Pubcomp => 7 << 4,
+            MPacketKind::Subscribe => (8 << 4) | 2,
+            MPacketKind::Suback => 9 << 4,
+            MPacketKind::Unsubscribe => (10 << 4) | 2,
+            MPacketKind::Unsuback => 11 << 4,
+            MPacketKind::Pingreq => 12 << 4,
+            MPacketKind::Pingresp => 13 << 4,
+            MPacketKind::Disconnect => 14 << 4,
+        }
+    }
+}
+
 fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
     let (input, (upper, lower)): (_, (u8, u8)) =
         bits::<_, _, Error<(&[u8], usize)>, _, _>(tuple((
@@ -128,7 +160,7 @@ mod tests {
         qos::MQualityOfService,
     };
 
-    use super::{decode_variable_length, mfixedheader};
+    use super::{decode_variable_length, mfixedheader, mpacketkind};
 
     #[test]
     fn check_variable_length_decoding() {
@@ -169,5 +201,51 @@ mod tests {
         let input = &[0b0011_1111, 0];
 
         mfixedheader(input).unwrap_err();
+    }
+
+    #[test]
+    fn check_roundtrip_packet_kind() {
+        fn test(mp: MPacketKind) {
+            assert_eq!(mp, mpacketkind(&[mp.to_byte()]).unwrap().1);
+        }
+
+        test(MPacketKind::Connect);
+        test(MPacketKind::Connack);
+        test(MPacketKind::Publish {
+            dup: false,
+            qos: MQualityOfService::AtMostOnce,
+            retain: false,
+        });
+        test(MPacketKind::Publish {
+            dup: false,
+            qos: MQualityOfService::AtLeastOnce,
+            retain: false,
+        });
+        test(MPacketKind::Publish {
+            dup: false,
+            qos: MQualityOfService::ExactlyOnce,
+            retain: false,
+        });
+        test(MPacketKind::Publish {
+            dup: true,
+            qos: MQualityOfService::AtMostOnce,
+            retain: false,
+        });
+        test(MPacketKind::Publish {
+            dup: false,
+            qos: MQualityOfService::AtMostOnce,
+            retain: true,
+        });
+        test(MPacketKind::Puback);
+        test(MPacketKind::Pubrec);
+        test(MPacketKind::Pubrel);
+        test(MPacketKind::Pubcomp);
+        test(MPacketKind::Subscribe);
+        test(MPacketKind::Suback);
+        test(MPacketKind::Unsubscribe);
+        test(MPacketKind::Unsuback);
+        test(MPacketKind::Pingreq);
+        test(MPacketKind::Pingresp);
+        test(MPacketKind::Disconnect);
     }
 }
