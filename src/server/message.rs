@@ -64,4 +64,8 @@ impl MqttMessage {
     pub fn author_id(&self) -> &ClientId {
         self.author_id.as_ref()
     }
+
+    pub fn set_qos(&mut self, qos: MQualityOfService) {
+        self.qos = qos;
+    }
 }

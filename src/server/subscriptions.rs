@@ -136,7 +136,6 @@ impl SubscriptionManager {
         debug!(?message, "Routing message");
         let routing = self.subscriptions.load();
 
-        let _qos = message.qos();
         let topic = message.topic();
 
         let topic_names = TopicName::parse_from(topic);
@@ -149,7 +148,9 @@ impl SubscriptionManager {
         debug!(?matches, "Sending to matching subscriptions");
 
         for sub in matches {
-            sub.publish_message(message.clone());
+            let mut message = message.clone();
+            message.set_qos(message.qos().min(sub.qos));
+            sub.publish_message(message);
         }
     }
 }
@@ -163,7 +164,6 @@ pub(crate) struct ClientInformation {
 #[derive(Debug, Clone)]
 struct ClientSubscription {
     client: Arc<ClientInformation>,
-    #[allow(dead_code)]
     qos: MQualityOfService,
 }
 
