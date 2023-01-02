@@ -48,13 +48,13 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([
-            crate::command::ClientCommand::Send(&[
+            crate::command::ClientCommand::Send(vec![
                 0b0010_0000, // CONNACK
                 0b0000_0010, // Remaining length
                 0b0000_0000, // No session present
                 0b0000_0000, // Connection accepted
             ]),
-            crate::command::ClientCommand::Send(&[
+            crate::command::ClientCommand::Send(vec![
                 0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
                 0b0000_0111, // Length
                 // Now the variable header
@@ -95,13 +95,13 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
         .await
         .map(crate::command::Command::new)?
         .wait_for_write([
-            crate::command::ClientCommand::Send(&[
+            crate::command::ClientCommand::Send(vec![
                 0b0010_0000, // CONNACK
                 0b0000_0010, // Remaining length
                 0b0000_0000, // No session present
                 0b0000_0000, // Connection accepted
             ]),
-            crate::command::ClientCommand::Send(&[
+            crate::command::ClientCommand::Send(vec![
                 0b1000_0010, // SUBSCRIBE packet
                 0b0000_1000, // Length
                 // Now the variable header

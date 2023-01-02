@@ -13,8 +13,8 @@ pub struct Command {
 }
 
 pub enum ClientCommand {
-    Send(&'static [u8]),
-    WaitFor(&'static [u8]),
+    Send(Vec<u8>),
+    WaitFor(Vec<u8>),
     WaitAndCheck(Box<dyn FnOnce(&[u8]) -> bool>),
 }
 
@@ -37,7 +37,9 @@ impl Command {
 
         for command in commands {
             match command {
-                ClientCommand::Send(bytes) => to_client.write_all(bytes).await.into_diagnostic()?,
+                ClientCommand::Send(bytes) => {
+                    to_client.write_all(&bytes).await.into_diagnostic()?
+                }
                 ClientCommand::WaitFor(expected_bytes) => {
                     let mut buf = Vec::with_capacity(expected_bytes.len());
                     match tokio::time::timeout(
