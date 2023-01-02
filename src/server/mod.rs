@@ -396,7 +396,7 @@ impl MqttServer {
                                 let mut writer = client_connection.writer.lock().await;
                                 crate::write_packet(&mut *writer, packet).await?;
                             }
-                            packet => info!("Received packet: {packet:?}"),
+                            packet => info!("Received packet: {packet:?}, not handling it"),
                         }
                     }
 
