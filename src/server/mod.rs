@@ -401,22 +401,24 @@ impl MqttServer {
                 })
             };
 
-            let (send_err, read_err) = tokio::join!(send_loop, read_loop);
-            match send_err {
-                Ok(_) => (),
-                Err(join_error) => error!(
-                    "Send loop of client {} had an unexpected error: {join_error}",
-                    &client_id.0
-                ),
-            }
+            tokio::spawn(async move {
+                let (send_err, read_err) = tokio::join!(send_loop, read_loop);
+                match send_err {
+                    Ok(_) => (),
+                    Err(join_error) => error!(
+                        "Send loop of client {} had an unexpected error: {join_error}",
+                        &client_id.0
+                    ),
+                }
 
-            match read_err {
-                Ok(_) => (),
-                Err(join_error) => error!(
-                    "Read loop of client {} had an unexpected error: {join_error}",
-                    &client_id.0
-                ),
-            }
+                match read_err {
+                    Ok(_) => (),
+                    Err(join_error) => error!(
+                        "Read loop of client {} had an unexpected error: {join_error}",
+                        &client_id.0
+                    ),
+                }
+            });
 
             Ok(())
         }
