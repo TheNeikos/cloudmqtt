@@ -125,7 +125,7 @@ impl ClientSource {
 /// Check out the server example for a working version.
 ///
 pub struct MqttServer {
-    clients: DashMap<ClientId, ClientState>,
+    clients: Arc<DashMap<ClientId, ClientState>>,
     client_source: ClientSource,
     subscription_manager: SubscriptionManager,
 }
@@ -138,7 +138,7 @@ impl MqttServer {
         let bind = TcpListener::bind(addr).await?;
 
         Ok(MqttServer {
-            clients: DashMap::new(),
+            clients: Arc::new(DashMap::new()),
             client_source: ClientSource::UnsecuredTcp(bind),
             subscription_manager: SubscriptionManager::new(),
         })
