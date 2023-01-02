@@ -6,11 +6,9 @@
 
 use std::process::exit;
 
-use cloudmqtt::{packet_stream::Acknowledge, MqttClient, MqttConnectionParams};
+use cloudmqtt::{client::MqttClient, client::MqttConnectionParams};
 use futures::StreamExt;
-use mqtt_format::v3::{
-    strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
-};
+use mqtt_format::v3::will::MLastWill;
 
 fn print_error_and_quit(e: &str) -> ! {
     eprintln!("{}", e);
