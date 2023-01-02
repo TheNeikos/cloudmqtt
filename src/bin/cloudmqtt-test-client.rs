@@ -6,11 +6,9 @@
 
 use std::process::exit;
 
-use cloudmqtt::{packet_stream::Acknowledge, MqttClient, MqttConnectionParams};
+use cloudmqtt::{client::MqttClient, client::MqttConnectionParams};
 use futures::StreamExt;
-use mqtt_format::v3::{
-    strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
-};
+use mqtt_format::v3::will::MLastWill;
 
 fn print_error_and_quit(e: &str) -> ! {
     eprintln!("{}", e);
@@ -52,13 +50,13 @@ async fn main() {
         Err(e) => print_error_and_quit(&format!("Could not connect: {e}")),
     };
 
-    tokio::spawn(client.hearbeat(None));
+    tokio::spawn(client.heartbeat(None));
 
     let packet_stream = client.build_packet_stream().build();
     let mut packet_stream = Box::pin(packet_stream.stream());
 
     loop {
-        let packet = match packet_stream.next().await {
+        let _packet = match packet_stream.next().await {
             Some(Ok(packet)) => packet,
             None => {
                 eprintln!("Stream ended, stopping");
