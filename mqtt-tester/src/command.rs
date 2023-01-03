@@ -12,10 +12,12 @@ pub struct Command {
     inner: tokio::process::Command,
 }
 
+pub type CheckBytesFn = Box<dyn FnOnce(&[u8]) -> bool>;
+
 pub enum ClientCommand {
     Send(Vec<u8>),
     WaitFor(Vec<u8>),
-    WaitAndCheck(Box<dyn FnOnce(&[u8]) -> bool>),
+    WaitAndCheck(CheckBytesFn),
 }
 
 impl Command {
