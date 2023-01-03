@@ -10,6 +10,7 @@ use std::io::Write;
 pub enum ReportResult {
     Success,
     Failure,
+    #[allow(unused)]
     Inconclusive,
 }
 

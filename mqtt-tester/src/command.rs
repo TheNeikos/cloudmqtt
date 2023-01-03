@@ -16,7 +16,9 @@ pub type CheckBytesFn = Box<dyn FnOnce(&[u8]) -> bool>;
 
 pub enum ClientCommand {
     Send(Vec<u8>),
+    #[allow(unused)]
     WaitFor(Vec<u8>),
+    #[allow(unused)]
     WaitAndCheck(CheckBytesFn),
 }
 
