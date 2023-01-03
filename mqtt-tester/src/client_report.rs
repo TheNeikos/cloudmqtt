@@ -10,11 +10,10 @@ use std::time::Duration;
 
 use futures::FutureExt;
 use mqtt_format::v3::connect_return::MConnectReturnCode;
-use mqtt_format::v3::header::MPacketKind;
+
 use mqtt_format::v3::identifier::MPacketIdentifier;
-use mqtt_format::v3::packet::{MConnack, MPacket, MPublish, MSubscribe};
-use mqtt_format::v3::qos::MQualityOfService;
-use mqtt_format::v3::strings::MString;
+use mqtt_format::v3::packet::{MConnack, MPacket, MSubscribe};
+
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 use tokio::process::Command;
 
