@@ -52,6 +52,7 @@
 
           cloudmqtt-clippy = craneLib.cargoClippy {
             inherit cargoArtifacts src;
+            cargoExtraArgs = "--all --all-features --all-targets";
             cargoClippyExtraArgs = "-- --deny warnings";
           };
 
