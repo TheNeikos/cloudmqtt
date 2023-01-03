@@ -9,7 +9,7 @@ use std::pin::Pin;
 use miette::IntoDiagnostic;
 use mqtt_format::v3::packet::MPacket;
 
-pub async fn packet_to_vec<'m>(mpacket: MPacket<'m>) -> miette::Result<Vec<u8>> {
+pub async fn packet_to_vec(mpacket: MPacket<'_>) -> miette::Result<Vec<u8>> {
     let mut buf = vec![];
     {
         let mut cursor = futures::io::Cursor::new(&mut buf);
