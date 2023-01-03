@@ -72,12 +72,10 @@
 
         devShells.default = devShells.cloudmqtt;
         devShells.cloudmqtt = pkgs.mkShell {
-          buildInputs = [
-          ];
+          buildInputs = [ ];
 
           nativeBuildInputs = [
             rustTarget
-            #unstableRustTarget
 
             pkgs.cargo-msrv
             pkgs.cargo-deny
