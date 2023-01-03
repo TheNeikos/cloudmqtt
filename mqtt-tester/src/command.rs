@@ -41,7 +41,7 @@ impl Command {
                     to_client.write_all(&bytes).await.into_diagnostic()?
                 }
                 ClientCommand::WaitFor(expected_bytes) => {
-                    let mut buf = Vec::with_capacity(expected_bytes.len());
+                    let mut buf = vec![0; expected_bytes.len()];
                     match tokio::time::timeout(
                         std::time::Duration::from_millis(100),
                         from_client.read_exact(&mut buf),
