@@ -42,7 +42,7 @@
 
         cloudmqtt = craneLib.buildPackage {
           inherit cargoArtifacts src version;
-          cargoExtraArgs = "--all-features";
+          cargoExtraArgs = "--all-features --all";
         };
 
       in
