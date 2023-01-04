@@ -1,3 +1,19 @@
-status = ["checks", "license"]
+status = [
+    # Github Actions
+    "checks",
+    "license",
+    # Garnix
+    "Evaluate flake.nix",
+    "check cloudmqtt [x86_64-linux]",
+    "check cloudmqtt-clippy [x86_64-linux]",
+    "check cloudmqtt-fmt [x86_64-linux]",
+    "package cloudmqtt [x86_64-linux]",
+]
+pr_status = [
+    # Github Actions
+    "license",
+    "dco-check",
+    "fixup-check",
+]
 update_base_for_deletes = true
 cut_body_after = "<details>"
