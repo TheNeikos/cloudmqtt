@@ -13,7 +13,7 @@ use mqtt_format::v3::connect_return::MConnectReturnCode;
 
 use mqtt_format::v3::header::MPacketKind;
 use mqtt_format::v3::identifier::MPacketIdentifier;
-use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MSubscribe};
+use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPublish, MSubscribe};
 
 use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
@@ -45,6 +45,7 @@ pub async fn create_client_report(
         check_invalid_first_packet_is_rejected(&client_exe_path).boxed_local(),
         check_utf8_with_nullchar_is_rejected(&client_exe_path).boxed_local(),
         check_connack_flags_are_set_as_reserved(&client_exe_path).boxed_local(),
+        check_publish_qos_zero_with_ident_fails(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -308,5 +309,50 @@ async fn check_connack_flags_are_set_as_reserved(client_exe_path: &Path) -> miet
         normative_statement_number: String::from("[MQTT-2.2.2-1]"),
         result,
         output,
+    })
+}
+
+async fn check_publish_qos_zero_with_ident_fails(client_exe_path: &Path) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([
+            crate::command::ClientCommand::Send(
+                crate::util::packet_to_vec(MPacket::Connack({
+                    MConnack {
+                        session_present: false,
+                        connect_return_code: MConnectReturnCode::Accepted,
+                    }
+                }))
+                .await?,
+            ),
+            crate::command::ClientCommand::Send(
+                crate::util::packet_to_vec(MPacket::Publish({
+                    MPublish {
+                        dup: false,
+                        qos: MQualityOfService::AtMostOnce, // QoS 0
+                        retain: false,
+                        topic_name: MString { value: "a" },
+                        id: Some(MPacketIdentifier(1)),
+                        payload: &[0x00],
+                    }
+                }))
+                .await?,
+            ),
+        ]);
+
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Failure },
+        out_failure => { ReportResult::Success }
+    };
+
+    Ok(mk_report! {
+        name: "A PUBLISH packet with QoS zero must not contain a packet identifier",
+        desc: "A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to 0.",
+        normative: "[MQTT-2.3.1-5]",
+        result,
+        output
     })
 }
