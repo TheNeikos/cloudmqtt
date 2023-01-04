@@ -52,6 +52,7 @@ pub async fn create_client_report(
         check_connect_packet_reserved_flag_zero(&client_exe_path).boxed_local(),
         check_connect_flag_username_set_username_present(&client_exe_path).boxed_local(),
         check_connect_flag_password_set_password_present(&client_exe_path).boxed_local(),
+        check_connect_flag_username_zero_means_password_zero(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -609,6 +610,47 @@ async fn check_connect_flag_password_set_password_present(
                         MPacket::Connect(MConnect { password, .. }) => password.is_some(),
                         _ => false,
                     }
+                } else {
+                    true
+                }
+            },
+        ))]);
+
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Success },
+        out_failure => { ReportResult::Inconclusive }
+    };
+
+    Ok(mk_report! {
+        name: "If the CONNECT packet flag for password is set, a password must be present",
+        desc: "If the Password Flag is set to 1, a password MUST be present in the payload.",
+        normative: "[MQTT-3.1.2-20, MQTT-3.1.2-21]",
+        result,
+        output
+    })
+}
+
+async fn check_connect_flag_username_zero_means_password_zero(
+    client_exe_path: &Path,
+) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
+            |bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
+
+                let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
+                let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
+
+                if username_flag_set {
+                    !password_flag_set
                 } else {
                     true
                 }
