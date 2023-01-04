@@ -42,10 +42,11 @@ use mqtt_format::v3::{
     connect_return::MConnectReturnCode,
     packet::{
         MConnack, MConnect, MDisconnect, MPacket, MPingreq, MPingresp, MPuback, MPubcomp, MPublish,
-        MPubrec, MPubrel, MSubscribe,
+        MPubrec, MPubrel, MSuback, MSubscribe,
     },
     qos::MQualityOfService,
     strings::MString,
+    subscription_acks::MSubscriptionAcks,
     will::MLastWill,
 };
 use tokio::{
@@ -455,11 +456,8 @@ impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
                                 debug!("Client disconnected gracefully");
                                 break;
                             }
-                            MPacket::Subscribe(MSubscribe {
-                                id: _,
-                                subscriptions,
-                            }) => {
-                                subscription_manager
+                            MPacket::Subscribe(MSubscribe { id, subscriptions }) => {
+                                let subscription_acks = subscription_manager
                                     .subscribe(
                                         Arc::new(ClientInformation {
                                             client_id: client_id.clone(),
@@ -468,6 +466,15 @@ impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
                                         *subscriptions,
                                     )
                                     .await;
+                                trace!(?client_id, "Received SUBSCRIBE, responding with SUBACK");
+                                let packet = MSuback {
+                                    id: *id,
+                                    subscription_acks: MSubscriptionAcks {
+                                        acks: &subscription_acks,
+                                    },
+                                };
+                                let mut writer = client_connection.writer.lock().await;
+                                crate::write_packet(&mut *writer, packet).await?;
                             }
                             MPacket::Pingreq(MPingreq) => {
                                 trace!(
