@@ -48,6 +48,7 @@ pub async fn create_client_report(
         check_publish_qos_zero_with_ident_fails(&client_exe_path).boxed_local(),
         check_publish_qos_2_is_acked(&client_exe_path).boxed_local(),
         check_first_packet_from_client_is_connect(&client_exe_path).boxed_local(),
+        check_connect_packet_protocol_name(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -441,6 +442,41 @@ async fn check_first_packet_from_client_is_connect(
         name: "First packet received send by client must be CONNECT",
         desc: "After a Network Connection is established by a Client to a Server, the first Packet sent from the Client to the Server MUST be a CONNECT Packet.",
         normative: "[MQTT-3.1.0-1]",
+        result,
+        output
+    })
+}
+
+async fn check_connect_packet_protocol_name(client_exe_path: &Path) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
+            |bytes: &[u8]| -> bool {
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
+
+                match packet {
+                    MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
+                    _ => false,
+                }
+            },
+        ))]);
+
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Success },
+        out_failure => { ReportResult::Inconclusive }
+    };
+
+    Ok(mk_report! {
+        name: "Protocol name should be 'MQTT'",
+        desc: "If the protocol name is incorrect the Server MAY disconnect the Client, or it MAY continue processing the CONNECT packet in accordance with some other specification. In the latter case, the Server MUST NOT continue to process the CONNECT packet in line with this specification",
+        normative: "[MQTT-3.1.2-1]",
         result,
         output
     })
