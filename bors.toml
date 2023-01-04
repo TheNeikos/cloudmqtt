@@ -1,6 +1,5 @@
 status = [
     # Github Actions
-    "checks",
     "license",
     # Garnix
     "Evaluate flake.nix",
