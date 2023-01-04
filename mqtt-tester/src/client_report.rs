@@ -11,9 +11,11 @@ use std::time::Duration;
 use futures::FutureExt;
 use mqtt_format::v3::connect_return::MConnectReturnCode;
 
+use mqtt_format::v3::header::MPacketKind;
 use mqtt_format::v3::identifier::MPacketIdentifier;
 use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MSubscribe};
 
+use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 use tokio::process::Command;
@@ -41,6 +43,7 @@ pub async fn create_client_report(
         check_invalid_utf8_is_rejected(&client_exe_path).boxed_local(),
         check_receiving_server_packet(&client_exe_path).boxed_local(),
         check_invalid_first_packet_is_rejected(&client_exe_path).boxed_local(),
+        check_utf8_with_nullchar_is_rejected(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -192,6 +195,62 @@ async fn check_invalid_first_packet_is_rejected(client_exe_path: &Path) -> miett
         description: String::from("The first packet from the server must be a ConnAck.
                                    Any other packet is invalid and the client should close the connection"),
         normative_statement_number: String::from("[MQTT-3.2.0-1]"),
+        result,
+        output,
+    })
+}
+
+async fn check_utf8_with_nullchar_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([
+            crate::command::ClientCommand::Send(
+                crate::util::packet_to_vec(MPacket::Connack({
+                    MConnack {
+                        session_present: false,
+                        connect_return_code: MConnectReturnCode::Accepted,
+                    }
+                }))
+                .await?,
+            ),
+            crate::command::ClientCommand::Send(vec![
+                (MPacketKind::Publish {
+                    dup: false,
+                    qos: MQualityOfService::AtMostOnce,
+                    retain: false,
+                })
+                .to_byte(),
+                0b0000_0111, // Length
+                // Now the variable header
+                0b0000_0000,
+                0b0000_0010,
+                0x61,
+                0x00,        // Zero byte
+                0b0000_0000, // Packet identifier
+                0b0000_0001,
+                0x1, // Payload
+            ]),
+        ]);
+
+    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
+        Ok(Ok(out)) => (
+            if out.status.success() {
+                ReportResult::Failure
+            } else {
+                ReportResult::Success
+            },
+            Some(out.stderr),
+        ),
+        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    };
+
+    Ok(Report {
+        name: String::from("Check if connection gets closed if UTF-8 string contains nullchar"),
+        description: String::from(
+            "The A UTF-8 encoded string MUST NOT include an encoding of the null character U+0000",
+        ),
+        normative_statement_number: String::from("[MQTT-1.5.3-2]"),
         result,
         output,
     })
