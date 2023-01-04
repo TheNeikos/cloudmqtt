@@ -7,7 +7,7 @@ use std::sync::Arc;
 
 use mqtt_format::v3::{
     connect_return::MConnectReturnCode, qos::MQualityOfService,
-    subscription_acks::MSubscriptionAck, subscription_request::MSubscriptionRequest,
+    subscription_request::MSubscriptionRequest,
 };
 
 use crate::server::ClientId;
@@ -64,7 +64,7 @@ pub trait SubscriptionHandler: Send + Sync + 'static {
         &self,
         client_id: Arc<ClientId>,
         subscription: MSubscriptionRequest<'_>,
-    ) -> MSubscriptionAck;
+    ) -> Option<MQualityOfService>;
 }
 
 /// A [`SubscriptionHandler`] that simply allows all subscription requests
@@ -77,11 +77,7 @@ impl SubscriptionHandler for AllowAllSubscriptions {
         &self,
         _client_id: Arc<ClientId>,
         subscription: MSubscriptionRequest<'_>,
-    ) -> MSubscriptionAck {
-        match subscription.qos {
-            MQualityOfService::AtMostOnce => MSubscriptionAck::MaximumQualityAtMostOnce,
-            MQualityOfService::AtLeastOnce => MSubscriptionAck::MaximumQualityAtLeastOnce,
-            MQualityOfService::ExactlyOnce => MSubscriptionAck::MaximumQualityExactlyOnce,
-        }
+    ) -> Option<MQualityOfService> {
+        Some(subscription.qos)
     }
 }

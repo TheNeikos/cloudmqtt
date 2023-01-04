@@ -112,6 +112,15 @@ impl SubscriptionManager<AllowAllSubscriptions> {
 }
 
 impl<SH: SubscriptionHandler> SubscriptionManager<SH> {
+    pub(crate) fn with_subscription_handler<NSH: SubscriptionHandler>(
+        self,
+        new_subscription_handler: NSH,
+    ) -> SubscriptionManager<NSH> {
+        SubscriptionManager {
+            subscriptions: self.subscriptions,
+            subscription_handler: new_subscription_handler,
+        }
+    }
     pub(crate) async fn subscribe(
         &self,
         client: Arc<ClientInformation>,
@@ -125,15 +134,26 @@ impl<SH: SubscriptionHandler> SubscriptionManager<SH> {
                 async move {
                     let topic_levels: VecDeque<TopicFilter> =
                         TopicFilter::parse_from(sub.topic.to_string());
-                    let client_sub = ClientSubscription {
-                        qos: sub.qos,
-                        client: client.clone(),
-                    };
 
-                    let ack = self
+                    let sub_resp = self
                         .subscription_handler
                         .allow_subscription(client.client_id.clone(), sub)
                         .await;
+
+                    let ack = match sub_resp {
+                        None => MSubscriptionAck::Failure,
+                        Some(MQualityOfService::AtMostOnce) => {
+                            MSubscriptionAck::MaximumQualityAtMostOnce
+                        }
+                        Some(MQualityOfService::AtLeastOnce) => {
+                            MSubscriptionAck::MaximumQualityAtLeastOnce
+                        }
+                        Some(MQualityOfService::ExactlyOnce) => {
+                            MSubscriptionAck::MaximumQualityExactlyOnce
+                        }
+                    };
+
+                    let client_sub = sub_resp.map(|qos| ClientSubscription { qos, client });
 
                     (topic_levels, client_sub, ack)
                 }
@@ -146,7 +166,9 @@ impl<SH: SubscriptionHandler> SubscriptionManager<SH> {
             let mut subs = SubscriptionTopic::clone(old_table);
 
             for (topic, client, _) in sub_changes.clone() {
-                subs.add_subscription(topic, client);
+                if let Some(client) = client {
+                    subs.add_subscription(topic, client);
+                }
             }
 
             subs

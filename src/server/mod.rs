@@ -164,6 +164,10 @@ impl MqttServer<AllowAllLogins, AllowAllSubscriptions> {
 
 impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
     /// Switch the login handler with a new one
+    ///
+    /// ## Note
+    ///
+    /// You should only call this after instantiating the server, and before listening
     pub fn with_login_handler<NLH: LoginHandler>(
         self,
         new_login_handler: NLH,
@@ -173,6 +177,29 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
             client_source: self.client_source,
             auth_handler: new_login_handler,
             subscription_manager: self.subscription_manager,
+        }
+    }
+
+    /// Resets the subscription handler to a new one
+    ///
+    /// ## Note
+    ///
+    /// You should only call this after instantiating the server, and before listening
+    pub fn with_subscription_handler<NSH: SubscriptionHandler>(
+        self,
+        new_subscription_handler: NSH,
+    ) -> MqttServer<LH, NSH> {
+        MqttServer {
+            clients: self.clients,
+            client_source: self.client_source,
+            auth_handler: self.auth_handler,
+            subscription_manager: Arc::new({
+                let manager = Arc::try_unwrap(self.subscription_manager);
+
+                manager
+                    .unwrap_or_else(|_| panic!("Called after started listening"))
+                    .with_subscription_handler(new_subscription_handler)
+            }),
         }
     }
 
