@@ -5,6 +5,8 @@
 //
 use std::sync::Arc;
 
+use mqtt_format::v3::connect_return::MConnectReturnCode;
+
 use crate::server::ClientId;
 
 /// Errors that can occur during login
@@ -13,6 +15,15 @@ pub enum LoginError {
     /// The given password did not match
     #[error("The given password did not match")]
     InvalidPassword,
+}
+
+impl LoginError {
+    /// Convert the error into a rejection code
+    pub fn as_rejection_code(&self) -> MConnectReturnCode {
+        match self {
+            LoginError::InvalidPassword => MConnectReturnCode::BadUsernamePassword,
+        }
+    }
 }
 
 /// Objects that can handle authentication implement this trait

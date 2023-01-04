@@ -255,7 +255,7 @@ impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
                 .allow_login(client_id.clone(), username.as_deref(), password)
                 .await
             {
-                send_connack(session_present, MConnectReturnCode::Accepted, &mut client).await?;
+                send_connack(session_present, err.as_rejection_code(), &mut client).await?;
 
                 return Err(ClientError::Authentication(err));
             }
