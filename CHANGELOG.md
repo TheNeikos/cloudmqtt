@@ -1,5 +1,13 @@
 # Changelog 'cloudmqtt'
 
+## v0.2.0
+
+The 0.2.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
+
+Added:
+
+- Added an MQTT Server that can act as a broker
+- Added QoS 1 and 2 levels to the broker
 
 ## v0.1.0
 

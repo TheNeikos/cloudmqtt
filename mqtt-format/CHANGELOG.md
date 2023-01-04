@@ -1,5 +1,13 @@
 # Changelog 'mqtt-format'
 
+## v0.2.0
+
+The 0.2.0 is a public release of the mqtt-format crate. It is still in an alpha state.
+
+Added:
+
+- Added support for serializing more packets
+- Added yoke-ing behind a feature flag
 
 ## v0.1.0
 
