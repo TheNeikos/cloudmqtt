@@ -32,6 +32,8 @@
 mod message;
 mod state;
 mod subscriptions;
+/// Authentication related functionality
+pub mod login;
 
 use std::{sync::Arc, time::Duration};
 

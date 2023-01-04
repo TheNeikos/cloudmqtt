@@ -57,6 +57,7 @@ tracing-subscriber = { version = "0.3.16", optional = true, features = [
     "env-filter",
 ] }
 yoke = "0.6.1"
+async-trait = "0.1.60"
 
 [dev-dependencies]
 static_assertions = "1.1.0"
