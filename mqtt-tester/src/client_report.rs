@@ -51,6 +51,22 @@ pub async fn create_client_report(
         .collect::<Result<Vec<_>, _>>()
 }
 
+macro_rules! mk_report {
+    (name: $name:literal,
+     desc: $description:literal,
+     normative: $normative:literal,
+     $result:ident,
+     $output:ident) => {
+        Report {
+            name: String::from($name),
+            description: String::from($description),
+            normative_statement_number: String::from($normative),
+            $result,
+            $output,
+        }
+    };
+}
+
 async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
     let output = open_connection_with(client_exe_path)
         .await
@@ -94,13 +110,12 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
         Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
     };
 
-    Ok(Report {
-        name: String::from("Check if invalid UTF-8 is rejected"),
-        description: String::from("Invalid UTF-8 is not allowed per the MQTT spec.\
-                                  Any receiver should immediately close the connection upon receiving such a packet."),
-        normative_statement_number: String::from("[MQTT-1.5.3-1, MQTT-1.5.3-2]"),
+    Ok(mk_report! {
+        name: "Check if invalid UTF-8 is rejected",
+        desc: "Invalid UTF-8 is not allowed per the MQTT spec. Any receiver should immediately close the connection upon receiving such a packet.",
+        normative: "[MQTT-1.5.3-1, MQTT-1.5.3-2]",
         result,
-        output,
+        output
     })
 }
 
@@ -144,14 +159,12 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
         Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
     };
 
-    Ok(Report {
-        name: String::from("Check if invalid packets are rejected"),
-        description: String::from(
-            "Unexpected packets are a protocol error and the client MUST close the connection.",
-        ),
-        normative_statement_number: String::from("[MQTT-4.8.0-1]"),
+    Ok(mk_report! {
+        name: "Check if invalid packets are rejected",
+        desc: "Unexpected packets are a protocol error and the client MUST close the connection.",
+        normative: "[MQTT-4.8.0-1]",
         result,
-        output,
+        output
     })
 }
 
@@ -187,12 +200,11 @@ async fn check_invalid_first_packet_is_rejected(client_exe_path: &Path) -> miett
         Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
     };
 
-    Ok(Report {
-        name: String::from("Check if invalid first packet is rejected"),
-        description: String::from("The first packet from the server must be a ConnAck.
-                                   Any other packet is invalid and the client should close the connection"),
-        normative_statement_number: String::from("[MQTT-3.2.0-1]"),
+    Ok(mk_report! {
+        name: "Check if invalid first packet is rejected",
+        desc: "The first packet from the server must be a ConnAck. Any other packet is invalid and the client should close the connection",
+        normative: "[MQTT-3.2.0-1]",
         result,
-        output,
+        output
     })
 }
