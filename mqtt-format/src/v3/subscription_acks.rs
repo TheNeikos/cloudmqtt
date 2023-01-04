@@ -4,13 +4,35 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use futures::{AsyncWrite, AsyncWriteExt};
 use nom::{error::FromExternalError, multi::many1_count};
 
-use super::{errors::MPacketHeaderError, MSResult};
+use super::{
+    errors::{MPacketHeaderError, MPacketWriteError},
+    MSResult,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MSubscriptionAcks<'message> {
     pub acks: &'message [MSubscriptionAck],
+}
+impl<'message> MSubscriptionAcks<'message> {
+    pub(crate) async fn write_to<W: AsyncWrite>(
+        &self,
+        writer: &mut std::pin::Pin<&mut W>,
+    ) -> Result<(), MPacketWriteError> {
+        writer
+            .write_all(unsafe {
+                // SAFETY: We know that MSubscriptionAck is repr u8, so we can safely transmute one
+                // slice into the other
+                std::mem::transmute(self.acks)
+            })
+            .await?;
+        Ok(())
+    }
+    pub(crate) fn get_len(&self) -> usize {
+        1
+    }
 }
 
 #[repr(u8)]

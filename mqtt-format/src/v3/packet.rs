@@ -437,9 +437,25 @@ impl<'message> MPacket<'message> {
                 subscriptions.write_to(&mut writer).await?;
             }
             MPacket::Suback(MSuback {
-                id: _,
-                subscription_acks: _,
-            }) => todo!(),
+                id,
+                subscription_acks,
+            }) => {
+                let packet_type = 0b1001_0000;
+
+                // Header 1
+                writer.write_all(&[packet_type]).await?;
+
+                let remaining_length = id.get_len() + subscription_acks.get_len();
+
+                // Header 2-5
+                write_remaining_length!(writer, remaining_length);
+
+                // Variable header
+
+                id.write_to(&mut writer).await?;
+
+                subscription_acks.write_to(&mut writer).await?;
+            }
             MPacket::Unsubscribe(MUnsubscribe {
                 id: _,
                 unsubscriptions: _,
