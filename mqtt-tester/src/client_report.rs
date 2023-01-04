@@ -47,6 +47,7 @@ pub async fn create_client_report(
         check_connack_flags_are_set_as_reserved(&client_exe_path).boxed_local(),
         check_publish_qos_zero_with_ident_fails(&client_exe_path).boxed_local(),
         check_publish_qos_2_is_acked(&client_exe_path).boxed_local(),
+        check_first_packet_from_client_is_connect(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -406,6 +407,40 @@ async fn check_publish_qos_2_is_acked(client_exe_path: &Path) -> miette::Result<
         name: "A PUBLISH packet is replied to with Puback with the same id",
         desc: "A PUBACK, PUBREC or PUBREL Packet MUST contain the same Packet Identifier as the PUBLISH Packet that was originally sent.",
         normative: "[MQTT-2.3.1-6]",
+        result,
+        output
+    })
+}
+
+async fn check_first_packet_from_client_is_connect(
+    client_exe_path: &Path,
+) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
+            |bytes: &[u8]| -> bool {
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
+
+                std::matches!(packet, MPacket::Connect { .. })
+            },
+        ))]);
+
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Success },
+        out_failure => { ReportResult::Failure }
+    };
+
+    Ok(mk_report! {
+        name: "First packet received send by client must be CONNECT",
+        desc: "After a Network Connection is established by a Client to a Server, the first Packet sent from the Client to the Server MUST be a CONNECT Packet.",
+        normative: "[MQTT-3.1.0-1]",
         result,
         output
     })

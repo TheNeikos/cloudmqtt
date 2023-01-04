@@ -613,6 +613,7 @@ dependencies = [
  "futures",
  "miette",
  "mqtt-format",
+ "nom",
  "textwrap 0.15.2",
  "tokio",
 ]
