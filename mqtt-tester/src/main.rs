@@ -6,6 +6,7 @@
 
 mod client_report;
 mod command;
+mod executable;
 mod report;
 mod util;
 
