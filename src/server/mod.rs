@@ -60,7 +60,9 @@ use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 use subscriptions::{ClientInformation, SubscriptionManager};
 
 use self::{
-    handler::{AllowAllLogins, LoginError, LoginHandler},
+    handler::{
+        AllowAllLogins, AllowAllSubscriptions, LoginError, LoginHandler, SubscriptionHandler,
+    },
     message::MqttMessage,
     state::ClientState,
 };
@@ -137,14 +139,14 @@ impl ClientSource {
 ///
 /// Check out the server example for a working version.
 ///
-pub struct MqttServer<LH> {
+pub struct MqttServer<LoginH, SubH> {
     clients: Arc<DashMap<ClientId, ClientState>>,
     client_source: Mutex<ClientSource>,
-    auth_handler: LH,
-    subscription_manager: SubscriptionManager,
+    auth_handler: LoginH,
+    subscription_manager: Arc<SubscriptionManager<SubH>>,
 }
 
-impl MqttServer<AllowAllLogins> {
+impl MqttServer<AllowAllLogins, AllowAllSubscriptions> {
     /// Create a new MQTT server listening on the given `SocketAddr`
     pub async fn serve_v3_unsecured_tcp<Addr: ToSocketAddrs>(
         addr: Addr,
@@ -155,14 +157,17 @@ impl MqttServer<AllowAllLogins> {
             clients: Arc::new(DashMap::new()),
             client_source: Mutex::new(ClientSource::UnsecuredTcp(bind)),
             auth_handler: AllowAllLogins,
-            subscription_manager: SubscriptionManager::new(),
+            subscription_manager: Arc::new(SubscriptionManager::new()),
         })
     }
 }
 
-impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
+impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
     /// Switch the login handler with a new one
-    pub fn with_login_handler<NLH: LoginHandler>(self, new_login_handler: NLH) -> MqttServer<NLH> {
+    pub fn with_login_handler<NLH: LoginHandler>(
+        self,
+        new_login_handler: NLH,
+    ) -> MqttServer<NLH, SH> {
         MqttServer {
             clients: self.clients,
             client_source: self.client_source,
@@ -213,8 +218,8 @@ impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
         }
 
         #[allow(clippy::too_many_arguments)]
-        async fn connect_client<'message, LH: LoginHandler>(
-            server: &MqttServer<LH>,
+        async fn connect_client<'message, LH: LoginHandler, SubH: SubscriptionHandler>(
+            server: &MqttServer<LH, SubH>,
             mut client: MqttStream,
             _protocol_name: MString<'message>,
             _protocol_level: u8,

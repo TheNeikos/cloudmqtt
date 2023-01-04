@@ -10,6 +10,7 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
+use futures::{stream::FuturesUnordered, StreamExt};
 use mqtt_format::v3::{
     qos::MQualityOfService, subscription_acks::MSubscriptionAck,
     subscription_request::MSubscriptionRequests,
@@ -17,6 +18,8 @@ use mqtt_format::v3::{
 use tracing::{debug, trace};
 
 use crate::server::{ClientId, MqttMessage};
+
+use super::handler::{AllowAllSubscriptions, SubscriptionHandler};
 
 // foo/barr/# => vec![Named, Named, MultiWildcard]
 // /foo/barr/# => vec![Empty, ... ]
@@ -94,16 +97,21 @@ impl TopicFilter {
     }
 }
 
-#[derive(Debug, Clone, Default)]
-pub(crate) struct SubscriptionManager {
+pub(crate) struct SubscriptionManager<SubH> {
+    subscription_handler: SubH,
     subscriptions: Arc<ArcSwap<SubscriptionTopic>>,
 }
 
-impl SubscriptionManager {
-    pub(crate) fn new() -> SubscriptionManager {
-        Default::default()
+impl SubscriptionManager<AllowAllSubscriptions> {
+    pub(crate) fn new() -> Self {
+        SubscriptionManager {
+            subscription_handler: AllowAllSubscriptions,
+            subscriptions: Arc::default(),
+        }
     }
+}
 
+impl<SH: SubscriptionHandler> SubscriptionManager<SH> {
     pub(crate) async fn subscribe(
         &self,
         client: Arc<ClientInformation>,
@@ -113,22 +121,26 @@ impl SubscriptionManager {
         let sub_changes: Vec<_> = subscriptions
             .into_iter()
             .map(|sub| {
-                let topic_levels: VecDeque<TopicFilter> =
-                    TopicFilter::parse_from(sub.topic.to_string());
-                let client_sub = ClientSubscription {
-                    qos: sub.qos,
-                    client: client.clone(),
-                };
+                let client = client.clone();
+                async move {
+                    let topic_levels: VecDeque<TopicFilter> =
+                        TopicFilter::parse_from(sub.topic.to_string());
+                    let client_sub = ClientSubscription {
+                        qos: sub.qos,
+                        client: client.clone(),
+                    };
 
-                let ack = match sub.qos {
-                    MQualityOfService::AtMostOnce => MSubscriptionAck::MaximumQualityAtMostOnce,
-                    MQualityOfService::AtLeastOnce => MSubscriptionAck::MaximumQualityAtLeastOnce,
-                    MQualityOfService::ExactlyOnce => MSubscriptionAck::MaximumQualityExactlyOnce,
-                };
+                    let ack = self
+                        .subscription_handler
+                        .allow_subscription(client.client_id.clone(), sub)
+                        .await;
 
-                (topic_levels, client_sub, ack)
+                    (topic_levels, client_sub, ack)
+                }
             })
-            .collect();
+            .collect::<FuturesUnordered<_>>()
+            .collect()
+            .await;
 
         self.subscriptions.rcu(|old_table| {
             let mut subs = SubscriptionTopic::clone(old_table);
