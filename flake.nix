@@ -38,11 +38,12 @@
 
         cargoArtifacts = craneLib.buildDepsOnly {
           inherit src;
+          cargoExtraArgs = "--all-features --all";
         };
 
         cloudmqtt = craneLib.buildPackage {
           inherit cargoArtifacts src version;
-          cargoExtraArgs = "--all-features";
+          cargoExtraArgs = "--all-features --all";
         };
 
         cloudmqtt-client = craneLib.buildPackage {
@@ -64,6 +65,7 @@
 
           cloudmqtt-clippy = craneLib.cargoClippy {
             inherit cargoArtifacts src;
+            cargoExtraArgs = "--all --all-features";
             cargoClippyExtraArgs = "-- --deny warnings";
           };
 
@@ -93,12 +95,10 @@
 
         devShells.default = devShells.cloudmqtt;
         devShells.cloudmqtt = pkgs.mkShell {
-          buildInputs = [
-          ];
+          buildInputs = [ ];
 
           nativeBuildInputs = [
             rustTarget
-            #unstableRustTarget
 
             pkgs.cargo-msrv
             pkgs.cargo-deny
