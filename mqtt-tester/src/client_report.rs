@@ -12,8 +12,9 @@ use futures::FutureExt;
 use mqtt_format::v3::connect_return::MConnectReturnCode;
 
 use mqtt_format::v3::identifier::MPacketIdentifier;
-use mqtt_format::v3::packet::{MConnack, MPacket, MSubscribe};
+use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MSubscribe};
 
+use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 use tokio::process::Command;
 
@@ -39,6 +40,7 @@ pub async fn create_client_report(
     let reports = vec![
         check_invalid_utf8_is_rejected(&client_exe_path).boxed_local(),
         check_receiving_server_packet(&client_exe_path).boxed_local(),
+        check_invalid_first_packet_is_rejected(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -148,6 +150,48 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
             "Unexpected packets are a protocol error and the client MUST close the connection.",
         ),
         normative_statement_number: String::from("[MQTT-4.8.0-1]"),
+        result,
+        output,
+    })
+}
+
+async fn check_invalid_first_packet_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::Send(
+            crate::util::packet_to_vec(MPacket::Connect({
+                MConnect {
+                    protocol_name: MString { value: "foo" },
+                    protocol_level: 0,
+                    clean_session: true,
+                    will: None,
+                    username: None,
+                    password: None,
+                    keep_alive: 0,
+                    client_id: MString { value: "client" },
+                }
+            }))
+            .await?,
+        )]);
+
+    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
+        Ok(Ok(out)) => (
+            if out.status.success() {
+                ReportResult::Failure
+            } else {
+                ReportResult::Success
+            },
+            Some(out.stderr),
+        ),
+        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    };
+
+    Ok(Report {
+        name: String::from("Check if invalid first packet is rejected"),
+        description: String::from("The first packet from the server must be a ConnAck.
+                                   Any other packet is invalid and the client should close the connection"),
+        normative_statement_number: String::from("[MQTT-3.2.0-1]"),
         result,
         output,
     })
