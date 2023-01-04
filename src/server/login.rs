@@ -9,7 +9,11 @@ use crate::server::ClientId;
 
 /// Errors that can occur during login
 #[derive(Debug, thiserror::Error)]
-pub enum LoginError {}
+pub enum LoginError {
+    /// The given password did not match
+    #[error("The given password did not match")]
+    InvalidPassword,
+}
 
 /// Objects that can handle authentication implement this trait
 #[async_trait::async_trait]
