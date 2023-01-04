@@ -5,7 +5,10 @@
 //
 use std::sync::Arc;
 
-use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::{
+    connect_return::MConnectReturnCode, qos::MQualityOfService,
+    subscription_acks::MSubscriptionAck, subscription_request::MSubscriptionRequest,
+};
 
 use crate::server::ClientId;
 
@@ -50,5 +53,35 @@ impl LoginHandler for AllowAllLogins {
         _password: Option<&[u8]>,
     ) -> Result<(), LoginError> {
         Ok(())
+    }
+}
+
+/// Objects that can handle authentication implement this trait
+#[async_trait::async_trait]
+pub trait SubscriptionHandler: Send + Sync + 'static {
+    /// Check whether to allow this client to log in
+    async fn allow_subscription(
+        &self,
+        client_id: Arc<ClientId>,
+        subscription: MSubscriptionRequest<'_>,
+    ) -> MSubscriptionAck;
+}
+
+/// A [`SubscriptionHandler`] that simply allows all subscription requests
+pub struct AllowAllSubscriptions;
+
+#[async_trait::async_trait]
+impl SubscriptionHandler for AllowAllSubscriptions {
+    /// Check whether to allow this client to log in
+    async fn allow_subscription(
+        &self,
+        _client_id: Arc<ClientId>,
+        subscription: MSubscriptionRequest<'_>,
+    ) -> MSubscriptionAck {
+        match subscription.qos {
+            MQualityOfService::AtMostOnce => MSubscriptionAck::MaximumQualityAtMostOnce,
+            MQualityOfService::AtLeastOnce => MSubscriptionAck::MaximumQualityAtLeastOnce,
+            MQualityOfService::ExactlyOnce => MSubscriptionAck::MaximumQualityExactlyOnce,
+        }
     }
 }
