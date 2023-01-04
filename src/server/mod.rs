@@ -30,7 +30,7 @@
 #![deny(missing_docs)]
 
 /// Authentication related functionality
-pub mod login;
+pub mod handler;
 mod message;
 mod state;
 mod subscriptions;
@@ -60,7 +60,7 @@ use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 use subscriptions::{ClientInformation, SubscriptionManager};
 
 use self::{
-    login::{LoginError, LoginHandler},
+    handler::{LoginError, LoginHandler},
     message::MqttMessage,
     state::ClientState,
 };

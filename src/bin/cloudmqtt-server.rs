@@ -6,7 +6,7 @@
 
 use std::sync::Arc;
 
-use cloudmqtt::server::login::{LoginError, LoginHandler};
+use cloudmqtt::server::handler::{LoginError, LoginHandler};
 use cloudmqtt::server::{ClientId, MqttServer};
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
