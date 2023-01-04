@@ -8,6 +8,7 @@ use std::sync::Arc;
 use crate::server::ClientId;
 
 /// Errors that can occur during login
+#[derive(Debug, thiserror::Error)]
 pub enum LoginError {}
 
 /// Objects that can handle authentication implement this trait
@@ -15,8 +16,21 @@ pub enum LoginError {}
 pub trait LoginHandler {
     /// Check whether to allow this client to log in
     async fn allow_login(
+        &self,
         client_id: Arc<ClientId>,
-        username: &str,
-        password: &str,
+        username: Option<&str>,
+        password: Option<&[u8]>,
     ) -> Result<(), LoginError>;
+}
+
+#[async_trait::async_trait]
+impl LoginHandler for () {
+    async fn allow_login(
+        &self,
+        _client_id: Arc<ClientId>,
+        _username: Option<&str>,
+        _password: Option<&[u8]>,
+    ) -> Result<(), LoginError> {
+        Ok(())
+    }
 }
