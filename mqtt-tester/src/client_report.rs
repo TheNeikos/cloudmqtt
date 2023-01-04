@@ -49,6 +49,7 @@ pub async fn create_client_report(
         check_publish_qos_2_is_acked(&client_exe_path).boxed_local(),
         check_first_packet_from_client_is_connect(&client_exe_path).boxed_local(),
         check_connect_packet_protocol_name(&client_exe_path).boxed_local(),
+        check_connect_packet_reserved_flag_zero(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -477,6 +478,32 @@ async fn check_connect_packet_protocol_name(client_exe_path: &Path) -> miette::R
         name: "Protocol name should be 'MQTT'",
         desc: "If the protocol name is incorrect the Server MAY disconnect the Client, or it MAY continue processing the CONNECT packet in accordance with some other specification. In the latter case, the Server MUST NOT continue to process the CONNECT packet in line with this specification",
         normative: "[MQTT-3.1.2-1]",
+        result,
+        output
+    })
+}
+
+async fn check_connect_packet_reserved_flag_zero(client_exe_path: &Path) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
+            |bytes: &[u8]| -> bool {
+                bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
+            },
+        ))]);
+
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Success },
+        out_failure => { ReportResult::Inconclusive }
+    };
+
+    Ok(mk_report! {
+        name: "The CONNECT packet flags must be zero.",
+        desc: "The Server MUST validate that the reserved flag in the CONNECT Control Packet is set to zero and disconnect the Client if it is not zero.",
+        normative: "[MQTT-3.1.2-3]",
         result,
         output
     })
