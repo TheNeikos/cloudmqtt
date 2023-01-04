@@ -38,6 +38,7 @@
 
         cargoArtifacts = craneLib.buildDepsOnly {
           inherit src;
+          cargoExtraArgs = "--all-features --all";
         };
 
         cloudmqtt = craneLib.buildPackage {
