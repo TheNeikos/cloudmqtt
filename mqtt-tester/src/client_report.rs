@@ -67,6 +67,29 @@ macro_rules! mk_report {
     };
 }
 
+macro_rules! wait_for_output {
+    ($output:ident,
+     timeout_ms: $timeout_ms:literal,
+     out_success => $success:block,
+     out_failure => $failure:block
+    ) => {{
+        let (result, output) =
+            match tokio::time::timeout(Duration::from_millis($timeout_ms), $output).await {
+                Ok(Ok(out)) => (
+                    if out.status.success() {
+                        $success
+                    } else {
+                        $failure
+                    },
+                    Some(out.stderr),
+                ),
+                Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+            };
+
+        (result, output)
+    }};
+}
+
 async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
     let output = open_connection_with(client_exe_path)
         .await
@@ -98,16 +121,11 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
             ),
         ]);
 
-    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
-        Ok(Ok(out)) => (
-            if out.status.success() {
-                ReportResult::Failure
-            } else {
-                ReportResult::Success
-            },
-            Some(out.stderr),
-        ),
-        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Failure },
+        out_failure => { ReportResult::Success }
     };
 
     Ok(mk_report! {
@@ -147,16 +165,11 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
             ),
         ]);
 
-    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
-        Ok(Ok(out)) => (
-            if out.status.success() {
-                ReportResult::Failure
-            } else {
-                ReportResult::Success
-            },
-            Some(out.stderr),
-        ),
-        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Failure },
+        out_failure => { ReportResult::Success }
     };
 
     Ok(mk_report! {
@@ -188,16 +201,11 @@ async fn check_invalid_first_packet_is_rejected(client_exe_path: &Path) -> miett
             .await?,
         )]);
 
-    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
-        Ok(Ok(out)) => (
-            if out.status.success() {
-                ReportResult::Failure
-            } else {
-                ReportResult::Success
-            },
-            Some(out.stderr),
-        ),
-        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Failure },
+        out_failure => { ReportResult::Success }
     };
 
     Ok(mk_report! {
