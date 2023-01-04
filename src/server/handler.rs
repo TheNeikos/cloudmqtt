@@ -38,8 +38,11 @@ pub trait LoginHandler {
     ) -> Result<(), LoginError>;
 }
 
+/// A [`LoginHandler`] that simply allows all login attempts
+pub struct AllowAllLogins;
+
 #[async_trait::async_trait]
-impl LoginHandler for () {
+impl LoginHandler for AllowAllLogins {
     async fn allow_login(
         &self,
         _client_id: Arc<ClientId>,

@@ -60,7 +60,7 @@ use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 use subscriptions::{ClientInformation, SubscriptionManager};
 
 use self::{
-    handler::{LoginError, LoginHandler},
+    handler::{AllowAllLogins, LoginError, LoginHandler},
     message::MqttMessage,
     state::ClientState,
 };
@@ -137,14 +137,14 @@ impl ClientSource {
 ///
 /// Check out the server example for a working version.
 ///
-pub struct MqttServer<LH = ()> {
+pub struct MqttServer<LH> {
     clients: Arc<DashMap<ClientId, ClientState>>,
     client_source: Mutex<ClientSource>,
     auth_handler: LH,
     subscription_manager: SubscriptionManager,
 }
 
-impl MqttServer<()> {
+impl MqttServer<AllowAllLogins> {
     /// Create a new MQTT server listening on the given `SocketAddr`
     pub async fn serve_v3_unsecured_tcp<Addr: ToSocketAddrs>(
         addr: Addr,
@@ -154,7 +154,7 @@ impl MqttServer<()> {
         Ok(MqttServer {
             clients: Arc::new(DashMap::new()),
             client_source: Mutex::new(ClientSource::UnsecuredTcp(bind)),
-            auth_handler: (),
+            auth_handler: AllowAllLogins,
             subscription_manager: SubscriptionManager::new(),
         })
     }
