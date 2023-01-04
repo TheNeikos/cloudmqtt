@@ -6,9 +6,31 @@
 
 use std::sync::Arc;
 
-use cloudmqtt::server::MqttServer;
+use cloudmqtt::server::login::{LoginError, LoginHandler};
+use cloudmqtt::server::{ClientId, MqttServer};
+use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
+
+struct SimpleLoginHandler;
+
+#[async_trait::async_trait]
+impl LoginHandler for SimpleLoginHandler {
+    async fn allow_login(
+        &self,
+        client_id: Arc<ClientId>,
+        username: Option<&str>,
+        password: Option<&[u8]>,
+    ) -> Result<(), LoginError> {
+        info!("Client ({client_id:?}), tried to connect with username: {username:?}, password: {password:?}");
+
+        if username == Some("foo") {
+            return Err(LoginError::InvalidPassword);
+        }
+
+        Ok(())
+    }
+}
 
 #[tokio::main]
 async fn main() {
@@ -27,7 +49,8 @@ async fn main() {
 
     let server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883")
         .await
-        .unwrap();
+        .unwrap()
+        .with_login_handler(SimpleLoginHandler);
 
     Arc::new(server).accept_new_clients().await.unwrap();
 }
