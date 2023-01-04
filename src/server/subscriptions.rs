@@ -10,7 +10,10 @@ use std::{
 };
 
 use arc_swap::ArcSwap;
-use mqtt_format::v3::{qos::MQualityOfService, subscription_request::MSubscriptionRequests};
+use mqtt_format::v3::{
+    qos::MQualityOfService, subscription_acks::MSubscriptionAck,
+    subscription_request::MSubscriptionRequests,
+};
 use tracing::{debug, trace};
 
 use crate::server::{ClientId, MqttMessage};
@@ -105,7 +108,7 @@ impl SubscriptionManager {
         &self,
         client: Arc<ClientInformation>,
         subscriptions: MSubscriptionRequests<'_>,
-    ) {
+    ) -> Vec<MSubscriptionAck> {
         debug!(?client, ?subscriptions, "Subscribing client");
         let sub_changes: Vec<_> = subscriptions
             .into_iter()
@@ -117,19 +120,27 @@ impl SubscriptionManager {
                     client: client.clone(),
                 };
 
-                (topic_levels, client_sub)
+                let ack = match sub.qos {
+                    MQualityOfService::AtMostOnce => MSubscriptionAck::MaximumQualityAtMostOnce,
+                    MQualityOfService::AtLeastOnce => MSubscriptionAck::MaximumQualityAtLeastOnce,
+                    MQualityOfService::ExactlyOnce => MSubscriptionAck::MaximumQualityExactlyOnce,
+                };
+
+                (topic_levels, client_sub, ack)
             })
             .collect();
 
         self.subscriptions.rcu(|old_table| {
             let mut subs = SubscriptionTopic::clone(old_table);
 
-            for (topic, client) in sub_changes.clone() {
+            for (topic, client, _) in sub_changes.clone() {
                 subs.add_subscription(topic, client);
             }
 
             subs
         });
+
+        sub_changes.into_iter().map(|(_, _, ack)| ack).collect()
     }
 
     pub(crate) async fn route_message(&self, message: MqttMessage) {
