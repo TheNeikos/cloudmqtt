@@ -50,6 +50,7 @@ pub async fn create_client_report(
         check_first_packet_from_client_is_connect(&client_exe_path).boxed_local(),
         check_connect_packet_protocol_name(&client_exe_path).boxed_local(),
         check_connect_packet_reserved_flag_zero(&client_exe_path).boxed_local(),
+        check_connect_flag_username_set_username_present(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -504,6 +505,76 @@ async fn check_connect_packet_reserved_flag_zero(client_exe_path: &Path) -> miet
         name: "The CONNECT packet flags must be zero.",
         desc: "The Server MUST validate that the reserved flag in the CONNECT Control Packet is set to zero and disconnect the Client if it is not zero.",
         normative: "[MQTT-3.1.2-3]",
+        result,
+        output
+    })
+}
+
+fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
+    macro_rules! getbyte {
+        ($n:tt) => {
+            if let Some(b) = bytes.get($n) {
+                *b
+            } else {
+                return None;
+            }
+        };
+    }
+
+    if getbyte!(0) != 0b0001_0000 {
+        return None;
+    }
+
+    let str_len = getbyte!(4);
+    let connect_flag_position = 4usize + (str_len as usize) + 2;
+    Some(getbyte!(connect_flag_position))
+}
+
+async fn check_connect_flag_username_set_username_present(
+    client_exe_path: &Path,
+) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
+            |bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
+
+                if 0 != (connect_flags & 0b1000_0000) {
+                    // username flag set
+                    let packet = match nom::combinator::all_consuming(
+                        mqtt_format::v3::packet::mpacket,
+                    )(bytes)
+                    {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
+
+                    match packet {
+                        MPacket::Connect(MConnect { username, .. }) => username.is_some(),
+                        _ => false,
+                    }
+                } else {
+                    true
+                }
+            },
+        ))]);
+
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Success },
+        out_failure => { ReportResult::Inconclusive }
+    };
+
+    Ok(mk_report! {
+        name: "If the CONNECT packet flag for username is set, a username must be present",
+        desc: "If the User Name Flag is set to 1, a user name MUST be present in the payload.",
+        normative: "[MQTT-3.1.2-18, MQTT-3.1.2-19]",
         result,
         output
     })
