@@ -44,6 +44,7 @@ pub async fn create_client_report(
         check_receiving_server_packet(&client_exe_path).boxed_local(),
         check_invalid_first_packet_is_rejected(&client_exe_path).boxed_local(),
         check_utf8_with_nullchar_is_rejected(&client_exe_path).boxed_local(),
+        check_connack_flags_are_set_as_reserved(&client_exe_path).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -263,6 +264,40 @@ async fn check_utf8_with_nullchar_is_rejected(client_exe_path: &Path) -> miette:
             "The A UTF-8 encoded string MUST NOT include an encoding of the null character U+0000",
         ),
         normative_statement_number: String::from("[MQTT-1.5.3-2]"),
+        result,
+        output,
+    })
+}
+
+async fn check_connack_flags_are_set_as_reserved(client_exe_path: &Path) -> miette::Result<Report> {
+    let output = open_connection_with(client_exe_path)
+        .await
+        .map(crate::command::Command::new)?
+        .wait_for_write([crate::command::ClientCommand::Send(vec![
+            0b0010_0000 | 0b0000_1000, // CONNACK + garbage
+            0b0000_0010,               // Remaining length
+            0b0000_0000,               // No session present
+            0b0000_0000,               // Connection accepted
+        ])]);
+
+    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
+        Ok(Ok(out)) => (
+            if out.status.success() {
+                ReportResult::Failure
+            } else {
+                ReportResult::Success
+            },
+            Some(out.stderr),
+        ),
+        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    };
+
+    Ok(Report {
+        name: String::from("Flag-Bit is set to 1 where it should be 0"),
+        description: String::from(
+            "CONNACK flag bits are marked as Reserved and must be set accordingly to spec",
+        ),
+        normative_statement_number: String::from("[MQTT-2.2.2-1]"),
         result,
         output,
     })
