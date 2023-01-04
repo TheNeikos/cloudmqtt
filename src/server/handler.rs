@@ -31,7 +31,7 @@ impl LoginError {
 
 /// Objects that can handle authentication implement this trait
 #[async_trait::async_trait]
-pub trait LoginHandler {
+pub trait LoginHandler: Send + Sync + 'static {
     /// Check whether to allow this client to log in
     async fn allow_login(
         &self,
