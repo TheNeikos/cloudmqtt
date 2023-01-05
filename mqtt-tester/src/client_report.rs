@@ -93,36 +93,34 @@ macro_rules! wait_for_output {
 }
 
 async fn check_invalid_utf8_is_rejected(executable: &ClientExecutable) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, _output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Connack({
-                    MConnack {
-                        session_present: false,
-                        connect_return_code: MConnectReturnCode::Accepted,
-                    }
-                }))
-                .await?,
-            ),
-            crate::command::ClientCommand::Send(
-                [
-                    0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
-                    0b0000_0111, // Length
-                    // Now the variable header
-                    0b0000_0000,
-                    0b0000_0010,
-                    0x61,
-                    0xC1,        // An invalid UTF-8 byte
-                    0b0000_0000, // Packet identifier
-                    0b0000_0001,
-                    0x1, // Payload
-                ]
-                .to_vec(),
-            ),
-        ]);
+        .spawn()?;
 
+    input
+        .send_packet(MConnack {
+            session_present: false,
+            connect_return_code: MConnectReturnCode::Accepted,
+        })
+        .await?;
+
+    input
+        .send(&[
+            0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
+            0b0000_0111, // Length
+            // Now the variable header
+            0b0000_0000,
+            0b0000_0010,
+            0x61,
+            0xC1,        // An invalid UTF-8 byte
+            0b0000_0000, // Packet identifier
+            0b0000_0001,
+            0x1, // Payload
+        ])
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -140,33 +138,29 @@ async fn check_invalid_utf8_is_rejected(executable: &ClientExecutable) -> miette
 }
 
 async fn check_receiving_server_packet(executable: &ClientExecutable) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, _output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Connack({
-                    MConnack {
-                        session_present: false,
-                        connect_return_code: MConnectReturnCode::Accepted,
-                    }
-                }))
-                .await?,
-            ),
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Subscribe({
-                    MSubscribe {
-                        id: MPacketIdentifier(1),
-                        subscriptions: MSubscriptionRequests {
-                            count: 1,
-                            data: b"a/b",
-                        },
-                    }
-                }))
-                .await?,
-            ),
-        ]);
+        .spawn()?;
 
+    input
+        .send_packet(MConnack {
+            session_present: false,
+            connect_return_code: MConnectReturnCode::Accepted,
+        })
+        .await?;
+
+    input
+        .send_packet(MSubscribe {
+            id: MPacketIdentifier(1),
+            subscriptions: MSubscriptionRequests {
+                count: 1,
+                data: b"a/b",
+            },
+        })
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -186,25 +180,25 @@ async fn check_receiving_server_packet(executable: &ClientExecutable) -> miette:
 async fn check_invalid_first_packet_is_rejected(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, _output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::Send(
-            crate::util::packet_to_vec(MPacket::Connect({
-                MConnect {
-                    protocol_name: MString { value: "foo" },
-                    protocol_level: 0,
-                    clean_session: true,
-                    will: None,
-                    username: None,
-                    password: None,
-                    keep_alive: 0,
-                    client_id: MString { value: "client" },
-                }
-            }))
-            .await?,
-        )]);
+        .spawn()?;
 
+    input
+        .send_packet(MConnect {
+            protocol_name: MString { value: "foo" },
+            protocol_level: 0,
+            clean_session: true,
+            will: None,
+            username: None,
+            password: None,
+            keep_alive: 0,
+            client_id: MString { value: "client" },
+        })
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -224,48 +218,44 @@ async fn check_invalid_first_packet_is_rejected(
 async fn check_utf8_with_nullchar_is_rejected(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, _output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Connack({
-                    MConnack {
-                        session_present: false,
-                        connect_return_code: MConnectReturnCode::Accepted,
-                    }
-                }))
-                .await?,
-            ),
-            crate::command::ClientCommand::Send(vec![
-                (MPacketKind::Publish {
-                    dup: false,
-                    qos: MQualityOfService::AtMostOnce,
-                    retain: false,
-                })
-                .to_byte(),
-                0b0000_0111, // Length
-                // Now the variable header
-                0b0000_0000,
-                0b0000_0010,
-                0x61,
-                0x00,        // Zero byte
-                0b0000_0000, // Packet identifier
-                0b0000_0001,
-                0x1, // Payload
-            ]),
-        ]);
+        .spawn()?;
 
-    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
-        Ok(Ok(out)) => (
-            if out.status.success() {
-                ReportResult::Failure
-            } else {
-                ReportResult::Success
-            },
-            Some(out.stderr),
-        ),
-        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    input
+        .send_packet(MConnack {
+            session_present: false,
+            connect_return_code: MConnectReturnCode::Accepted,
+        })
+        .await?;
+
+    input
+        .send(&[
+            (MPacketKind::Publish {
+                dup: false,
+                qos: MQualityOfService::AtMostOnce,
+                retain: false,
+            })
+            .to_byte(),
+            0b0000_0111, // Length
+            // Now the variable header
+            0b0000_0000,
+            0b0000_0010,
+            0x61,
+            0x00,        // Zero byte
+            0b0000_0000, // Packet identifier
+            0b0000_0001,
+            0x1, // Payload
+        ])
+        .await?;
+
+    let output = client.wait_with_output();
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Failure },
+        out_failure => { ReportResult::Success }
     };
 
     Ok(Report {
@@ -282,26 +272,26 @@ async fn check_utf8_with_nullchar_is_rejected(
 async fn check_connack_flags_are_set_as_reserved(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, _output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::Send(vec![
+        .spawn()?;
+
+    input
+        .send(&[
             0b0010_0000 | 0b0000_1000, // CONNACK + garbage
             0b0000_0010,               // Remaining length
             0b0000_0000,               // No session present
             0b0000_0000,               // Connection accepted
-        ])]);
+        ])
+        .await?;
 
-    let (result, output) = match tokio::time::timeout(Duration::from_millis(100), output).await {
-        Ok(Ok(out)) => (
-            if out.status.success() {
-                ReportResult::Failure
-            } else {
-                ReportResult::Success
-            },
-            Some(out.stderr),
-        ),
-        Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+    let output = client.wait_with_output();
+    let (result, output) = wait_for_output! {
+        output,
+        timeout_ms: 100,
+        out_success => { ReportResult::Failure },
+        out_failure => { ReportResult::Success }
     };
 
     Ok(Report {
@@ -318,34 +308,30 @@ async fn check_connack_flags_are_set_as_reserved(
 async fn check_publish_qos_zero_with_ident_fails(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, _output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Connack({
-                    MConnack {
-                        session_present: false,
-                        connect_return_code: MConnectReturnCode::Accepted,
-                    }
-                }))
-                .await?,
-            ),
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Publish({
-                    MPublish {
-                        dup: false,
-                        qos: MQualityOfService::AtMostOnce, // QoS 0
-                        retain: false,
-                        topic_name: MString { value: "a" },
-                        id: Some(MPacketIdentifier(1)),
-                        payload: &[0x00],
-                    }
-                }))
-                .await?,
-            ),
-        ]);
+        .spawn()?;
 
+    input
+        .send_packet(MConnack {
+            session_present: false,
+            connect_return_code: MConnectReturnCode::Accepted,
+        })
+        .await?;
+
+    input
+        .send_packet(MPublish {
+            dup: false,
+            qos: MQualityOfService::AtMostOnce, // QoS 0
+            retain: false,
+            topic_name: MString { value: "a" },
+            id: Some(MPacketIdentifier(1)),
+            payload: &[0x00],
+        })
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -363,42 +349,36 @@ async fn check_publish_qos_zero_with_ident_fails(
 }
 
 async fn check_publish_qos_2_is_acked(executable: &ClientExecutable) -> miette::Result<Report> {
-    let output = executable
+    let (client, mut input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Connack({
-                    MConnack {
-                        session_present: false,
-                        connect_return_code: MConnectReturnCode::Accepted,
-                    }
-                }))
-                .await?,
-            ),
-            crate::command::ClientCommand::Send(
-                crate::util::packet_to_vec(MPacket::Publish({
-                    MPublish {
-                        dup: false,
-                        qos: MQualityOfService::AtLeastOnce, // QoS 2
-                        retain: false,
-                        topic_name: MString { value: "a" },
-                        id: Some(MPacketIdentifier(1)),
-                        payload: &[0x00],
-                    }
-                }))
-                .await?,
-            ),
-            crate::command::ClientCommand::WaitFor({
-                crate::util::packet_to_vec(MPacket::Puback({
-                    MPuback {
-                        id: MPacketIdentifier(1),
-                    }
-                }))
-                .await?
-            }),
-        ]);
+        .spawn()?;
 
+    input
+        .send_packet(MConnack {
+            session_present: false,
+            connect_return_code: MConnectReturnCode::Accepted,
+        })
+        .await?;
+
+    input
+        .send_packet(MPublish {
+            dup: false,
+            qos: MQualityOfService::AtLeastOnce, // QoS 2
+            retain: false,
+            topic_name: MString { value: "a" },
+            id: Some(MPacketIdentifier(1)),
+            payload: &[0x00],
+        })
+        .await?;
+
+    output
+        .wait_for_packet(MPuback {
+            id: MPacketIdentifier(1),
+        })
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -418,21 +398,24 @@ async fn check_publish_qos_2_is_acked(executable: &ClientExecutable) -> miette::
 async fn check_first_packet_from_client_is_connect(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, _input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-            |bytes: &[u8]| -> bool {
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                        Ok((_, packet)) => packet,
-                        Err(_e) => return false,
-                    };
+        .spawn()?;
 
-                std::matches!(packet, MPacket::Connect { .. })
-            },
-        ))]);
+    output
+        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+            let packet =
+                match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                    Ok((_, packet)) => packet,
+                    Err(_e) => return false,
+                };
 
+            std::matches!(packet, MPacket::Connect { .. })
+        }))
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -452,24 +435,27 @@ async fn check_first_packet_from_client_is_connect(
 async fn check_connect_packet_protocol_name(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, _input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-            |bytes: &[u8]| -> bool {
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                        Ok((_, packet)) => packet,
-                        Err(_e) => return false,
-                    };
+        .spawn()?;
 
-                match packet {
-                    MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
-                    _ => false,
-                }
-            },
-        ))]);
+    output
+        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+            let packet =
+                match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                    Ok((_, packet)) => packet,
+                    Err(_e) => return false,
+                };
 
+            match packet {
+                MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
+                _ => false,
+            }
+        }))
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -489,15 +475,18 @@ async fn check_connect_packet_protocol_name(
 async fn check_connect_packet_reserved_flag_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, _input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-            |bytes: &[u8]| -> bool {
-                bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
-            },
-        ))]);
+        .spawn()?;
 
+    output
+        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+            bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
+        }))
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -537,37 +526,38 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
 async fn check_connect_flag_username_set_username_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, _input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-            |bytes: &[u8]| -> bool {
-                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                    flags
-                } else {
-                    return false;
-                };
+        .spawn()?;
 
-                if 0 != (connect_flags & 0b1000_0000) {
-                    // username flag set
-                    let packet = match nom::combinator::all_consuming(
-                        mqtt_format::v3::packet::mpacket,
-                    )(bytes)
-                    {
+    output
+        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                flags
+            } else {
+                return false;
+            };
+
+            if 0 != (connect_flags & 0b1000_0000) {
+                // username flag set
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
                         Ok((_, packet)) => packet,
                         Err(_e) => return false,
                     };
 
-                    match packet {
-                        MPacket::Connect(MConnect { username, .. }) => username.is_some(),
-                        _ => false,
-                    }
-                } else {
-                    true
+                match packet {
+                    MPacket::Connect(MConnect { username, .. }) => username.is_some(),
+                    _ => false,
                 }
-            },
-        ))]);
+            } else {
+                true
+            }
+        }))
+        .await?;
 
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -587,37 +577,38 @@ async fn check_connect_flag_username_set_username_present(
 async fn check_connect_flag_password_set_password_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, _input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-            |bytes: &[u8]| -> bool {
-                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                    flags
-                } else {
-                    return false;
-                };
+        .spawn()?;
 
-                if 0 != (connect_flags & 0b0100_0000) {
-                    // password flag set
-                    let packet = match nom::combinator::all_consuming(
-                        mqtt_format::v3::packet::mpacket,
-                    )(bytes)
-                    {
+    output
+        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                flags
+            } else {
+                return false;
+            };
+
+            if 0 != (connect_flags & 0b0100_0000) {
+                // password flag set
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
                         Ok((_, packet)) => packet,
                         Err(_e) => return false,
                     };
 
-                    match packet {
-                        MPacket::Connect(MConnect { password, .. }) => password.is_some(),
-                        _ => false,
-                    }
-                } else {
-                    true
+                match packet {
+                    MPacket::Connect(MConnect { password, .. }) => password.is_some(),
+                    _ => false,
                 }
-            },
-        ))]);
+            } else {
+                true
+            }
+        }))
+        .await?;
 
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
@@ -637,28 +628,31 @@ async fn check_connect_flag_password_set_password_present(
 async fn check_connect_flag_username_zero_means_password_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = executable
+    let (client, _input, mut output) = executable
         .call([])
         .map(crate::command::Command::new)?
-        .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-            |bytes: &[u8]| -> bool {
-                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                    flags
-                } else {
-                    return false;
-                };
+        .spawn()?;
 
-                let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
-                let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
+    output
+        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                flags
+            } else {
+                return false;
+            };
 
-                if username_flag_set {
-                    !password_flag_set
-                } else {
-                    true
-                }
-            },
-        ))]);
+            let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
+            let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
 
+            if username_flag_set {
+                !password_flag_set
+            } else {
+                true
+            }
+        }))
+        .await?;
+
+    let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
