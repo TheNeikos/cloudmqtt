@@ -78,14 +78,14 @@ impl TopicName {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-enum TopicFilter {
+pub enum TopicFilter {
     MultiWildcard,
     SingleWildcard,
     Named(String),
 }
 
 impl TopicFilter {
-    fn parse_from(topic: String) -> VecDeque<TopicFilter> {
+    pub fn parse_from(topic: String) -> VecDeque<TopicFilter> {
         topic
             .split('/')
             .map(|piece| match piece {
