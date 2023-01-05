@@ -103,3 +103,47 @@ define_command!(QuitCommand => "quit");
 define_command!(Subscribe { topic: String } => "subscribe", args: "--topic={topic}");
 define_command!(SendToTopic { topic: String, qos: u8, message: String } => "send-to-topic", args: "--topic={topic}", "--qos={qos}", "--message={message}");
 define_command!(ExpectOnTopic { topic: String, qos: u8 } => "expect-on-topic", args: "--topic={topic}", "--qos={qos}");
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_quit_command_as_string() {
+        assert_eq!("quit", QuitCommand.as_str());
+        assert!(QuitCommand.args().is_empty());
+    }
+
+    #[test]
+    fn test_subscribe_command() {
+        let command = Subscribe {
+            topic: "foo".to_string(),
+        };
+        assert_eq!("subscribe", command.as_str());
+        assert_eq!(vec!["--topic=foo".to_string()], command.args());
+    }
+
+    #[test]
+    fn test_send_to_topic_command() {
+        let command = SendToTopic {
+            topic: "foo".to_string(),
+            qos: 0,
+            message: "Message".to_string(),
+        };
+        assert_eq!("send-to-topic", command.as_str());
+        assert!(command.args().contains(&"--topic=foo".to_string()));
+        assert!(command.args().contains(&"--qos=0".to_string()));
+        assert!(command.args().contains(&"--message=Message".to_string()));
+    }
+
+    #[test]
+    fn test_expect_on_topic() {
+        let command = ExpectOnTopic {
+            topic: "foo".to_string(),
+            qos: 0,
+        };
+        assert_eq!("expect-on-topic", command.as_str());
+        assert!(command.args().contains(&"--topic=foo".to_string()));
+        assert!(command.args().contains(&"--qos=0".to_string()));
+    }
+}
