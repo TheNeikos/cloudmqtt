@@ -26,8 +26,8 @@ impl Command {
     pub fn spawn(mut self) -> miette::Result<(tokio::process::Child, Input, Output)> {
         let mut client = self.inner.spawn().into_diagnostic()?;
         let to_client = client.stdin.take().unwrap();
-        let from_client = client.stdout.take().unwrap();
-        Ok((client, Input(to_client), Output(from_client)))
+        let stdout = client.stdout.take().unwrap();
+        Ok((client, Input(to_client), Output { stdout }))
     }
 }
 
@@ -52,14 +52,16 @@ impl Input {
     }
 }
 
-pub struct Output(ChildStdout);
+pub struct Output {
+    stdout: ChildStdout,
+}
 
 impl Output {
     pub async fn wait_for(&mut self, expected_bytes: &[u8]) -> miette::Result<()> {
         let mut buf = vec![0; expected_bytes.len()];
         match tokio::time::timeout(
             std::time::Duration::from_millis(100),
-            self.0.read_exact(&mut buf),
+            self.stdout.read_exact(&mut buf),
         )
         .await
         {
@@ -94,15 +96,15 @@ impl Output {
     pub async fn wait_and_check(&mut self, check: CheckBytesFn) -> miette::Result<()> {
         match tokio::time::timeout(std::time::Duration::from_millis(100), async {
             let mut buffer = BytesMut::new();
-            buffer.put_u16(self.0.read_u16().await.into_diagnostic()?);
-            buffer.put_u8(self.0.read_u8().await.into_diagnostic()?);
+            buffer.put_u16(self.stdout.read_u16().await.into_diagnostic()?);
+            buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
 
             if buffer[1] & 0b1000_0000 != 0 {
-                buffer.put_u8(self.0.read_u8().await.into_diagnostic()?);
+                buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
                 if buffer[2] & 0b1000_0000 != 0 {
-                    buffer.put_u8(self.0.read_u8().await.into_diagnostic()?);
+                    buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
                     if buffer[3] & 0b1000_0000 != 0 {
-                        buffer.put_u8(self.0.read_u8().await.into_diagnostic()?);
+                        buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
                     }
                 }
             }
@@ -112,7 +114,10 @@ impl Output {
             });
 
             let mut rest_buf = buffer.limit(rest_len as usize);
-            self.0.read_buf(&mut rest_buf).await.into_diagnostic()?;
+            self.stdout
+                .read_buf(&mut rest_buf)
+                .await
+                .into_diagnostic()?;
             Ok::<_, miette::Error>(rest_buf.into_inner())
         })
         .await
