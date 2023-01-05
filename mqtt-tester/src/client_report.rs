@@ -94,7 +94,7 @@ macro_rules! wait_for_output {
 
 async fn check_invalid_utf8_is_rejected(executable: &ClientExecutable) -> miette::Result<Report> {
     let (client, mut input, _output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -139,7 +139,7 @@ async fn check_invalid_utf8_is_rejected(executable: &ClientExecutable) -> miette
 
 async fn check_receiving_server_packet(executable: &ClientExecutable) -> miette::Result<Report> {
     let (client, mut input, _output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -181,7 +181,7 @@ async fn check_invalid_first_packet_is_rejected(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, mut input, _output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -219,7 +219,7 @@ async fn check_utf8_with_nullchar_is_rejected(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, mut input, _output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -273,7 +273,7 @@ async fn check_connack_flags_are_set_as_reserved(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, mut input, _output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -309,7 +309,7 @@ async fn check_publish_qos_zero_with_ident_fails(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, mut input, _output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -350,7 +350,7 @@ async fn check_publish_qos_zero_with_ident_fails(
 
 async fn check_publish_qos_2_is_acked(executable: &ClientExecutable) -> miette::Result<Report> {
     let (client, mut input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -399,7 +399,7 @@ async fn check_first_packet_from_client_is_connect(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, _input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -436,7 +436,7 @@ async fn check_connect_packet_protocol_name(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, _input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -476,7 +476,7 @@ async fn check_connect_packet_reserved_flag_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, _input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -527,7 +527,7 @@ async fn check_connect_flag_username_set_username_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, _input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -578,7 +578,7 @@ async fn check_connect_flag_password_set_password_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, _input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 
@@ -629,7 +629,7 @@ async fn check_connect_flag_username_zero_means_password_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
     let (client, _input, mut output) = executable
-        .call([])
+        .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
 

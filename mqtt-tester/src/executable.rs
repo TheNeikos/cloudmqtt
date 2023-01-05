@@ -18,10 +18,7 @@ impl ClientExecutable {
         Self { path }
     }
 
-    pub fn call<I>(&self, args: I) -> miette::Result<Command>
-    where
-        I: IntoIterator<Item = Box<dyn ClientExecutableCommand>>,
-    {
+    pub fn call(&self, args: &[Box<dyn ClientExecutableCommand>]) -> miette::Result<Command> {
         let mut command = Command::new(&self.path);
 
         command
@@ -30,7 +27,7 @@ impl ClientExecutable {
             .stderr(Stdio::piped());
 
         let args: Vec<_> = args
-            .into_iter()
+            .iter()
             .flat_map(|cec| {
                 let mut v = vec![cec.as_str().to_string()];
                 v.extend(cec.args());
