@@ -250,7 +250,27 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
 
             match message {
                 Ok(message) => {
-                    if topics.iter().any(|_topic| todo!()) {
+                    if topics.iter().any(|topic| {
+                        let msg_topic = TopicFilter::parse_from(message.topic().to_string());
+
+                        let mut i = 0;
+                        loop {
+                            match (topic.get(i), msg_topic.get(i)) {
+                                (None, None) => break true,
+                                (None, Some(_)) => break false,
+                                (Some(_), None) => break false,
+                                (Some(TopicFilter::MultiWildcard), Some(_)) => break true,
+                                (Some(TopicFilter::SingleWildcard), Some(_)) => (),
+                                (Some(left), Some(right)) => {
+                                    if left != right {
+                                        break false;
+                                    }
+                                }
+                            }
+
+                            i += 1;
+                        }
+                    }) {
                         callback(message).await;
                     }
                 }
