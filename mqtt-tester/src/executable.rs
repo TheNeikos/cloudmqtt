@@ -100,4 +100,6 @@ macro_rules! define_command {
 }
 
 define_command!(QuitCommand => "quit");
-define_command!(Subscribe => "subscribe", args: "topicA");
+define_command!(Subscribe { topic: String } => "subscribe", args: "--topic={topic}");
+define_command!(SendToTopic { topic: String, qos: u8, message: String } => "send-to-topic", args: "--topic={topic}", "--qos={qos}", "--message={message}");
+define_command!(ExpectOnTopic { topic: String, qos: u8 } => "expect-on-topic", args: "--topic={topic}", "--qos={qos}");
