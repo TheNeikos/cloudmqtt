@@ -52,9 +52,10 @@ use mqtt_format::v3::{
 use tokio::{
     io::{AsyncWriteExt, DuplexStream, ReadHalf, WriteHalf},
     net::{TcpListener, ToSocketAddrs},
+    sync::broadcast::Sender as BroadcastSender,
     sync::Mutex,
 };
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 use subscriptions::{ClientInformation, SubscriptionManager};
@@ -65,6 +66,7 @@ use self::{
     },
     message::MqttMessage,
     state::ClientState,
+    subscriptions::TopicFilter,
 };
 
 /// The unique id (per server) of a connecting client
@@ -143,6 +145,7 @@ pub struct MqttServer<LoginH, SubH> {
     clients: Arc<DashMap<ClientId, ClientState>>,
     client_source: Mutex<ClientSource>,
     auth_handler: LoginH,
+    extra_listeners: BroadcastSender<MqttMessage>,
     subscription_manager: Arc<SubscriptionManager<SubH>>,
 }
 
@@ -153,10 +156,13 @@ impl MqttServer<AllowAllLogins, AllowAllSubscriptions> {
     ) -> Result<Self, MqttError> {
         let bind = TcpListener::bind(addr).await?;
 
+        let (extra_listeners, _) = tokio::sync::broadcast::channel(50);
+
         Ok(MqttServer {
             clients: Arc::new(DashMap::new()),
             client_source: Mutex::new(ClientSource::UnsecuredTcp(bind)),
             auth_handler: AllowAllLogins,
+            extra_listeners,
             subscription_manager: Arc::new(SubscriptionManager::new()),
         })
     }
@@ -176,6 +182,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
             clients: self.clients,
             client_source: self.client_source,
             auth_handler: new_login_handler,
+            extra_listeners: self.extra_listeners,
             subscription_manager: self.subscription_manager,
         }
     }
@@ -193,6 +200,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
             clients: self.clients,
             client_source: self.client_source,
             auth_handler: self.auth_handler,
+            extra_listeners: self.extra_listeners,
             subscription_manager: Arc::new({
                 let manager = Arc::try_unwrap(self.subscription_manager);
 
@@ -219,6 +227,61 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                 }
             });
         }
+    }
+
+    /// Listen to messages sent to the given topic_paths
+    pub async fn subscribe_to_message<
+        Fut: std::future::Future<Output = ()>,
+        CB: FnMut(MqttMessage) -> Fut,
+    >(
+        self: Arc<Self>,
+        topic_paths: Vec<String>,
+        mut callback: CB,
+    ) -> Result<(), MqttError> {
+        let mut listener = self.extra_listeners.subscribe();
+
+        let topics = topic_paths
+            .into_iter()
+            .map(TopicFilter::parse_from)
+            .collect::<Vec<_>>();
+
+        loop {
+            let message = listener.recv().await;
+
+            match message {
+                Ok(message) => {
+                    if topics.iter().any(|topic| {
+                        let msg_topic = TopicFilter::parse_from(message.topic().to_string());
+
+                        let mut i = 0;
+                        loop {
+                            match (topic.get(i), msg_topic.get(i)) {
+                                (None, None) => break true,
+                                (None, Some(_)) => break false,
+                                (Some(_), None) => break false,
+                                (Some(TopicFilter::MultiWildcard), Some(_)) => break true,
+                                (Some(TopicFilter::SingleWildcard), Some(_)) => (),
+                                (Some(left), Some(right)) => {
+                                    if left != right {
+                                        break false;
+                                    }
+                                }
+                            }
+
+                            i += 1;
+                        }
+                    }) {
+                        callback(message).await;
+                    }
+                }
+                Err(tokio::sync::broadcast::error::RecvError::Closed) => break,
+                Err(tokio::sync::broadcast::error::RecvError::Lagged(count)) => {
+                    warn!("Subscriber lagged by {count} values")
+                }
+            }
+        }
+
+        Ok(())
     }
 
     /// Accept a new client connected through the `client` stream
@@ -357,6 +420,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                 let subscription_manager = server.subscription_manager.clone();
                 let client_id = client_id.clone();
                 let clients = server.clients.clone();
+                let extra_listener = server.extra_listeners.clone();
 
                 tokio::spawn(async move {
                     let client_id = client_id;
@@ -399,6 +463,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                                     *qos,
                                 );
 
+                                let _ = extra_listener.send(message.clone());
                                 subscription_manager.route_message(message).await;
 
                                 // Handle QoS 1/AtLeastOnce response
