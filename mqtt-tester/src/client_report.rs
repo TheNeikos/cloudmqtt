@@ -4,8 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use std::path::{Path, PathBuf};
-use std::process::Stdio;
+use std::path::PathBuf;
 use std::time::Duration;
 
 use futures::FutureExt;
@@ -18,20 +17,9 @@ use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPuback, MPublish, MS
 use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
-use tokio::process::Command;
 
+use crate::executable::ClientExecutable;
 use crate::report::{Report, ReportResult};
-
-async fn open_connection_with(path: &Path) -> miette::Result<Command> {
-    let mut command = Command::new(path);
-
-    command
-        .stdin(Stdio::piped())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped());
-
-    Ok(command)
-}
 
 pub async fn create_client_report(
     client_exe_path: PathBuf,
@@ -39,20 +27,22 @@ pub async fn create_client_report(
 ) -> miette::Result<Vec<Report>> {
     use futures::stream::StreamExt;
 
+    let executable = ClientExecutable::new(client_exe_path);
+
     let reports = vec![
-        check_invalid_utf8_is_rejected(&client_exe_path).boxed_local(),
-        check_receiving_server_packet(&client_exe_path).boxed_local(),
-        check_invalid_first_packet_is_rejected(&client_exe_path).boxed_local(),
-        check_utf8_with_nullchar_is_rejected(&client_exe_path).boxed_local(),
-        check_connack_flags_are_set_as_reserved(&client_exe_path).boxed_local(),
-        check_publish_qos_zero_with_ident_fails(&client_exe_path).boxed_local(),
-        check_publish_qos_2_is_acked(&client_exe_path).boxed_local(),
-        check_first_packet_from_client_is_connect(&client_exe_path).boxed_local(),
-        check_connect_packet_protocol_name(&client_exe_path).boxed_local(),
-        check_connect_packet_reserved_flag_zero(&client_exe_path).boxed_local(),
-        check_connect_flag_username_set_username_present(&client_exe_path).boxed_local(),
-        check_connect_flag_password_set_password_present(&client_exe_path).boxed_local(),
-        check_connect_flag_username_zero_means_password_zero(&client_exe_path).boxed_local(),
+        check_invalid_utf8_is_rejected(&executable).boxed_local(),
+        check_receiving_server_packet(&executable).boxed_local(),
+        check_invalid_first_packet_is_rejected(&executable).boxed_local(),
+        check_utf8_with_nullchar_is_rejected(&executable).boxed_local(),
+        check_connack_flags_are_set_as_reserved(&executable).boxed_local(),
+        check_publish_qos_zero_with_ident_fails(&executable).boxed_local(),
+        check_publish_qos_2_is_acked(&executable).boxed_local(),
+        check_first_packet_from_client_is_connect(&executable).boxed_local(),
+        check_connect_packet_protocol_name(&executable).boxed_local(),
+        check_connect_packet_reserved_flag_zero(&executable).boxed_local(),
+        check_connect_flag_username_set_username_present(&executable).boxed_local(),
+        check_connect_flag_password_set_password_present(&executable).boxed_local(),
+        check_connect_flag_username_zero_means_password_zero(&executable).boxed_local(),
     ];
 
     futures::stream::iter(reports)
@@ -102,9 +92,9 @@ macro_rules! wait_for_output {
     }};
 }
 
-async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_invalid_utf8_is_rejected(executable: &ClientExecutable) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(
@@ -149,9 +139,9 @@ async fn check_invalid_utf8_is_rejected(client_exe_path: &Path) -> miette::Resul
     })
 }
 
-async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_receiving_server_packet(executable: &ClientExecutable) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(
@@ -193,9 +183,11 @@ async fn check_receiving_server_packet(client_exe_path: &Path) -> miette::Result
     })
 }
 
-async fn check_invalid_first_packet_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_invalid_first_packet_is_rejected(
+    executable: &ClientExecutable,
+) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::Send(
             crate::util::packet_to_vec(MPacket::Connect({
@@ -229,9 +221,11 @@ async fn check_invalid_first_packet_is_rejected(client_exe_path: &Path) -> miett
     })
 }
 
-async fn check_utf8_with_nullchar_is_rejected(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_utf8_with_nullchar_is_rejected(
+    executable: &ClientExecutable,
+) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(
@@ -285,9 +279,11 @@ async fn check_utf8_with_nullchar_is_rejected(client_exe_path: &Path) -> miette:
     })
 }
 
-async fn check_connack_flags_are_set_as_reserved(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_connack_flags_are_set_as_reserved(
+    executable: &ClientExecutable,
+) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::Send(vec![
             0b0010_0000 | 0b0000_1000, // CONNACK + garbage
@@ -319,9 +315,11 @@ async fn check_connack_flags_are_set_as_reserved(client_exe_path: &Path) -> miet
     })
 }
 
-async fn check_publish_qos_zero_with_ident_fails(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_publish_qos_zero_with_ident_fails(
+    executable: &ClientExecutable,
+) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(
@@ -364,9 +362,9 @@ async fn check_publish_qos_zero_with_ident_fails(client_exe_path: &Path) -> miet
     })
 }
 
-async fn check_publish_qos_2_is_acked(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_publish_qos_2_is_acked(executable: &ClientExecutable) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([
             crate::command::ClientCommand::Send(
@@ -418,10 +416,10 @@ async fn check_publish_qos_2_is_acked(client_exe_path: &Path) -> miette::Result<
 }
 
 async fn check_first_packet_from_client_is_connect(
-    client_exe_path: &Path,
+    executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
             |bytes: &[u8]| -> bool {
@@ -451,9 +449,11 @@ async fn check_first_packet_from_client_is_connect(
     })
 }
 
-async fn check_connect_packet_protocol_name(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_connect_packet_protocol_name(
+    executable: &ClientExecutable,
+) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
             |bytes: &[u8]| -> bool {
@@ -486,9 +486,11 @@ async fn check_connect_packet_protocol_name(client_exe_path: &Path) -> miette::R
     })
 }
 
-async fn check_connect_packet_reserved_flag_zero(client_exe_path: &Path) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+async fn check_connect_packet_reserved_flag_zero(
+    executable: &ClientExecutable,
+) -> miette::Result<Report> {
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
             |bytes: &[u8]| -> bool {
@@ -533,10 +535,10 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
 }
 
 async fn check_connect_flag_username_set_username_present(
-    client_exe_path: &Path,
+    executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
             |bytes: &[u8]| -> bool {
@@ -583,10 +585,10 @@ async fn check_connect_flag_username_set_username_present(
 }
 
 async fn check_connect_flag_password_set_password_present(
-    client_exe_path: &Path,
+    executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
             |bytes: &[u8]| -> bool {
@@ -633,10 +635,10 @@ async fn check_connect_flag_password_set_password_present(
 }
 
 async fn check_connect_flag_username_zero_means_password_zero(
-    client_exe_path: &Path,
+    executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let output = open_connection_with(client_exe_path)
-        .await
+    let output = executable
+        .call([])
         .map(crate::command::Command::new)?
         .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
             |bytes: &[u8]| -> bool {
