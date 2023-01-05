@@ -1,5 +1,15 @@
 # Changelog 'cloudmqtt'
 
+## v0.3.0
+
+The 0.3.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
+
+Added:
+
+- Added listening to messages to the server
+- Added authentication provider to the server
+- Added subscription acknowledgement to the server
+
 ## v0.2.0
 
 The 0.2.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
