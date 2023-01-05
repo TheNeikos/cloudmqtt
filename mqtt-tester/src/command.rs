@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::sync::Arc;
+
 use bytes::{BufMut, BytesMut};
 use miette::IntoDiagnostic;
 use mqtt_format::v3::packet::MPacket;
@@ -11,6 +13,8 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::{ChildStdin, ChildStdout},
 };
+
+use crate::packet_invariant::PacketInvariant;
 
 pub struct Command {
     inner: tokio::process::Command,
@@ -27,7 +31,15 @@ impl Command {
         let mut client = self.inner.spawn().into_diagnostic()?;
         let to_client = client.stdin.take().unwrap();
         let stdout = client.stdout.take().unwrap();
-        Ok((client, Input(to_client), Output { stdout }))
+
+        Ok((
+            client,
+            Input(to_client),
+            Output {
+                stdout,
+                attached_invariants: vec![],
+            },
+        ))
     }
 }
 
@@ -54,11 +66,19 @@ impl Input {
 
 pub struct Output {
     stdout: ChildStdout,
+    attached_invariants: Vec<Arc<dyn crate::packet_invariant::PacketInvariant>>,
 }
 
 static_assertions::assert_impl_all!(Output: Send);
 
 impl Output {
+    pub fn with_invariants<I>(&mut self, i: I)
+    where
+        I: Iterator<Item = Arc<dyn PacketInvariant>>,
+    {
+        self.attached_invariants.extend(i);
+    }
+
     async fn wait_for(&mut self, expected_bytes: &[u8]) -> miette::Result<Vec<u8>> {
         let mut buf = vec![0; expected_bytes.len()];
         match tokio::time::timeout(
@@ -92,7 +112,20 @@ impl Output {
             .write_to(std::pin::Pin::new(&mut buf))
             .await
             .into_diagnostic()?;
-        self.wait_for(&buf).await.map(|_| ())
+
+        let bytes = self.wait_for(&buf).await?;
+
+        match mqtt_format::v3::packet::mpacket(&bytes) {
+            Ok((_, packet)) => self
+                .attached_invariants
+                .iter()
+                .map(|inv| inv.test_invariant(&packet))
+                .collect::<Result<Vec<_>, _>>()
+                .map(|_| ()),
+            Err(e) => {
+                miette::bail!("Failed to parse as MQTT packet: {}", e)
+            }
+        }
     }
 
     pub async fn wait_and_check(&mut self, check: CheckBytesFn) -> miette::Result<()> {
