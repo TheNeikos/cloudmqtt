@@ -48,8 +48,8 @@ impl ClientExecutable {
 
 pub trait ClientExecutableCommand {
     fn as_str(&self) -> &'static str;
-    fn args(&self) -> &[&'static str] {
-        &[]
+    fn args(&self) -> Vec<String> {
+        vec![]
     }
 }
 
@@ -61,9 +61,9 @@ macro_rules! define_command {
             fn as_str(&self) -> &'static str {
                 $s
             }
-            fn args(&self) -> &[&'static str] {
-                &[
-                    $($arg),+
+            fn args(&self) -> Vec<String> {
+                vec![
+                    $($arg.to_string()),+
                 ]
             }
         }
