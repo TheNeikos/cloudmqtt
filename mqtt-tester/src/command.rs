@@ -57,7 +57,7 @@ pub struct Output {
 }
 
 impl Output {
-    pub async fn wait_for(&mut self, expected_bytes: &[u8]) -> miette::Result<()> {
+    async fn wait_for(&mut self, expected_bytes: &[u8]) -> miette::Result<Vec<u8>> {
         let mut buf = vec![0; expected_bytes.len()];
         match tokio::time::timeout(
             std::time::Duration::from_millis(100),
@@ -77,7 +77,7 @@ impl Output {
             Ok(Err(e)) => return Err(e).into_diagnostic(),
             Err(_elapsed) => return Err(miette::miette!("Did not hear from server until timeout")),
         }
-        Ok(())
+        Ok(buf)
     }
 
     pub async fn wait_for_packet<'m, P>(&mut self, packet: P) -> miette::Result<()>
@@ -90,7 +90,7 @@ impl Output {
             .write_to(std::pin::Pin::new(&mut buf))
             .await
             .into_diagnostic()?;
-        self.wait_for(&buf).await
+        self.wait_for(&buf).await.map(|_| ())
     }
 
     pub async fn wait_and_check(&mut self, check: CheckBytesFn) -> miette::Result<()> {
