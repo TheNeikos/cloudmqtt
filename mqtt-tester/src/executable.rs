@@ -54,6 +54,24 @@ pub trait ClientExecutableCommand {
 }
 
 macro_rules! define_command {
+    ($tyname:ident { $($member:ident : $memty:ty ),+ } => $s:literal, args: $($arg:literal),+) => {
+        pub struct $tyname {
+            $(pub $member : $memty),*
+        }
+
+        impl ClientExecutableCommand for $tyname {
+            fn as_str(&self) -> &'static str {
+                $s
+            }
+            fn args(&self) -> Vec<String> {
+                $(let $member = &self.$member;)+
+
+                vec![
+                    $(format!($arg)),+
+                ]
+            }
+        }
+    };
     ($tyname:ident => $s:literal, args: $($arg:literal),+) => {
         pub struct $tyname;
 
