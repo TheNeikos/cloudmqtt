@@ -6,6 +6,7 @@
 
 use bytes::{BufMut, BytesMut};
 use miette::IntoDiagnostic;
+use mqtt_format::v3::packet::MPacket;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::{ChildStdin, ChildStdout},
@@ -67,6 +68,19 @@ impl Input {
     pub async fn send(&mut self, bytes: &[u8]) -> miette::Result<()> {
         self.0.write_all(bytes).await.into_diagnostic()
     }
+
+    pub async fn send_packet<'m, P>(&mut self, packet: P) -> miette::Result<()>
+    where
+        P: Into<MPacket<'m>>,
+    {
+        let mut buf = vec![];
+        packet
+            .into()
+            .write_to(std::pin::Pin::new(&mut buf))
+            .await
+            .into_diagnostic()?;
+        self.send(&buf).await
+    }
 }
 
 pub struct Output(ChildStdout);
@@ -93,6 +107,19 @@ impl Output {
             Err(_elapsed) => return Err(miette::miette!("Did not hear from server until timeout")),
         }
         Ok(())
+    }
+
+    pub async fn wait_for_packet<'m, P>(&mut self, packet: P) -> miette::Result<()>
+    where
+        P: Into<MPacket<'m>>,
+    {
+        let mut buf = vec![];
+        packet
+            .into()
+            .write_to(std::pin::Pin::new(&mut buf))
+            .await
+            .into_diagnostic()?;
+        self.wait_for(&buf).await
     }
 
     pub async fn wait_and_check(&mut self, check: CheckBytesFn) -> miette::Result<()> {
