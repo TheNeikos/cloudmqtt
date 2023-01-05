@@ -6,8 +6,10 @@
 
 use std::sync::Arc;
 
-use cloudmqtt::server::login::{LoginError, LoginHandler};
+use cloudmqtt::server::handler::{LoginError, LoginHandler, SubscriptionHandler};
 use cloudmqtt::server::{ClientId, MqttServer};
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::subscription_request::MSubscriptionRequest;
 use tracing::info;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -32,6 +34,23 @@ impl LoginHandler for SimpleLoginHandler {
     }
 }
 
+struct SimpleSubscriptionHandler;
+
+#[async_trait::async_trait]
+impl SubscriptionHandler for SimpleSubscriptionHandler {
+    async fn allow_subscription(
+        &self,
+        _client_id: Arc<ClientId>,
+        subscription: MSubscriptionRequest<'_>,
+    ) -> Option<MQualityOfService> {
+        if &*subscription.topic == "forbidden" {
+            return None;
+        }
+
+        Some(subscription.qos)
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let fmt_layer = tracing_subscriber::fmt::layer()
@@ -50,7 +69,8 @@ async fn main() {
     let server = MqttServer::serve_v3_unsecured_tcp("0.0.0.0:1883")
         .await
         .unwrap()
-        .with_login_handler(SimpleLoginHandler);
+        .with_login_handler(SimpleLoginHandler)
+        .with_subscription_handler(SimpleSubscriptionHandler);
 
     Arc::new(server).accept_new_clients().await.unwrap();
 }

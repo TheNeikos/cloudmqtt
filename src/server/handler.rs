@@ -5,7 +5,10 @@
 //
 use std::sync::Arc;
 
-use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::{
+    connect_return::MConnectReturnCode, qos::MQualityOfService,
+    subscription_request::MSubscriptionRequest,
+};
 
 use crate::server::ClientId;
 
@@ -28,7 +31,7 @@ impl LoginError {
 
 /// Objects that can handle authentication implement this trait
 #[async_trait::async_trait]
-pub trait LoginHandler {
+pub trait LoginHandler: Send + Sync + 'static {
     /// Check whether to allow this client to log in
     async fn allow_login(
         &self,
@@ -38,8 +41,11 @@ pub trait LoginHandler {
     ) -> Result<(), LoginError>;
 }
 
+/// A [`LoginHandler`] that simply allows all login attempts
+pub struct AllowAllLogins;
+
 #[async_trait::async_trait]
-impl LoginHandler for () {
+impl LoginHandler for AllowAllLogins {
     async fn allow_login(
         &self,
         _client_id: Arc<ClientId>,
@@ -47,5 +53,31 @@ impl LoginHandler for () {
         _password: Option<&[u8]>,
     ) -> Result<(), LoginError> {
         Ok(())
+    }
+}
+
+/// Objects that can handle authentication implement this trait
+#[async_trait::async_trait]
+pub trait SubscriptionHandler: Send + Sync + 'static {
+    /// Check whether to allow this client to log in
+    async fn allow_subscription(
+        &self,
+        client_id: Arc<ClientId>,
+        subscription: MSubscriptionRequest<'_>,
+    ) -> Option<MQualityOfService>;
+}
+
+/// A [`SubscriptionHandler`] that simply allows all subscription requests
+pub struct AllowAllSubscriptions;
+
+#[async_trait::async_trait]
+impl SubscriptionHandler for AllowAllSubscriptions {
+    /// Check whether to allow this client to log in
+    async fn allow_subscription(
+        &self,
+        _client_id: Arc<ClientId>,
+        subscription: MSubscriptionRequest<'_>,
+    ) -> Option<MQualityOfService> {
+        Some(subscription.qos)
     }
 }

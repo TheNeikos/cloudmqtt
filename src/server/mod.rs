@@ -30,7 +30,7 @@
 #![deny(missing_docs)]
 
 /// Authentication related functionality
-pub mod login;
+pub mod handler;
 mod message;
 mod state;
 mod subscriptions;
@@ -60,7 +60,9 @@ use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
 use subscriptions::{ClientInformation, SubscriptionManager};
 
 use self::{
-    login::{LoginError, LoginHandler},
+    handler::{
+        AllowAllLogins, AllowAllSubscriptions, LoginError, LoginHandler, SubscriptionHandler,
+    },
     message::MqttMessage,
     state::ClientState,
 };
@@ -137,14 +139,14 @@ impl ClientSource {
 ///
 /// Check out the server example for a working version.
 ///
-pub struct MqttServer<LH = ()> {
+pub struct MqttServer<LoginH, SubH> {
     clients: Arc<DashMap<ClientId, ClientState>>,
     client_source: Mutex<ClientSource>,
-    auth_handler: LH,
-    subscription_manager: SubscriptionManager,
+    auth_handler: LoginH,
+    subscription_manager: Arc<SubscriptionManager<SubH>>,
 }
 
-impl MqttServer<()> {
+impl MqttServer<AllowAllLogins, AllowAllSubscriptions> {
     /// Create a new MQTT server listening on the given `SocketAddr`
     pub async fn serve_v3_unsecured_tcp<Addr: ToSocketAddrs>(
         addr: Addr,
@@ -154,20 +156,50 @@ impl MqttServer<()> {
         Ok(MqttServer {
             clients: Arc::new(DashMap::new()),
             client_source: Mutex::new(ClientSource::UnsecuredTcp(bind)),
-            auth_handler: (),
-            subscription_manager: SubscriptionManager::new(),
+            auth_handler: AllowAllLogins,
+            subscription_manager: Arc::new(SubscriptionManager::new()),
         })
     }
 }
 
-impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
+impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
     /// Switch the login handler with a new one
-    pub fn with_login_handler<NLH: LoginHandler>(self, new_login_handler: NLH) -> MqttServer<NLH> {
+    ///
+    /// ## Note
+    ///
+    /// You should only call this after instantiating the server, and before listening
+    pub fn with_login_handler<NLH: LoginHandler>(
+        self,
+        new_login_handler: NLH,
+    ) -> MqttServer<NLH, SH> {
         MqttServer {
             clients: self.clients,
             client_source: self.client_source,
             auth_handler: new_login_handler,
             subscription_manager: self.subscription_manager,
+        }
+    }
+
+    /// Resets the subscription handler to a new one
+    ///
+    /// ## Note
+    ///
+    /// You should only call this after instantiating the server, and before listening
+    pub fn with_subscription_handler<NSH: SubscriptionHandler>(
+        self,
+        new_subscription_handler: NSH,
+    ) -> MqttServer<LH, NSH> {
+        MqttServer {
+            clients: self.clients,
+            client_source: self.client_source,
+            auth_handler: self.auth_handler,
+            subscription_manager: Arc::new({
+                let manager = Arc::try_unwrap(self.subscription_manager);
+
+                manager
+                    .unwrap_or_else(|_| panic!("Called after started listening"))
+                    .with_subscription_handler(new_subscription_handler)
+            }),
         }
     }
 
@@ -213,8 +245,8 @@ impl<LH: Send + Sync + LoginHandler + 'static> MqttServer<LH> {
         }
 
         #[allow(clippy::too_many_arguments)]
-        async fn connect_client<'message, LH: LoginHandler>(
-            server: &MqttServer<LH>,
+        async fn connect_client<'message, LH: LoginHandler, SubH: SubscriptionHandler>(
+            server: &MqttServer<LH, SubH>,
             mut client: MqttStream,
             _protocol_name: MString<'message>,
             _protocol_level: u8,
