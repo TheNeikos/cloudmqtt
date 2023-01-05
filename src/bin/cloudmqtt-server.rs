@@ -72,5 +72,14 @@ async fn main() {
         .with_login_handler(SimpleLoginHandler)
         .with_subscription_handler(SimpleSubscriptionHandler);
 
-    Arc::new(server).accept_new_clients().await.unwrap();
+    let server = Arc::new(server);
+
+    tokio::spawn(server.clone().subscribe_to_message(
+        vec![String::from("foo/bar"), String::from("bar/#")],
+        |msg| async move {
+            info!("Got message: {msg:?}");
+        },
+    ));
+
+    server.accept_new_clients().await.unwrap();
 }
