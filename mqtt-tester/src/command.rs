@@ -18,14 +18,6 @@ pub struct Command {
 
 pub type CheckBytesFn = Box<dyn FnOnce(&[u8]) -> bool>;
 
-pub enum ClientCommand {
-    Send(Vec<u8>),
-    #[allow(unused)]
-    WaitFor(Vec<u8>),
-    #[allow(unused)]
-    WaitAndCheck(CheckBytesFn),
-}
-
 impl Command {
     pub fn new(inner: tokio::process::Command) -> Self {
         Self { inner }
@@ -36,29 +28,6 @@ impl Command {
         let to_client = client.stdin.take().unwrap();
         let from_client = client.stdout.take().unwrap();
         Ok((client, Input(to_client), Output(from_client)))
-    }
-
-    pub async fn wait_for_write<C>(
-        mut self,
-        commands: C,
-    ) -> Result<std::process::Output, miette::Error>
-    where
-        C: IntoIterator<Item = ClientCommand>,
-    {
-        let mut client = self.inner.spawn().into_diagnostic()?;
-
-        let mut input = Input(client.stdin.take().unwrap());
-        let mut output = Output(client.stdout.take().unwrap());
-
-        for command in commands {
-            match command {
-                ClientCommand::Send(bytes) => input.send(&bytes).await?,
-                ClientCommand::WaitFor(expected_bytes) => output.wait_for(&expected_bytes).await?,
-                ClientCommand::WaitAndCheck(check) => output.wait_and_check(check).await?,
-            }
-        }
-
-        client.wait_with_output().await.into_diagnostic()
     }
 }
 
