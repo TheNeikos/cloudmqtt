@@ -400,6 +400,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                 let subscription_manager = server.subscription_manager.clone();
                 let client_id = client_id.clone();
                 let clients = server.clients.clone();
+                let extra_listener = server.extra_listeners.clone();
 
                 tokio::spawn(async move {
                     let client_id = client_id;
@@ -442,6 +443,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                                     *qos,
                                 );
 
+                                let _ = extra_listener.send(message.clone());
                                 subscription_manager.route_message(message).await;
 
                                 // Handle QoS 1/AtLeastOnce response
