@@ -439,15 +439,17 @@ async fn check_first_packet_from_client_is_connect(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let packet =
-                match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                    Ok((_, packet)) => packet,
-                    Err(_e) => return false,
-                };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
 
-            std::matches!(packet, MPacket::Connect { .. })
-        }))
+                std::matches!(packet, MPacket::Connect { .. })
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -476,18 +478,20 @@ async fn check_connect_packet_protocol_name(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let packet =
-                match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                    Ok((_, packet)) => packet,
-                    Err(_e) => return false,
-                };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
 
-            match packet {
-                MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
-                _ => false,
-            }
-        }))
+                match packet {
+                    MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
+                    _ => false,
+                }
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -516,9 +520,11 @@ async fn check_connect_packet_reserved_flag_zero(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
-        }))
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -567,29 +573,33 @@ async fn check_connect_flag_username_set_username_present(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                flags
-            } else {
-                return false;
-            };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-            if 0 != (connect_flags & 0b1000_0000) {
-                // username flag set
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                if 0 != (connect_flags & 0b1000_0000) {
+                    // username flag set
+                    let packet = match nom::combinator::all_consuming(
+                        mqtt_format::v3::packet::mpacket,
+                    )(bytes)
+                    {
                         Ok((_, packet)) => packet,
                         Err(_e) => return false,
                     };
 
-                match packet {
-                    MPacket::Connect(MConnect { username, .. }) => username.is_some(),
-                    _ => false,
+                    match packet {
+                        MPacket::Connect(MConnect { username, .. }) => username.is_some(),
+                        _ => false,
+                    }
+                } else {
+                    true
                 }
-            } else {
-                true
-            }
-        }))
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -618,29 +628,33 @@ async fn check_connect_flag_password_set_password_present(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                flags
-            } else {
-                return false;
-            };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-            if 0 != (connect_flags & 0b0100_0000) {
-                // password flag set
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                if 0 != (connect_flags & 0b0100_0000) {
+                    // password flag set
+                    let packet = match nom::combinator::all_consuming(
+                        mqtt_format::v3::packet::mpacket,
+                    )(bytes)
+                    {
                         Ok((_, packet)) => packet,
                         Err(_e) => return false,
                     };
 
-                match packet {
-                    MPacket::Connect(MConnect { password, .. }) => password.is_some(),
-                    _ => false,
+                    match packet {
+                        MPacket::Connect(MConnect { password, .. }) => password.is_some(),
+                        _ => false,
+                    }
+                } else {
+                    true
                 }
-            } else {
-                true
-            }
-        }))
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -669,22 +683,24 @@ async fn check_connect_flag_username_zero_means_password_zero(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                flags
-            } else {
-                return false;
-            };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-            let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
-            let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
+                let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
+                let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
 
-            if username_flag_set {
-                !password_flag_set
-            } else {
-                true
-            }
-        }))
+                if username_flag_set {
+                    !password_flag_set
+                } else {
+                    true
+                }
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();

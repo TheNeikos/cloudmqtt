@@ -20,7 +20,21 @@ pub struct Command {
     inner: tokio::process::Command,
 }
 
-pub type CheckBytesFn = Box<dyn FnOnce(&[u8]) -> bool>;
+pub trait CheckBytes: Send + Sync + 'static {
+    fn check_bytes(self, bytes: &[u8]) -> bool;
+}
+
+impl<F> CheckBytes for F
+where
+    F: FnOnce(&[u8]) -> bool,
+    F: Send,
+    F: Sync,
+    F: 'static,
+{
+    fn check_bytes(self, bytes: &[u8]) -> bool {
+        (self)(bytes)
+    }
+}
 
 impl Command {
     pub fn new(inner: tokio::process::Command) -> Self {
@@ -128,7 +142,7 @@ impl Output {
         }
     }
 
-    pub async fn wait_and_check(&mut self, check: CheckBytesFn) -> miette::Result<()> {
+    pub async fn wait_and_check(&mut self, check: impl CheckBytes) -> miette::Result<()> {
         match tokio::time::timeout(std::time::Duration::from_millis(100), async {
             let mut buffer = BytesMut::new();
             buffer.put_u16(self.stdout.read_u16().await.into_diagnostic()?);
@@ -158,7 +172,7 @@ impl Output {
         .await
         {
             Ok(Ok(buffer)) => {
-                if !check(&buffer) {
+                if !check.check_bytes(&buffer) {
                     return Err(miette::miette!("Check failed for Bytes {:?}", buffer));
                 }
             }
