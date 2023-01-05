@@ -31,11 +31,11 @@ impl Command {
         Self { inner }
     }
 
-    pub fn spawn(mut self) -> miette::Result<(Input, Output)> {
+    pub fn spawn(mut self) -> miette::Result<(tokio::process::Child, Input, Output)> {
         let mut client = self.inner.spawn().into_diagnostic()?;
         let to_client = client.stdin.take().unwrap();
         let from_client = client.stdout.take().unwrap();
-        Ok((Input(to_client), Output(from_client)))
+        Ok((client, Input(to_client), Output(from_client)))
     }
 
     pub async fn wait_for_write<C>(
