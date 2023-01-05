@@ -56,6 +56,8 @@ pub struct Output {
     stdout: ChildStdout,
 }
 
+static_assertions::assert_impl_all!(Output: Send);
+
 impl Output {
     async fn wait_for(&mut self, expected_bytes: &[u8]) -> miette::Result<Vec<u8>> {
         let mut buf = vec![0; expected_bytes.len()];
