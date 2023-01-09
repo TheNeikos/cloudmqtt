@@ -706,10 +706,10 @@ async fn check_connect_flag_username_zero_means_password_zero(
 
 struct NoUsernameMeansNoPassword;
 impl PacketInvariant for NoUsernameMeansNoPassword {
-    fn test_invariant(&self, packet: &MPacket<'_>) -> miette::Result<Report> {
-        let result = if let MConnect {
+    fn test_invariant(&self, packet: &MPacket<'_>) -> Option<miette::Result<Report>> {
+        let result = if let MPacket::Connect(MConnect {
             username, password, ..
-        } = packet
+        }) = packet
         {
             if username.is_none() {
                 if password.is_some() {
@@ -720,13 +720,15 @@ impl PacketInvariant for NoUsernameMeansNoPassword {
             } else {
                 ReportResult::Success
             }
+        } else {
+            return None;
         };
 
-        Ok(mk_report! {
+        Some(Ok(mk_report! {
             name: "If the CONNECT packet flag for username is set, a username must be present",
             desc: "If the User Name Flag is set to 1, a user name MUST be present in the payload.",
             normative: "[MQTT-3.1.2-18, MQTT-3.1.2-19]",
             result
-        })
+        }))
     }
 }
