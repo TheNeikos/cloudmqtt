@@ -14,4 +14,4 @@ miette = { version = "5.1.1", features = ["fancy"] }
 mqtt-format = { path = "../mqtt-format", version = "0.4.0" }
 nom = { version = "7.1.2" }
 textwrap = "0.16.0"
-tokio = { version = "1.20", features = ["macros", "process", "rt", "rt-multi-thread", "io-util", "time"] }
+tokio = { version = "1.24", features = ["macros", "process", "rt", "rt-multi-thread", "io-util", "time"] }
