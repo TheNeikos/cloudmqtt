@@ -119,7 +119,7 @@ impl Output {
             Ok((_, packet)) => self
                 .attached_invariants
                 .iter()
-                .map(|inv| inv.test_invariant(&packet))
+                .flat_map(|inv| inv.test_invariant(&packet))
                 .collect::<Result<Vec<_>, _>>()
                 .map(|_| ()),
             Err(e) => {
