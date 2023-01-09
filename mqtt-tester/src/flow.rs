@@ -12,10 +12,8 @@ use crate::{
 #[async_trait::async_trait]
 pub trait Flow {
     fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>>;
-    async fn execute(
-        &self,
-        command: crate::command::Command,
-    ) -> Result<std::process::Output, miette::Error>;
+
+    async fn execute(&self, mut input: Input, mut output: Output) -> Result<(), miette::Error>;
 }
 
 pub struct WaitForConnectFlow;
