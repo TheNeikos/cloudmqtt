@@ -5,9 +5,11 @@
 //
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::FutureExt;
+use miette::IntoDiagnostic;
 use mqtt_format::v3::connect_return::MConnectReturnCode;
 
 use mqtt_format::v3::header::MPacketKind;
@@ -18,7 +20,8 @@ use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
-use crate::executable::{ClientExecutable, ClientExecutableCommand};
+use crate::executable::ClientExecutable;
+use crate::flow::{Flow, WaitForConnectFlow};
 use crate::packet_invariant::PacketInvariant;
 use crate::report::{Report, ReportResult};
 
@@ -45,6 +48,24 @@ pub async fn create_client_report(
         check_connect_flag_password_set_password_present(&executable).boxed_local(),
         check_connect_flag_username_zero_means_password_zero(&executable).boxed_local(),
     ];
+
+    let flows = vec![Box::new(WaitForConnectFlow)];
+
+    let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
+
+    for flow in flows {
+        let commands = flow.commands();
+
+        let (client, input, mut output) = executable
+            .call(&commands)
+            .map(crate::command::Command::new)?
+            .spawn()?;
+
+        output.with_invariants(invariants.iter().cloned());
+
+        flow.execute(input, output).await?;
+        client.wait_with_output().await.into_diagnostic()?;
+    }
 
     futures::stream::iter(reports)
         .buffered(parallelism.get())
