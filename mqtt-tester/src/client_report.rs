@@ -18,7 +18,8 @@ use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
-use crate::executable::ClientExecutable;
+use crate::executable::{ClientExecutable, ClientExecutableCommand};
+use crate::packet_invariant::PacketInvariant;
 use crate::report::{Report, ReportResult};
 
 pub async fn create_client_report(
@@ -54,6 +55,19 @@ pub async fn create_client_report(
 }
 
 macro_rules! mk_report {
+    (name: $name:literal,
+     desc: $description:literal,
+     normative: $normative:literal,
+     $result:ident) => {
+        Report {
+            name: String::from($name),
+            description: String::from($description),
+            normative_statement_number: String::from($normative),
+            $result,
+            output: None,
+        }
+    };
+
     (name: $name:literal,
      desc: $description:literal,
      normative: $normative:literal,
@@ -667,4 +681,31 @@ async fn check_connect_flag_username_zero_means_password_zero(
         result,
         output
     })
+}
+
+struct NoUsernameMeansNoPassword;
+impl PacketInvariant for NoUsernameMeansNoPassword {
+    fn test_invariant(&self, packet: &MPacket<'_>) -> miette::Result<Report> {
+        let result = if let MConnect {
+            username, password, ..
+        } = packet
+        {
+            if username.is_none() {
+                if password.is_some() {
+                    ReportResult::Failure
+                } else {
+                    ReportResult::Success
+                }
+            } else {
+                ReportResult::Success
+            }
+        };
+
+        Ok(mk_report! {
+            name: "If the CONNECT packet flag for username is set, a username must be present",
+            desc: "If the User Name Flag is set to 1, a user name MUST be present in the payload.",
+            normative: "[MQTT-3.1.2-18, MQTT-3.1.2-19]",
+            result
+        })
+    }
 }
