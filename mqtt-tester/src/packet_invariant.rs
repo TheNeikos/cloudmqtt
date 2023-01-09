@@ -8,6 +8,6 @@ use mqtt_format::v3::packet::MPacket;
 
 use crate::report::Report;
 
-pub trait PacketInvariant {
-    fn test_invariant(&self, packet: &MPacket<'_>) -> miette::Result<Report>;
+pub trait PacketInvariant: Send + Sync + 'static {
+    fn test_invariant(&self, packet: &MPacket<'_>) -> Option<miette::Result<Report>>;
 }
