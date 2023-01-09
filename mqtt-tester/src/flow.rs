@@ -24,29 +24,24 @@ impl Flow for WaitForConnectFlow {
         vec![Box::new(crate::executable::QuitCommand)]
     }
 
-    async fn execute(
-        &self,
-        command: crate::command::Command,
-    ) -> Result<std::process::Output, miette::Error> {
-        command
-            .wait_for_write([crate::command::ClientCommand::WaitAndCheck(Box::new(
-                |bytes: &[u8]| -> bool {
-                    let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                        flags
-                    } else {
-                        return false;
-                    };
+    async fn execute(&self, _input: Input, mut output: Output) -> Result<(), miette::Error> {
+        output
+            .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-                    let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
-                    let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
+                let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
+                let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
 
-                    if username_flag_set {
-                        !password_flag_set
-                    } else {
-                        true
-                    }
-                },
-            ))])
+                if username_flag_set {
+                    !password_flag_set
+                } else {
+                    true
+                }
+            }))
             .await
     }
 }
