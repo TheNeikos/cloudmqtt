@@ -4,4 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#![deny(clippy::disallowed_methods)]
+#![deny(clippy::disallowed_types)]
+
 pub mod v3;
