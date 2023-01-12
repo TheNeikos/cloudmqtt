@@ -55,6 +55,7 @@ pub async fn create_client_report(
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
 
+    let mut collected_reports = Vec::with_capacity(flows.len());
     for flow in flows {
         let commands = flow.commands();
 
@@ -65,16 +66,34 @@ pub async fn create_client_report(
 
         output.with_invariants(invariants.iter().cloned());
 
-        flow.execute(input, output).await?;
-        client.wait_with_output().await.into_diagnostic()?;
+        let flow_result = flow.execute(input, output).await;
+        let client_output = client.wait_with_output().await.into_diagnostic()?;
+
+        collected_reports.push({
+            Report {
+                name: String::from(flow.report_name()),
+                description: String::from(flow.report_desc()),
+                normative_statement_number: String::from(flow.report_normative()),
+                result: match flow_result {
+                    Ok(_) => flow.translate_client_exit_code(client_output.status.success()),
+                    Err(_e) => ReportResult::Failure,
+                },
+                output: Some(client_output.stdout),
+            }
+        })
     }
 
-    futures::stream::iter(reports)
-        .buffered(parallelism.get())
-        .collect::<Vec<_>>()
-        .await
-        .into_iter()
-        .collect::<Result<Vec<_>, _>>()
+    Ok({
+        futures::stream::iter(reports)
+            .buffered(parallelism.get())
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .chain(collected_reports.into_iter())
+            .collect()
+    })
 }
 
 #[macro_export]
