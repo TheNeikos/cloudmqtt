@@ -10,6 +10,7 @@ use crate::{
     behaviour_test::BehaviourTest,
     command::{Input, Output},
     executable::ClientExecutableCommand,
+    report::ReportResult,
 };
 
 pub struct InvalidUtf8IsRejected;
@@ -43,5 +44,25 @@ impl BehaviourTest for InvalidUtf8IsRejected {
             ])
             .await?;
         Ok(())
+    }
+
+    fn report_name(&self) -> &str {
+        "Check if invalid UTF-8 is rejected"
+    }
+
+    fn report_desc(&self) -> &str {
+        "Invalid UTF-8 is not allowed per the MQTT spec. Any receiver should immediately close the connection upon receiving such a packet."
+    }
+
+    fn report_normative(&self) -> &str {
+        "[MQTT-1.5.3-1, MQTT-1.5.3-2]"
+    }
+
+    fn translate_client_exit_code(&self, success: bool) -> ReportResult {
+        if success {
+            ReportResult::Failure
+        } else {
+            ReportResult::Success
+        }
     }
 }

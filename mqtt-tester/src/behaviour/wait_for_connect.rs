@@ -8,6 +8,7 @@ use crate::{
     behaviour_test::BehaviourTest,
     command::{Input, Output},
     executable::ClientExecutableCommand,
+    report::ReportResult,
 };
 
 pub struct WaitForConnect;
@@ -39,6 +40,26 @@ impl BehaviourTest for WaitForConnect {
                 }),
             )
             .await
+    }
+
+    fn report_name(&self) -> &str {
+        "Wait for client to connect"
+    }
+
+    fn report_desc(&self) -> &str {
+        "A client should send a CONNECT packet to connect to the server"
+    }
+
+    fn report_normative(&self) -> &str {
+        "none"
+    }
+
+    fn translate_client_exit_code(&self, success: bool) -> ReportResult {
+        if success {
+            ReportResult::Success
+        } else {
+            ReportResult::Failure
+        }
     }
 }
 
