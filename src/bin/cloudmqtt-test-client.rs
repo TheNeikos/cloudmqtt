@@ -6,6 +6,7 @@
 
 use std::process::exit;
 
+use clap::Parser;
 use cloudmqtt::{client::MqttClient, client::MqttConnectionParams};
 use futures::StreamExt;
 use mqtt_format::v3::will::MLastWill;
@@ -13,6 +14,29 @@ use mqtt_format::v3::will::MLastWill;
 fn print_error_and_quit(e: String) -> ! {
     eprintln!("{}", e);
     exit(1);
+}
+
+#[derive(clap::Parser, Debug)]
+struct Args {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum Command {
+    Quit,
+    Subscribe {
+        topic: String,
+    },
+    SendToTopic {
+        topic: String,
+        qos: u8,
+        message: String,
+    },
+    ExpectOnTopic {
+        topic: String,
+        qos: u8,
+    },
 }
 
 #[tokio::main]
@@ -23,6 +47,16 @@ async fn main() {
 
     tokio::spawn(async move { tokio::io::copy(&mut tokio::io::stdin(), &mut write_dup).await });
     tokio::spawn(async move { tokio::io::copy(&mut read_dup, &mut tokio::io::stdout()).await });
+
+    let args = {
+        std::env::args()
+            .skip(1)
+            .collect::<String>()
+            .split("----")
+            .map(|els| Args::try_parse_from(els.split(' ')))
+            .collect::<Result<Vec<Args>, _>>()
+            .expect("Parsing Arguments failed")
+    };
 
     let client = MqttClient::connect_v3_duplex(
         client_duplex,
