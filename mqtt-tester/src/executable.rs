@@ -31,6 +31,7 @@ impl ClientExecutable {
             .flat_map(|cec| {
                 let mut v = vec![cec.as_str().to_string()];
                 v.extend(cec.args());
+                v.push("----".to_string());
                 v
             })
             .collect();
