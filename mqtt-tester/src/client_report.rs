@@ -6,7 +6,6 @@
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::time::Duration;
 
 use futures::FutureExt;
 use miette::IntoDiagnostic;
@@ -20,6 +19,7 @@ use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
+use crate::behaviour::invalid_utf8_is_rejected::InvalidUtf8IsRejected;
 use crate::behaviour::wait_for_connect::WaitForConnect;
 use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
@@ -36,7 +36,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_invalid_utf8_is_rejected(&executable).boxed_local(),
         check_receiving_server_packet(&executable).boxed_local(),
         check_invalid_first_packet_is_rejected(&executable).boxed_local(),
         check_utf8_with_nullchar_is_rejected(&executable).boxed_local(),
@@ -51,7 +50,8 @@ pub async fn create_client_report(
         check_connect_flag_username_zero_means_password_zero(&executable).boxed_local(),
     ];
 
-    let flows = vec![Box::new(WaitForConnect)];
+    let flows: Vec<Box<dyn BehaviourTest>> =
+        vec![Box::new(WaitForConnect), Box::new(InvalidUtf8IsRejected)];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
 
@@ -107,72 +107,35 @@ macro_rules! mk_report {
     };
 }
 
+#[macro_export]
 macro_rules! wait_for_output {
     ($output:ident,
      timeout_ms: $timeout_ms:literal,
      out_success => $success:block,
      out_failure => $failure:block
     ) => {{
-        let (result, output) =
-            match tokio::time::timeout(Duration::from_millis($timeout_ms), $output).await {
-                Ok(Ok(out)) => (
-                    if out.status.success() {
-                        $success
-                    } else {
-                        $failure
-                    },
-                    Some(out.stderr),
-                ),
-                Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
-            };
+        #[allow(unused_imports)]
+        use futures::Future;
+
+        let (result, output) = match tokio::time::timeout(
+            std::time::Duration::from_millis($timeout_ms),
+            $output,
+        )
+        .await
+        {
+            Ok(Ok(out)) => (
+                if out.status.success() {
+                    $success
+                } else {
+                    $failure
+                },
+                Some(out.stderr),
+            ),
+            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+        };
 
         (result, output)
     }};
-}
-
-async fn check_invalid_utf8_is_rejected(executable: &ClientExecutable) -> miette::Result<Report> {
-    let (client, mut input, _output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send_packet(MConnack {
-            session_present: false,
-            connect_return_code: MConnectReturnCode::Accepted,
-        })
-        .await?;
-
-    input
-        .send(&[
-            0b0011_0000, // PUBLISH packet, DUP = 0, QoS = 0, Retain = 0
-            0b0000_0111, // Length
-            // Now the variable header
-            0b0000_0000,
-            0b0000_0010,
-            0x61,
-            0xC1,        // An invalid UTF-8 byte
-            0b0000_0000, // Packet identifier
-            0b0000_0001,
-            0x1, // Payload
-        ])
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Failure },
-        out_failure => { ReportResult::Success }
-    };
-
-    Ok(mk_report! {
-        name: "Check if invalid UTF-8 is rejected",
-        desc: "Invalid UTF-8 is not allowed per the MQTT spec. Any receiver should immediately close the connection upon receiving such a packet.",
-        normative: "[MQTT-1.5.3-1, MQTT-1.5.3-2]",
-        result,
-        output
-    })
 }
 
 async fn check_receiving_server_packet(executable: &ClientExecutable) -> miette::Result<Report> {

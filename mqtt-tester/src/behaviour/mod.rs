@@ -4,4 +4,5 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+pub mod invalid_utf8_is_rejected;
 pub mod wait_for_connect;
