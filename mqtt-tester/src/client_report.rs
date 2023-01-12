@@ -20,7 +20,8 @@ use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
-use crate::behaviour_test::{BehaviourTest, WaitForConnect};
+use crate::behaviour::wait_for_connect::WaitForConnect;
+use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
 use crate::packet_invariant::PacketInvariant;
 use crate::report::{Report, ReportResult};
