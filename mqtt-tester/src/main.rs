@@ -9,6 +9,7 @@ mod behaviour_test;
 mod client_report;
 mod command;
 mod executable;
+mod invariant;
 mod packet_invariant;
 mod report;
 
