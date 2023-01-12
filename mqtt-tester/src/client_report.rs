@@ -5,9 +5,11 @@
 //
 
 use std::path::PathBuf;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::FutureExt;
+use miette::IntoDiagnostic;
 use mqtt_format::v3::connect_return::MConnectReturnCode;
 
 use mqtt_format::v3::header::MPacketKind;
@@ -19,6 +21,8 @@ use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
 use crate::executable::ClientExecutable;
+use crate::flow::{Flow, WaitForConnectFlow};
+use crate::packet_invariant::PacketInvariant;
 use crate::report::{Report, ReportResult};
 
 pub async fn create_client_report(
@@ -45,6 +49,24 @@ pub async fn create_client_report(
         check_connect_flag_username_zero_means_password_zero(&executable).boxed_local(),
     ];
 
+    let flows = vec![Box::new(WaitForConnectFlow)];
+
+    let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
+
+    for flow in flows {
+        let commands = flow.commands();
+
+        let (client, input, mut output) = executable
+            .call(&commands)
+            .map(crate::command::Command::new)?
+            .spawn()?;
+
+        output.with_invariants(invariants.iter().cloned());
+
+        flow.execute(input, output).await?;
+        client.wait_with_output().await.into_diagnostic()?;
+    }
+
     futures::stream::iter(reports)
         .buffered(parallelism.get())
         .collect::<Vec<_>>()
@@ -54,6 +76,19 @@ pub async fn create_client_report(
 }
 
 macro_rules! mk_report {
+    (name: $name:literal,
+     desc: $description:literal,
+     normative: $normative:literal,
+     $result:ident) => {
+        Report {
+            name: String::from($name),
+            description: String::from($description),
+            normative_statement_number: String::from($normative),
+            $result,
+            output: None,
+        }
+    };
+
     (name: $name:literal,
      desc: $description:literal,
      normative: $normative:literal,
@@ -404,15 +439,17 @@ async fn check_first_packet_from_client_is_connect(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let packet =
-                match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                    Ok((_, packet)) => packet,
-                    Err(_e) => return false,
-                };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
 
-            std::matches!(packet, MPacket::Connect { .. })
-        }))
+                std::matches!(packet, MPacket::Connect { .. })
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -441,18 +478,20 @@ async fn check_connect_packet_protocol_name(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let packet =
-                match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                    Ok((_, packet)) => packet,
-                    Err(_e) => return false,
-                };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let packet =
+                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                        Ok((_, packet)) => packet,
+                        Err(_e) => return false,
+                    };
 
-            match packet {
-                MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
-                _ => false,
-            }
-        }))
+                match packet {
+                    MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
+                    _ => false,
+                }
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -481,9 +520,11 @@ async fn check_connect_packet_reserved_flag_zero(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
-        }))
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -532,29 +573,33 @@ async fn check_connect_flag_username_set_username_present(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                flags
-            } else {
-                return false;
-            };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-            if 0 != (connect_flags & 0b1000_0000) {
-                // username flag set
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                if 0 != (connect_flags & 0b1000_0000) {
+                    // username flag set
+                    let packet = match nom::combinator::all_consuming(
+                        mqtt_format::v3::packet::mpacket,
+                    )(bytes)
+                    {
                         Ok((_, packet)) => packet,
                         Err(_e) => return false,
                     };
 
-                match packet {
-                    MPacket::Connect(MConnect { username, .. }) => username.is_some(),
-                    _ => false,
+                    match packet {
+                        MPacket::Connect(MConnect { username, .. }) => username.is_some(),
+                        _ => false,
+                    }
+                } else {
+                    true
                 }
-            } else {
-                true
-            }
-        }))
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -583,29 +628,33 @@ async fn check_connect_flag_password_set_password_present(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                flags
-            } else {
-                return false;
-            };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-            if 0 != (connect_flags & 0b0100_0000) {
-                // password flag set
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
+                if 0 != (connect_flags & 0b0100_0000) {
+                    // password flag set
+                    let packet = match nom::combinator::all_consuming(
+                        mqtt_format::v3::packet::mpacket,
+                    )(bytes)
+                    {
                         Ok((_, packet)) => packet,
                         Err(_e) => return false,
                     };
 
-                match packet {
-                    MPacket::Connect(MConnect { password, .. }) => password.is_some(),
-                    _ => false,
+                    match packet {
+                        MPacket::Connect(MConnect { password, .. }) => password.is_some(),
+                        _ => false,
+                    }
+                } else {
+                    true
                 }
-            } else {
-                true
-            }
-        }))
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -634,22 +683,24 @@ async fn check_connect_flag_username_zero_means_password_zero(
         .spawn()?;
 
     output
-        .wait_and_check(Box::new(|bytes: &[u8]| -> bool {
-            let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
-                flags
-            } else {
-                return false;
-            };
+        .wait_and_check(
+            &(|bytes: &[u8]| -> bool {
+                let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
+                    flags
+                } else {
+                    return false;
+                };
 
-            let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
-            let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
+                let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
+                let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
 
-            if username_flag_set {
-                !password_flag_set
-            } else {
-                true
-            }
-        }))
+                if username_flag_set {
+                    !password_flag_set
+                } else {
+                    true
+                }
+            }),
+        )
         .await?;
 
     let output = client.wait_with_output();
@@ -667,4 +718,33 @@ async fn check_connect_flag_username_zero_means_password_zero(
         result,
         output
     })
+}
+
+struct NoUsernameMeansNoPassword;
+impl PacketInvariant for NoUsernameMeansNoPassword {
+    fn test_invariant(&self, packet: &MPacket<'_>) -> Option<miette::Result<Report>> {
+        let result = if let MPacket::Connect(MConnect {
+            username, password, ..
+        }) = packet
+        {
+            if username.is_none() {
+                if password.is_some() {
+                    ReportResult::Failure
+                } else {
+                    ReportResult::Success
+                }
+            } else {
+                ReportResult::Success
+            }
+        } else {
+            return None;
+        };
+
+        Some(Ok(mk_report! {
+            name: "If the CONNECT packet flag for username is set, a username must be present",
+            desc: "If the User Name Flag is set to 1, a user name MUST be present in the payload.",
+            normative: "[MQTT-3.1.2-18, MQTT-3.1.2-19]",
+            result
+        }))
+    }
 }

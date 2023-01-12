@@ -608,6 +608,7 @@ name = "mqtt-tester"
 version = "0.1.0"
 dependencies = [
  "ansi_term",
+ "async-trait",
  "bytes",
  "clap 3.2.23",
  "futures",

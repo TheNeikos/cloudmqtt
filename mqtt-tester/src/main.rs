@@ -7,6 +7,8 @@
 mod client_report;
 mod command;
 mod executable;
+mod flow;
+mod packet_invariant;
 mod report;
 
 use std::{path::PathBuf, process::exit};
