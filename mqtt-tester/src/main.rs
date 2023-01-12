@@ -4,10 +4,12 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+mod behaviour;
+mod behaviour_test;
 mod client_report;
 mod command;
 mod executable;
-mod flow;
+mod invariant;
 mod packet_invariant;
 mod report;
 

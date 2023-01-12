@@ -20,8 +20,10 @@ use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
+use crate::behaviour::wait_for_connect::WaitForConnect;
+use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
-use crate::flow::{Flow, WaitForConnectFlow};
+use crate::invariant::no_username_means_no_password::NoUsernameMeansNoPassword;
 use crate::packet_invariant::PacketInvariant;
 use crate::report::{Report, ReportResult};
 
@@ -49,7 +51,7 @@ pub async fn create_client_report(
         check_connect_flag_username_zero_means_password_zero(&executable).boxed_local(),
     ];
 
-    let flows = vec![Box::new(WaitForConnectFlow)];
+    let flows = vec![Box::new(WaitForConnect)];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
 
@@ -75,6 +77,7 @@ pub async fn create_client_report(
         .collect::<Result<Vec<_>, _>>()
 }
 
+#[macro_export]
 macro_rules! mk_report {
     (name: $name:literal,
      desc: $description:literal,
@@ -718,33 +721,4 @@ async fn check_connect_flag_username_zero_means_password_zero(
         result,
         output
     })
-}
-
-struct NoUsernameMeansNoPassword;
-impl PacketInvariant for NoUsernameMeansNoPassword {
-    fn test_invariant(&self, packet: &MPacket<'_>) -> Option<miette::Result<Report>> {
-        let result = if let MPacket::Connect(MConnect {
-            username, password, ..
-        }) = packet
-        {
-            if username.is_none() {
-                if password.is_some() {
-                    ReportResult::Failure
-                } else {
-                    ReportResult::Success
-                }
-            } else {
-                ReportResult::Success
-            }
-        } else {
-            return None;
-        };
-
-        Some(Ok(mk_report! {
-            name: "If the CONNECT packet flag for username is set, a username must be present",
-            desc: "If the User Name Flag is set to 1, a user name MUST be present in the payload.",
-            normative: "[MQTT-3.1.2-18, MQTT-3.1.2-19]",
-            result
-        }))
-    }
 }

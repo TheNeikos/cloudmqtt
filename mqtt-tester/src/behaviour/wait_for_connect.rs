@@ -5,21 +5,15 @@
 //
 
 use crate::{
+    behaviour_test::BehaviourTest,
     command::{Input, Output},
     executable::ClientExecutableCommand,
 };
 
-#[async_trait::async_trait]
-pub trait Flow {
-    fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>>;
-
-    async fn execute(&self, mut input: Input, mut output: Output) -> Result<(), miette::Error>;
-}
-
-pub struct WaitForConnectFlow;
+pub struct WaitForConnect;
 
 #[async_trait::async_trait]
-impl Flow for WaitForConnectFlow {
+impl BehaviourTest for WaitForConnect {
     fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>> {
         vec![Box::new(crate::executable::QuitCommand)]
     }
