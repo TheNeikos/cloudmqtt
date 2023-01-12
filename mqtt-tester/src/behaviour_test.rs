@@ -7,6 +7,7 @@
 use crate::{
     command::{Input, Output},
     executable::ClientExecutableCommand,
+    report::ReportResult,
 };
 
 #[async_trait::async_trait]
@@ -14,4 +15,16 @@ pub trait BehaviourTest {
     fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>>;
 
     async fn execute(&self, mut input: Input, mut output: Output) -> Result<(), miette::Error>;
+
+    fn report_name(&self) -> &str;
+    fn report_desc(&self) -> &str;
+    fn report_normative(&self) -> &str;
+
+    fn translate_client_exit_code(&self, success: bool) -> ReportResult {
+        if success {
+            ReportResult::Success
+        } else {
+            ReportResult::Failure
+        }
+    }
 }
