@@ -93,29 +93,6 @@ impl Output {
         self.attached_invariants.extend(i);
     }
 
-    async fn wait_for(&mut self, expected_bytes: &[u8]) -> miette::Result<Vec<u8>> {
-        let mut buf = vec![0; expected_bytes.len()];
-        match tokio::time::timeout(
-            std::time::Duration::from_millis(100),
-            self.stdout.read_exact(&mut buf),
-        )
-        .await
-        {
-            Ok(Ok(_)) => {
-                if buf != expected_bytes {
-                    return Err(miette::miette!(
-                        "Received Bytes did not match expected bytes: {:?} != {:?}",
-                        buf,
-                        expected_bytes
-                    ));
-                }
-            }
-            Ok(Err(e)) => return Err(e).into_diagnostic(),
-            Err(_elapsed) => return Err(miette::miette!("Did not hear from server until timeout")),
-        }
-        Ok(buf)
-    }
-
     pub async fn wait_and_check(&mut self, check: impl CheckBytes) -> miette::Result<()> {
         match tokio::time::timeout(std::time::Duration::from_millis(100), async {
             let mut buffer = BytesMut::new();
