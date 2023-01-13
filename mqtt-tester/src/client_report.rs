@@ -33,7 +33,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_invalid_first_packet_is_rejected(&executable).boxed_local(),
         check_utf8_with_nullchar_is_rejected(&executable).boxed_local(),
         check_connack_flags_are_set_as_reserved(&executable).boxed_local(),
         check_publish_qos_zero_with_ident_fails(&executable).boxed_local(),
@@ -50,6 +49,7 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::WaitForConnect),
         Box::new(crate::behaviour::InvalidUtf8IsRejected),
         Box::new(crate::behaviour::ReceivingServerPacket),
+        Box::new(crate::behaviour::InvalidFirstPacketIsRejected),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
@@ -154,44 +154,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_invalid_first_packet_is_rejected(
-    executable: &ClientExecutable,
-) -> miette::Result<Report> {
-    let (client, mut input, _output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send_packet(MConnect {
-            protocol_name: MString { value: "foo" },
-            protocol_level: 0,
-            clean_session: true,
-            will: None,
-            username: None,
-            password: None,
-            keep_alive: 0,
-            client_id: MString { value: "client" },
-        })
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Failure },
-        out_failure => { ReportResult::Success }
-    };
-
-    Ok(mk_report! {
-        name: "Check if invalid first packet is rejected",
-        desc: "The first packet from the server must be a ConnAck. Any other packet is invalid and the client should close the connection",
-        normative: "[MQTT-3.2.0-1]",
-        result,
-        output
-    })
 }
 
 async fn check_utf8_with_nullchar_is_rejected(
