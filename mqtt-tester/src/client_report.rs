@@ -32,7 +32,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_publish_qos_zero_with_ident_fails(&executable).boxed_local(),
         check_publish_qos_2_is_acked(&executable).boxed_local(),
         check_first_packet_from_client_is_connect(&executable).boxed_local(),
         check_connect_packet_protocol_name(&executable).boxed_local(),
@@ -49,6 +48,7 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::InvalidFirstPacketIsRejected),
         Box::new(crate::behaviour::Utf8WithNullcharIsRejected),
         Box::new(crate::behaviour::ConnackFlagsAreSetAsReserved),
+        Box::new(crate::behaviour::PublishQosZeroWithIdentFails),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
@@ -153,49 +153,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_publish_qos_zero_with_ident_fails(
-    executable: &ClientExecutable,
-) -> miette::Result<Report> {
-    let (client, mut input, _output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send_packet(MConnack {
-            session_present: false,
-            connect_return_code: MConnectReturnCode::Accepted,
-        })
-        .await?;
-
-    input
-        .send_packet(MPublish {
-            dup: false,
-            qos: MQualityOfService::AtMostOnce, // QoS 0
-            retain: false,
-            topic_name: MString { value: "a" },
-            id: Some(MPacketIdentifier(1)),
-            payload: &[0x00],
-        })
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Failure },
-        out_failure => { ReportResult::Success }
-    };
-
-    Ok(mk_report! {
-        name: "A PUBLISH packet with QoS zero must not contain a packet identifier",
-        desc: "A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to 0.",
-        normative: "[MQTT-2.3.1-5]",
-        result,
-        output
-    })
 }
 
 async fn check_publish_qos_2_is_acked(executable: &ClientExecutable) -> miette::Result<Report> {
