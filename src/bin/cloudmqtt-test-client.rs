@@ -47,13 +47,6 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
-    let (client_duplex, server_duplex) = tokio::io::duplex(512);
-
-    let (mut read_dup, mut write_dup) = tokio::io::split(server_duplex);
-
-    tokio::spawn(async move { tokio::io::copy(&mut tokio::io::stdin(), &mut write_dup).await });
-    tokio::spawn(async move { tokio::io::copy(&mut read_dup, &mut tokio::io::stdout()).await });
-
     let args = {
         std::env::args()
             .skip(1)
@@ -63,6 +56,13 @@ async fn main() {
             .collect::<Result<Vec<Args>, _>>()
             .expect("Parsing Arguments failed")
     };
+
+    let (client_duplex, server_duplex) = tokio::io::duplex(512);
+
+    let (mut read_dup, mut write_dup) = tokio::io::split(server_duplex);
+
+    tokio::spawn(async move { tokio::io::copy(&mut tokio::io::stdin(), &mut write_dup).await });
+    tokio::spawn(async move { tokio::io::copy(&mut read_dup, &mut tokio::io::stdout()).await });
 
     let client = MqttClient::connect_v3_duplex(
         client_duplex,
