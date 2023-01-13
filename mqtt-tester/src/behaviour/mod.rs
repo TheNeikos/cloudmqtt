@@ -5,4 +5,5 @@
 //
 
 pub mod invalid_utf8_is_rejected;
+pub mod receiving_server_packet;
 pub mod wait_for_connect;

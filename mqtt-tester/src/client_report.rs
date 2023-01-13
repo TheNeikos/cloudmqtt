@@ -13,13 +13,13 @@ use mqtt_format::v3::connect_return::MConnectReturnCode;
 
 use mqtt_format::v3::header::MPacketKind;
 use mqtt_format::v3::identifier::MPacketIdentifier;
-use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPuback, MPublish, MSubscribe};
+use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPuback, MPublish};
 
 use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
-use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
 use crate::behaviour::invalid_utf8_is_rejected::InvalidUtf8IsRejected;
+use crate::behaviour::receiving_server_packet::ReceivingServerPacket;
 use crate::behaviour::wait_for_connect::WaitForConnect;
 use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
@@ -36,7 +36,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_receiving_server_packet(&executable).boxed_local(),
         check_invalid_first_packet_is_rejected(&executable).boxed_local(),
         check_utf8_with_nullchar_is_rejected(&executable).boxed_local(),
         check_connack_flags_are_set_as_reserved(&executable).boxed_local(),
@@ -50,8 +49,11 @@ pub async fn create_client_report(
         check_connect_flag_username_zero_means_password_zero(&executable).boxed_local(),
     ];
 
-    let flows: Vec<Box<dyn BehaviourTest>> =
-        vec![Box::new(WaitForConnect), Box::new(InvalidUtf8IsRejected)];
+    let flows: Vec<Box<dyn BehaviourTest>> = vec![
+        Box::new(WaitForConnect),
+        Box::new(InvalidUtf8IsRejected),
+        Box::new(ReceivingServerPacket),
+    ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
 
@@ -155,46 +157,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_receiving_server_packet(executable: &ClientExecutable) -> miette::Result<Report> {
-    let (client, mut input, _output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send_packet(MConnack {
-            session_present: false,
-            connect_return_code: MConnectReturnCode::Accepted,
-        })
-        .await?;
-
-    input
-        .send_packet(MSubscribe {
-            id: MPacketIdentifier(1),
-            subscriptions: MSubscriptionRequests {
-                count: 1,
-                data: b"a/b",
-            },
-        })
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Failure },
-        out_failure => { ReportResult::Success }
-    };
-
-    Ok(mk_report! {
-        name: "Check if invalid packets are rejected",
-        desc: "Unexpected packets are a protocol error and the client MUST close the connection.",
-        normative: "[MQTT-4.8.0-1]",
-        result,
-        output
-    })
 }
 
 async fn check_invalid_first_packet_is_rejected(
