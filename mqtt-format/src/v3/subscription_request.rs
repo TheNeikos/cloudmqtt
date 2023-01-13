@@ -62,11 +62,15 @@ impl<'message> Iterator for MSubscriptionIter<'message> {
         }
 
         self.count -= 1;
-        let (rest, request) =
-            msubscriptionrequest(self.data).expect("Could not parse already validated sub request");
-        self.data = rest;
-
-        Some(request)
+        match msubscriptionrequest(self.data) {
+            Ok((rest, request)) => {
+                self.data = rest;
+                Some(request)
+            }
+            Err(e) => {
+                unreachable!("Could not parse already validated sub request: {}", e)
+            }
+        }
     }
 }
 

@@ -1,0 +1,10 @@
+disallowed-methods = [
+    "std::result::Result::unwrap",
+    "std::result::Result::expect",
+    "std::option::Option::unwrap",
+    "std::option::Option::expect",
+]
+
+disallowed-types = [
+    { path = "std::box::Box", reason = "No Heap allocations" },
+]
