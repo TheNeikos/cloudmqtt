@@ -8,6 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures::FutureExt;
+use futures::TryFutureExt;
 use miette::IntoDiagnostic;
 
 use mqtt_format::v3::packet::{MConnect, MPacket};
@@ -61,19 +62,26 @@ pub async fn create_client_report(
 
         output.with_invariants(invariants.iter().cloned());
 
-        let flow_result = flow.execute(input, output).await;
-        let client_output = client.wait_with_output().await.into_diagnostic()?;
+        let (result, output) = match tokio::time::timeout(std::time::Duration::from_millis(100), {
+            flow.execute(input, output)
+                .and_then(|()| async { client.wait_with_output().await.into_diagnostic() })
+        })
+        .await
+        {
+            Ok(Ok(out)) => {
+                let res = flow.translate_client_exit_code(out.status.success());
+                (res, Some(out.stderr))
+            }
+            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+        };
 
         collected_reports.push({
             Report {
                 name: String::from(flow.report_name()),
                 description: String::from(flow.report_desc()),
                 normative_statement_number: String::from(flow.report_normative()),
-                result: match flow_result {
-                    Ok(_) => flow.translate_client_exit_code(client_output.status.success()),
-                    Err(_e) => ReportResult::Failure,
-                },
-                output: Some(client_output.stdout),
+                result,
+                output,
             }
         })
     }
