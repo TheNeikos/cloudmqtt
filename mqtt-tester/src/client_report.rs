@@ -9,12 +9,9 @@ use std::sync::Arc;
 
 use futures::FutureExt;
 use miette::IntoDiagnostic;
-use mqtt_format::v3::connect_return::MConnectReturnCode;
 
-use mqtt_format::v3::identifier::MPacketIdentifier;
-use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPuback, MPublish};
+use mqtt_format::v3::packet::{MConnect, MPacket};
 
-use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 
 use crate::behaviour_test::BehaviourTest;
@@ -32,7 +29,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_publish_qos_2_is_acked(&executable).boxed_local(),
         check_first_packet_from_client_is_connect(&executable).boxed_local(),
         check_connect_packet_protocol_name(&executable).boxed_local(),
         check_connect_packet_reserved_flag_zero(&executable).boxed_local(),
@@ -49,6 +45,7 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::Utf8WithNullcharIsRejected),
         Box::new(crate::behaviour::ConnackFlagsAreSetAsReserved),
         Box::new(crate::behaviour::PublishQosZeroWithIdentFails),
+        Box::new(crate::behaviour::PublishQos2IsAcked),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
@@ -153,53 +150,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_publish_qos_2_is_acked(executable: &ClientExecutable) -> miette::Result<Report> {
-    let (client, mut input, mut output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send_packet(MConnack {
-            session_present: false,
-            connect_return_code: MConnectReturnCode::Accepted,
-        })
-        .await?;
-
-    input
-        .send_packet(MPublish {
-            dup: false,
-            qos: MQualityOfService::AtLeastOnce, // QoS 2
-            retain: false,
-            topic_name: MString { value: "a" },
-            id: Some(MPacketIdentifier(1)),
-            payload: &[0x00],
-        })
-        .await?;
-
-    output
-        .wait_for_packet(MPuback {
-            id: MPacketIdentifier(1),
-        })
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Success },
-        out_failure => { ReportResult::Failure }
-    };
-
-    Ok(mk_report! {
-        name: "A PUBLISH packet is replied to with Puback with the same id",
-        desc: "A PUBACK, PUBREC or PUBREL Packet MUST contain the same Packet Identifier as the PUBLISH Packet that was originally sent.",
-        normative: "[MQTT-2.3.1-6]",
-        result,
-        output
-    })
 }
 
 async fn check_first_packet_from_client_is_connect(
