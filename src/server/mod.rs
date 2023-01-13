@@ -78,6 +78,11 @@ impl ClientId {
     pub(crate) fn new(id: String) -> Self {
         ClientId(id)
     }
+
+    /// Get the inner client id
+    pub fn get(&self) -> &str {
+        &self.0
+    }
 }
 
 impl<'message> TryFrom<MString<'message>> for ClientId {
