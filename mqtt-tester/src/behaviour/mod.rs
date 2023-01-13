@@ -5,6 +5,7 @@
 //
 
 pub mod connack_flags_are_set_as_reserved;
+pub mod first_packet_from_client_is_connect;
 pub mod invalid_first_packet_is_rejected;
 pub mod invalid_utf8_is_rejected;
 pub mod publish_qos_2_is_acked;
@@ -14,6 +15,7 @@ pub mod utf8_with_nullchar_is_rejected;
 pub mod wait_for_connect;
 
 pub use self::connack_flags_are_set_as_reserved::ConnackFlagsAreSetAsReserved;
+pub use self::first_packet_from_client_is_connect::FirstPacketFromClientIsConnect;
 pub use self::invalid_first_packet_is_rejected::InvalidFirstPacketIsRejected;
 pub use self::invalid_utf8_is_rejected::InvalidUtf8IsRejected;
 pub use self::publish_qos_2_is_acked::PublishQos2IsAcked;

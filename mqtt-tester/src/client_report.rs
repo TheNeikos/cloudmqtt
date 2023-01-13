@@ -29,7 +29,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_first_packet_from_client_is_connect(&executable).boxed_local(),
         check_connect_packet_protocol_name(&executable).boxed_local(),
         check_connect_packet_reserved_flag_zero(&executable).boxed_local(),
         check_connect_flag_username_set_username_present(&executable).boxed_local(),
@@ -46,6 +45,7 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::ConnackFlagsAreSetAsReserved),
         Box::new(crate::behaviour::PublishQosZeroWithIdentFails),
         Box::new(crate::behaviour::PublishQos2IsAcked),
+        Box::new(crate::behaviour::FirstPacketFromClientIsConnect),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
@@ -150,45 +150,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_first_packet_from_client_is_connect(
-    executable: &ClientExecutable,
-) -> miette::Result<Report> {
-    let (client, _input, mut output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    output
-        .wait_and_check(
-            &(|bytes: &[u8]| -> bool {
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                        Ok((_, packet)) => packet,
-                        Err(_e) => return false,
-                    };
-
-                std::matches!(packet, MPacket::Connect { .. })
-            }),
-        )
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Success },
-        out_failure => { ReportResult::Failure }
-    };
-
-    Ok(mk_report! {
-        name: "First packet received send by client must be CONNECT",
-        desc: "After a Network Connection is established by a Client to a Server, the first Packet sent from the Client to the Server MUST be a CONNECT Packet.",
-        normative: "[MQTT-3.1.0-1]",
-        result,
-        output
-    })
 }
 
 async fn check_connect_packet_protocol_name(
