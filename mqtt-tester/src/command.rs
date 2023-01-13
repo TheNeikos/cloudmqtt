@@ -116,32 +116,6 @@ impl Output {
         Ok(buf)
     }
 
-    pub async fn wait_for_packet<'m, P>(&mut self, packet: P) -> miette::Result<()>
-    where
-        P: Into<MPacket<'m>>,
-    {
-        let mut buf = vec![];
-        packet
-            .into()
-            .write_to(std::pin::Pin::new(&mut buf))
-            .await
-            .into_diagnostic()?;
-
-        let bytes = self.wait_for(&buf).await?;
-
-        match mqtt_format::v3::packet::mpacket(&bytes) {
-            Ok((_, packet)) => self
-                .attached_invariants
-                .iter()
-                .flat_map(|inv| inv.test_invariant(&packet))
-                .collect::<Result<Vec<_>, _>>()
-                .map(|_| ()),
-            Err(e) => {
-                miette::bail!("Failed to parse as MQTT packet: {}", e)
-            }
-        }
-    }
-
     pub async fn wait_and_check(&mut self, check: impl CheckBytes) -> miette::Result<()> {
         match tokio::time::timeout(std::time::Duration::from_millis(100), async {
             let mut buffer = BytesMut::new();
