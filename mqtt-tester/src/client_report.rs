@@ -33,7 +33,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_utf8_with_nullchar_is_rejected(&executable).boxed_local(),
         check_connack_flags_are_set_as_reserved(&executable).boxed_local(),
         check_publish_qos_zero_with_ident_fails(&executable).boxed_local(),
         check_publish_qos_2_is_acked(&executable).boxed_local(),
@@ -50,6 +49,7 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::InvalidUtf8IsRejected),
         Box::new(crate::behaviour::ReceivingServerPacket),
         Box::new(crate::behaviour::InvalidFirstPacketIsRejected),
+        Box::new(crate::behaviour::Utf8WithNullcharIsRejected),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
@@ -154,60 +154,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_utf8_with_nullchar_is_rejected(
-    executable: &ClientExecutable,
-) -> miette::Result<Report> {
-    let (client, mut input, _output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send_packet(MConnack {
-            session_present: false,
-            connect_return_code: MConnectReturnCode::Accepted,
-        })
-        .await?;
-
-    input
-        .send(&[
-            (MPacketKind::Publish {
-                dup: false,
-                qos: MQualityOfService::AtMostOnce,
-                retain: false,
-            })
-            .to_byte(),
-            0b0000_0111, // Length
-            // Now the variable header
-            0b0000_0000,
-            0b0000_0010,
-            0x61,
-            0x00,        // Zero byte
-            0b0000_0000, // Packet identifier
-            0b0000_0001,
-            0x1, // Payload
-        ])
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Failure },
-        out_failure => { ReportResult::Success }
-    };
-
-    Ok(Report {
-        name: String::from("Check if connection gets closed if UTF-8 string contains nullchar"),
-        description: String::from(
-            "The A UTF-8 encoded string MUST NOT include an encoding of the null character U+0000",
-        ),
-        normative_statement_number: String::from("[MQTT-1.5.3-2]"),
-        result,
-        output,
-    })
 }
 
 async fn check_connack_flags_are_set_as_reserved(
