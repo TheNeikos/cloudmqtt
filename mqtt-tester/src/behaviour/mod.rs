@@ -4,12 +4,14 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+pub mod connack_flags_are_set_as_reserved;
 pub mod invalid_first_packet_is_rejected;
 pub mod invalid_utf8_is_rejected;
 pub mod receiving_server_packet;
 pub mod utf8_with_nullchar_is_rejected;
 pub mod wait_for_connect;
 
+pub use self::connack_flags_are_set_as_reserved::ConnackFlagsAreSetAsReserved;
 pub use self::invalid_first_packet_is_rejected::InvalidFirstPacketIsRejected;
 pub use self::invalid_utf8_is_rejected::InvalidUtf8IsRejected;
 pub use self::receiving_server_packet::ReceivingServerPacket;

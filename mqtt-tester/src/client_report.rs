@@ -11,7 +11,6 @@ use futures::FutureExt;
 use miette::IntoDiagnostic;
 use mqtt_format::v3::connect_return::MConnectReturnCode;
 
-use mqtt_format::v3::header::MPacketKind;
 use mqtt_format::v3::identifier::MPacketIdentifier;
 use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPuback, MPublish};
 
@@ -33,7 +32,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_connack_flags_are_set_as_reserved(&executable).boxed_local(),
         check_publish_qos_zero_with_ident_fails(&executable).boxed_local(),
         check_publish_qos_2_is_acked(&executable).boxed_local(),
         check_first_packet_from_client_is_connect(&executable).boxed_local(),
@@ -50,6 +48,7 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::ReceivingServerPacket),
         Box::new(crate::behaviour::InvalidFirstPacketIsRejected),
         Box::new(crate::behaviour::Utf8WithNullcharIsRejected),
+        Box::new(crate::behaviour::ConnackFlagsAreSetAsReserved),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
@@ -154,42 +153,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_connack_flags_are_set_as_reserved(
-    executable: &ClientExecutable,
-) -> miette::Result<Report> {
-    let (client, mut input, _output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    input
-        .send(&[
-            0b0010_0000 | 0b0000_1000, // CONNACK + garbage
-            0b0000_0010,               // Remaining length
-            0b0000_0000,               // No session present
-            0b0000_0000,               // Connection accepted
-        ])
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Failure },
-        out_failure => { ReportResult::Success }
-    };
-
-    Ok(Report {
-        name: String::from("Flag-Bit is set to 1 where it should be 0"),
-        description: String::from(
-            "CONNACK flag bits are marked as Reserved and must be set accordingly to spec",
-        ),
-        normative_statement_number: String::from("[MQTT-2.2.2-1]"),
-        result,
-        output,
-    })
 }
 
 async fn check_publish_qos_zero_with_ident_fails(
