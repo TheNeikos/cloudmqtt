@@ -18,9 +18,6 @@ use mqtt_format::v3::packet::{MConnack, MConnect, MPacket, MPuback, MPublish};
 use mqtt_format::v3::qos::MQualityOfService;
 use mqtt_format::v3::strings::MString;
 
-use crate::behaviour::invalid_utf8_is_rejected::InvalidUtf8IsRejected;
-use crate::behaviour::receiving_server_packet::ReceivingServerPacket;
-use crate::behaviour::wait_for_connect::WaitForConnect;
 use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
 use crate::invariant::no_username_means_no_password::NoUsernameMeansNoPassword;
@@ -50,9 +47,9 @@ pub async fn create_client_report(
     ];
 
     let flows: Vec<Box<dyn BehaviourTest>> = vec![
-        Box::new(WaitForConnect),
-        Box::new(InvalidUtf8IsRejected),
-        Box::new(ReceivingServerPacket),
+        Box::new(crate::behaviour::WaitForConnect),
+        Box::new(crate::behaviour::InvalidUtf8IsRejected),
+        Box::new(crate::behaviour::ReceivingServerPacket),
     ];
 
     let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
