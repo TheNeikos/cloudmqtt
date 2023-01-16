@@ -35,6 +35,11 @@ impl ClientExecutable {
             })
             .collect();
 
+        tracing::debug!(
+            "Building command: {} {}",
+            self.path.display(),
+            args.join(" ")
+        );
         if !args.is_empty() {
             command.args(args);
         }
