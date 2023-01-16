@@ -22,8 +22,12 @@ impl BehaviourTest for WaitForConnect {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn execute(&self, _input: Input, mut output: Output) -> Result<(), miette::Error> {
-        output
+    async fn execute(
+        &self,
+        _input: Input,
+        mut output: Output,
+    ) -> Result<ReportResult, miette::Error> {
+        let check_result = output
             .wait_and_check(
                 &(|bytes: &[u8]| -> bool {
                     let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
@@ -43,8 +47,9 @@ impl BehaviourTest for WaitForConnect {
                 }),
             )
             .await
-            .context("Waiting for bytes to check")
-            .map_err(miette::Error::from)
+            .context("Waiting for bytes to check")?;
+
+        Ok(check_result)
     }
 
     fn report_name(&self) -> &str {

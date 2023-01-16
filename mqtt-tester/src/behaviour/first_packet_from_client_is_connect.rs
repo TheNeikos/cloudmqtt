@@ -23,8 +23,12 @@ impl BehaviourTest for FirstPacketFromClientIsConnect {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn execute(&self, _input: Input, mut output: Output) -> Result<(), miette::Error> {
-        output
+    async fn execute(
+        &self,
+        _input: Input,
+        mut output: Output,
+    ) -> Result<ReportResult, miette::Error> {
+        let check_output = output
             .wait_and_check(
                 &(|bytes: &[u8]| -> bool {
                     let packet = match nom::combinator::all_consuming(
@@ -41,7 +45,7 @@ impl BehaviourTest for FirstPacketFromClientIsConnect {
             .await
             .context("Waiting for bytes to check")?;
 
-        Ok(())
+        Ok(check_output)
     }
 
     fn report_name(&self) -> &str {
