@@ -19,6 +19,7 @@ use clap::{Parser, Subcommand};
 use client_report::create_client_report;
 use miette::IntoDiagnostic;
 use report::{print_report, ReportResult};
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 #[derive(Parser, Debug)]
 #[clap(author, version)]
@@ -40,6 +41,19 @@ enum Commands {
 
 #[tokio::main]
 async fn main() -> miette::Result<()> {
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_timer(tracing_subscriber::fmt::time::uptime());
+
+    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(filter_layer)
+        .init();
+
+    tracing::info!("Starting up");
+
     let args = Cli::parse();
 
     match args.command {
