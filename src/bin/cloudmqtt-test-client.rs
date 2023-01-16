@@ -48,13 +48,19 @@ enum Command {
 #[tokio::main]
 async fn main() {
     let args = {
-        std::env::args()
+        match std::env::args()
             .skip(1)
             .collect::<String>()
             .split("----")
             .map(|els| Args::try_parse_from(els.split(' ')))
             .collect::<Result<Vec<Args>, _>>()
-            .expect("Parsing Arguments failed")
+        {
+            Ok(args) => args,
+            Err(e) => {
+                eprintln!("{}", e);
+                exit(1)
+            }
+        }
     };
 
     let (client_duplex, server_duplex) = tokio::io::duplex(512);
