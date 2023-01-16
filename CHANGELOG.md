@@ -1,5 +1,13 @@
 # Changelog 'cloudmqtt'
 
+## v0.3.1
+
+The 0.3.1 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
+
+Added:
+
+- Added method to access the String inside a ClientId
+
 ## v0.3.0
 
 The 0.3.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
