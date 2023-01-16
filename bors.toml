@@ -12,7 +12,6 @@ pr_status = [
     # Github Actions
     "license",
     "dco-check",
-    "fixup-check",
 ]
 update_base_for_deletes = true
 cut_body_after = "<details>"
