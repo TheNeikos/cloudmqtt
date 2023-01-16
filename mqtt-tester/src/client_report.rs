@@ -199,6 +199,7 @@ macro_rules! wait_for_output {
     }};
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_packet_reserved_flag_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -252,6 +253,7 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
     Some(getbyte!(connect_flag_position))
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_flag_username_set_username_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -307,6 +309,7 @@ async fn check_connect_flag_username_set_username_present(
     })
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_flag_password_set_password_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -362,6 +365,7 @@ async fn check_connect_flag_password_set_password_present(
     })
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_flag_username_zero_means_password_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {

@@ -21,6 +21,7 @@ impl BehaviourTest for InvalidFirstPacketIsRejected {
         vec![]
     }
 
+    #[tracing::instrument(skip_all)]
     async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
         input
             .send_packet(MConnect {

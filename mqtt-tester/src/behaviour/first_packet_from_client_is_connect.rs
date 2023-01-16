@@ -21,6 +21,7 @@ impl BehaviourTest for FirstPacketFromClientIsConnect {
         vec![]
     }
 
+    #[tracing::instrument(skip_all)]
     async fn execute(&self, _input: Input, mut output: Output) -> Result<(), miette::Error> {
         output
             .wait_and_check(
