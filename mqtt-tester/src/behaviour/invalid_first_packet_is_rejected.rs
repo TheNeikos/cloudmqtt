@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
 use mqtt_format::v3::{packet::MConnect, strings::MString};
 
 use crate::{
@@ -34,7 +35,8 @@ impl BehaviourTest for InvalidFirstPacketIsRejected {
                 keep_alive: 0,
                 client_id: MString { value: "client" },
             })
-            .await?;
+            .await
+            .context("Sending bytes")?;
         Ok(())
     }
 

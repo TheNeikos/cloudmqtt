@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
 use mqtt_format::v3::{connect_return::MConnectReturnCode, packet::MConnack};
 
 use crate::{
@@ -28,7 +29,8 @@ impl BehaviourTest for InvalidUtf8IsRejected {
                 session_present: false,
                 connect_return_code: MConnectReturnCode::Accepted,
             })
-            .await?;
+            .await
+            .context("Sending packet: CONNACK")?;
 
         input
             .send(&[
@@ -43,7 +45,8 @@ impl BehaviourTest for InvalidUtf8IsRejected {
                 0b0000_0001,
                 0x1, // Payload
             ])
-            .await?;
+            .await
+            .context("Sending bytes")?;
         Ok(())
     }
 

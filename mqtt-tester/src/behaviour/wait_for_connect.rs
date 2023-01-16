@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
+
 use crate::{
     behaviour_test::BehaviourTest,
     command::{Input, Output},
@@ -41,6 +43,8 @@ impl BehaviourTest for WaitForConnect {
                 }),
             )
             .await
+            .context("Waiting for bytes to check")
+            .map_err(miette::Error::from)
     }
 
     fn report_name(&self) -> &str {
