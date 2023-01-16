@@ -14,7 +14,7 @@ use tokio::{
     process::{ChildStdin, ChildStdout},
 };
 
-use crate::packet_invariant::PacketInvariant;
+use crate::{packet_invariant::PacketInvariant, report::ReportResult};
 
 pub struct Command {
     inner: tokio::process::Command,
@@ -93,8 +93,8 @@ impl Output {
         self.attached_invariants.extend(i);
     }
 
-    pub async fn wait_and_check(&mut self, check: impl CheckBytes) -> miette::Result<()> {
-        match tokio::time::timeout(std::time::Duration::from_millis(100), async {
+    pub async fn wait_and_check(&mut self, check: impl CheckBytes) -> miette::Result<ReportResult> {
+        tokio::time::timeout(std::time::Duration::from_millis(100), async {
             let mut buffer = BytesMut::new();
             buffer.put_u16(self.stdout.read_u16().await.into_diagnostic()?);
             buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
@@ -121,16 +121,7 @@ impl Output {
             Ok::<_, miette::Error>(rest_buf.into_inner())
         })
         .await
-        {
-            Ok(Ok(buffer)) => {
-                if !check.check_bytes(&buffer) {
-                    return Err(miette::miette!("Check failed for Bytes {:?}", buffer));
-                }
-            }
-            Ok(Err(e)) => return Err(e),
-            Err(_elapsed) => return Err(miette::miette!("Did not hear from client until timeout")),
-        }
-
-        Ok(())
+        .map_err(|_elapsed| miette::miette!("Did not hear from client until timeout"))?
+        .map(|buffer| ReportResult::from(check.check_bytes(&buffer)))
     }
 }
