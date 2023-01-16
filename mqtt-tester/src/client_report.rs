@@ -51,6 +51,7 @@ pub async fn create_client_report(
 
     let mut collected_reports = Vec::with_capacity(flows.len());
     for flow in flows {
+        tracing::debug!("Executing behaviour test: {:?}", flow.report_name());
         let commands = flow.commands();
 
         let (client, input, mut output) = executable
@@ -98,7 +99,13 @@ pub async fn create_client_report(
             };
 
             match (flow_fut, client_fut) {
-                (Ok(_flowout), Ok(out)) => {
+                (Ok(flowout), Ok(out)) => {
+                    tracing::debug!(
+                        "Output ({}): ({:?}, {:?})",
+                        flow.report_name(),
+                        flowout,
+                        out
+                    );
                     let res = flow.translate_client_exit_code(out.status.success());
                     (res, Some(out.stderr))
                 }
