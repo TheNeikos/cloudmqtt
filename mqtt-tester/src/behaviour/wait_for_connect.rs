@@ -93,7 +93,7 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
         return None;
     }
 
-    let str_len = getbyte!(4);
+    let str_len = getbyte!(3);
     tracing::trace!(?str_len, "Length of protocol name");
 
     let connect_flag_position = 4usize + (str_len as usize) + 2;
