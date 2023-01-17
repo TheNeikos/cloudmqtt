@@ -97,7 +97,6 @@ impl Output {
         match tokio::time::timeout(std::time::Duration::from_millis(100), async {
             let mut buffer = BytesMut::new();
             buffer.put_u16(self.stdout.read_u16().await.into_diagnostic()?);
-            buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
 
             if buffer[1] & 0b1000_0000 != 0 {
                 buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
