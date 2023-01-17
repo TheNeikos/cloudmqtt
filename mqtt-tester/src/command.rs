@@ -117,10 +117,18 @@ impl Output {
                 tracing::trace!("Rest-Len: {}", rest_len);
 
                 let mut rest_buf = buffer.limit(rest_len as usize);
-                self.stdout
-                    .read_buf(&mut rest_buf)
-                    .await
-                    .into_diagnostic()?;
+                loop {
+                    let read_len = self
+                        .stdout
+                        .read_buf(&mut rest_buf)
+                        .await
+                        .into_diagnostic()?;
+
+                    tracing::trace!("Read {} bytes", read_len);
+                    if read_len == 0 {
+                        break;
+                    }
+                }
                 Ok::<_, miette::Error>(rest_buf.into_inner())
             }
             .instrument(tracing::trace_span!("Reading bytes from connection")),
