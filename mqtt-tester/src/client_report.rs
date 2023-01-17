@@ -86,26 +86,28 @@ async fn execute_flow<'a>(
     let (flow_fut, client_fut) = tokio::join!(flow_fut, client_fut);
     let flow_fut = match flow_fut {
         Ok(f) => f,
-        Err(_e) => {
+        Err(e) => {
+            tracing::error!(?e, flow = flow.report_name(), "Error: Flow future");
             return Ok(Report {
                 name: String::from(flow.report_name()),
                 description: String::from(flow.report_desc()),
                 normative_statement_number: String::from(flow.report_normative()),
                 result: ReportResult::Failure,
                 output: None,
-            })
+            });
         }
     };
     let client_fut = match client_fut {
         Ok(f) => f,
-        Err(_e) => {
+        Err(e) => {
+            tracing::error!(?e, flow = flow.report_name(), "Error: Client future");
             return Ok(Report {
                 name: String::from(flow.report_name()),
                 description: String::from(flow.report_desc()),
                 normative_statement_number: String::from(flow.report_normative()),
                 result: ReportResult::Failure,
                 output: None,
-            })
+            });
         }
     };
 
