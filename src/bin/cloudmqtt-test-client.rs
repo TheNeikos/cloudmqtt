@@ -16,9 +16,10 @@ use mqtt_format::v3::{
     subscription_request::MSubscriptionRequest,
     will::MLastWill,
 };
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
 fn print_error_and_quit(e: String) -> ! {
-    eprintln!("{}", e);
+    tracing::error!("{}", e);
     exit(1);
 }
 
@@ -47,6 +48,19 @@ enum Command {
 
 #[tokio::main]
 async fn main() {
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .pretty()
+        .with_timer(tracing_subscriber::fmt::time::uptime());
+
+    let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
+
+    tracing_subscriber::registry()
+        .with(fmt_layer)
+        .with(filter_layer)
+        .init();
+
+    tracing::info!("Starting up");
+
     let args = {
         match std::env::args()
             .skip(1)
@@ -57,7 +71,7 @@ async fn main() {
         {
             Ok(args) => args,
             Err(e) => {
-                eprintln!("{}", e);
+                tracing::error!("{}", e);
                 exit(1)
             }
         }
@@ -122,7 +136,7 @@ async fn main() {
                 let packet = match packet_stream.next().await {
                     Some(Ok(packet)) => packet,
                     None => {
-                        eprintln!("Stream ended, stopping");
+                        tracing::error!("Stream ended, stopping");
                         break;
                     }
                     Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
@@ -133,14 +147,15 @@ async fn main() {
                 }) = packet.get_packet()
                 {
                     if topic_name.value != expected_topic {
-                        eprintln!(
+                        tracing::error!(
                             "Expected Publish on topic {}, got on {}",
-                            expected_topic, topic_name.value
+                            expected_topic,
+                            topic_name.value
                         );
                         break;
                     }
                     if qos.to_byte() != expected_qos {
-                        eprintln!(
+                        tracing::error!(
                             "Expected Publish with QoS {}, got {}",
                             expected_qos,
                             qos.to_byte()
@@ -149,7 +164,7 @@ async fn main() {
                     }
                     // all ok
                 } else {
-                    eprintln!("Expected Publish, got {:?}", packet.get_packet());
+                    tracing::error!("Expected Publish, got {:?}", packet.get_packet());
                     break;
                 }
             }
@@ -164,7 +179,7 @@ async fn main() {
         let _packet = match packet_stream.next().await {
             Some(Ok(packet)) => packet,
             None => {
-                eprintln!("Stream ended, stopping");
+                tracing::error!("Stream ended, stopping");
                 break;
             }
             Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
