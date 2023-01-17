@@ -11,11 +11,12 @@ use tokio::process::Command;
 
 pub struct ClientExecutable {
     path: PathBuf,
+    env: Vec<crate::Env>,
 }
 
 impl ClientExecutable {
-    pub fn new(path: PathBuf) -> Self {
-        Self { path }
+    pub fn new(path: PathBuf, env: Vec<crate::Env>) -> Self {
+        Self { path, env }
     }
 
     pub fn call(&self, args: &[Box<dyn ClientExecutableCommand>]) -> miette::Result<Command> {
@@ -37,13 +38,22 @@ impl ClientExecutable {
             .collect();
 
         tracing::debug!(
-            "Building command: {} {}",
-            self.path.display(),
-            args.join(" ")
+            "Building command: {env} {bin} {args}",
+            env = self
+                .env
+                .iter()
+                .map(|e| format!("{}={}", e.key, e.value))
+                .collect::<String>(),
+            bin = self.path.display(),
+            args = args.join(" ")
         );
+
         if !args.is_empty() {
             command.args(args);
         }
+
+        // attach env variables from CLI to command
+        command.envs(self.env.iter().map(|e| (&e.key, &e.value)));
 
         Ok(command)
     }

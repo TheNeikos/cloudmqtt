@@ -36,7 +36,28 @@ enum Commands {
     TestClient {
         #[clap(value_parser)]
         executable: PathBuf,
+
+        #[clap(long)]
+        #[clap(value_parser = env_value_parser)]
+        env: Vec<Env>,
     },
+}
+
+#[derive(Clone, Debug)]
+pub struct Env {
+    key: String,
+    value: String,
+}
+
+fn env_value_parser(s: &str) -> std::result::Result<Env, String> {
+    let parts: Vec<&str> = s.split('=').collect();
+    if parts.len() != 2 {
+        return Err("Environment variable setting must be KEY=VALUE".to_string());
+    }
+
+    let key = parts[0].to_string(); // safe with above check
+    let value = parts[1].to_string(); // safe with above check
+    Ok(Env { key, value })
 }
 
 #[tokio::main]
@@ -57,8 +78,8 @@ async fn main() -> miette::Result<()> {
     let args = Cli::parse();
 
     match args.command {
-        Commands::TestClient { executable } => {
-            let reports = create_client_report(executable, args.parallelism).await?;
+        Commands::TestClient { executable, env } => {
+            let reports = create_client_report(executable, env, args.parallelism).await?;
 
             let mut stdout = std::io::stdout().lock();
             for report in &reports {

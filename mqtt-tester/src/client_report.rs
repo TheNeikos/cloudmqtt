@@ -4,12 +4,14 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::env::VarError;
 use std::path::PathBuf;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use futures::FutureExt;
 
-use miette::Context;
+use miette::{Context, IntoDiagnostic};
 use mqtt_format::v3::packet::{MConnect, MPacket};
 
 use crate::behaviour_test::BehaviourTest;
@@ -21,11 +23,12 @@ use crate::report::{Report, ReportResult};
 
 pub async fn create_client_report(
     client_exe_path: PathBuf,
+    env: Vec<crate::Env>,
     parallelism: std::num::NonZeroUsize,
 ) -> miette::Result<Vec<Report>> {
     use futures::stream::StreamExt;
 
-    let executable = ClientExecutable::new(client_exe_path);
+    let executable = ClientExecutable::new(client_exe_path, env);
 
     let reports = vec![
         check_connect_packet_reserved_flag_zero(&executable).boxed_local(),
