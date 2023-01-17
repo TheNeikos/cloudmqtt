@@ -5,6 +5,7 @@
 //
 
 use miette::Context;
+use mqtt_format::v3::{connect_return::MConnectReturnCode, packet::MConnack};
 
 use crate::{
     behaviour_test::BehaviourTest,
@@ -24,7 +25,7 @@ impl BehaviourTest for WaitForConnect {
     #[tracing::instrument(skip_all)]
     async fn execute(
         &self,
-        _input: Input,
+        mut input: Input,
         mut output: Output,
     ) -> Result<ReportResult, miette::Error> {
         let check_result = output
@@ -51,6 +52,15 @@ impl BehaviourTest for WaitForConnect {
             )
             .await
             .context("Waiting for bytes to check")?;
+
+        tracing::debug!("Sending CONNACK");
+        input
+            .send_packet(MConnack {
+                session_present: true,
+                connect_return_code: MConnectReturnCode::Accepted,
+            })
+            .await
+            .context("Sending packet: CONNACK")?;
 
         tracing::trace!(?check_result, "result of check");
         Ok(check_result)
