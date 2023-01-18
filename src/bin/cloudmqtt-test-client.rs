@@ -50,7 +50,8 @@ enum Command {
 async fn main() {
     let fmt_layer = tracing_subscriber::fmt::layer()
         .pretty()
-        .with_timer(tracing_subscriber::fmt::time::uptime());
+        .with_timer(tracing_subscriber::fmt::time::uptime())
+        .with_writer(std::io::stderr);
 
     let filter_layer = tracing_subscriber::EnvFilter::from_default_env();
 
