@@ -9,6 +9,7 @@ use std::sync::Arc;
 
 use futures::FutureExt;
 
+use miette::Context;
 use mqtt_format::v3::packet::{MConnect, MPacket};
 
 use crate::behaviour_test::BehaviourTest;
@@ -57,8 +58,10 @@ pub async fn create_client_report(
 
         let (client, input, mut output) = executable
             .call(&commands)
-            .map(crate::command::Command::new)?
-            .spawn()?;
+            .map(crate::command::Command::new)
+            .context("Creating client executable call")?
+            .spawn()
+            .context("Spawning client executable")?;
 
         output.with_invariants(invariants.iter().cloned());
 
@@ -110,7 +113,14 @@ pub async fn create_client_report(
                     let res = flow.translate_client_exit_code(out.status.success());
                     (res, Some(out.stderr))
                 }
-                (Err(_), _) | (_, Err(_)) => (ReportResult::Failure, None),
+                (Err(e), _) => {
+                    tracing::error!("Error during behaviour testing: {:?}", e);
+                    (ReportResult::Failure, None)
+                }
+                (_, Err(e)) => {
+                    tracing::error!("Error during behaviour testing: {:?}", e);
+                    (ReportResult::Failure, None)
+                }
             }
         };
 
@@ -199,6 +209,7 @@ macro_rules! wait_for_output {
     }};
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_packet_reserved_flag_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -213,7 +224,8 @@ async fn check_connect_packet_reserved_flag_zero(
                 bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
             }),
         )
-        .await?;
+        .await
+        .context("Waiting for bytes to check")?;
 
     let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
@@ -252,6 +264,7 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
     Some(getbyte!(connect_flag_position))
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_flag_username_set_username_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -288,7 +301,8 @@ async fn check_connect_flag_username_set_username_present(
                 }
             }),
         )
-        .await?;
+        .await
+        .context("Waiting for bytes to check")?;
 
     let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
@@ -307,6 +321,7 @@ async fn check_connect_flag_username_set_username_present(
     })
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_flag_password_set_password_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -343,7 +358,8 @@ async fn check_connect_flag_password_set_password_present(
                 }
             }),
         )
-        .await?;
+        .await
+        .context("Waiting for bytes to check")?;
 
     let output = client.wait_with_output();
     let (result, output) = wait_for_output! {
@@ -362,6 +378,7 @@ async fn check_connect_flag_password_set_password_present(
     })
 }
 
+#[tracing::instrument(skip_all)]
 async fn check_connect_flag_username_zero_means_password_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
@@ -389,7 +406,8 @@ async fn check_connect_flag_username_zero_means_password_zero(
                 }
             }),
         )
-        .await?;
+        .await
+        .context("Waiting for bytes to check")?;
 
     let output = client.wait_with_output();
     let (result, output) = wait_for_output! {

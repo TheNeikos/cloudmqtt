@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
 use mqtt_format::v3::{
     connect_return::MConnectReturnCode,
     identifier::MPacketIdentifier,
@@ -27,13 +28,15 @@ impl BehaviourTest for PublishQosZeroWithIdentFails {
         vec![]
     }
 
+    #[tracing::instrument(skip_all)]
     async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
         input
             .send_packet(MConnack {
                 session_present: false,
                 connect_return_code: MConnectReturnCode::Accepted,
             })
-            .await?;
+            .await
+            .context("Sending packet CONNACK")?;
 
         input
             .send_packet(MPublish {
@@ -44,7 +47,8 @@ impl BehaviourTest for PublishQosZeroWithIdentFails {
                 id: Some(MPacketIdentifier(1)),
                 payload: &[0x00],
             })
-            .await?;
+            .await
+            .context("Sending packet PUBLISH")?;
         Ok(())
     }
 

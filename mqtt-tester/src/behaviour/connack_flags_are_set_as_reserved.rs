@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
+
 use crate::{
     behaviour_test::BehaviourTest,
     command::{Input, Output},
@@ -19,6 +21,7 @@ impl BehaviourTest for ConnackFlagsAreSetAsReserved {
         vec![]
     }
 
+    #[tracing::instrument(skip_all)]
     async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
         input
             .send(&[
@@ -27,7 +30,8 @@ impl BehaviourTest for ConnackFlagsAreSetAsReserved {
                 0b0000_0000,               // No session present
                 0b0000_0000,               // Connection accepted
             ])
-            .await?;
+            .await
+            .context("Sending bytes")?;
         Ok(())
     }
 

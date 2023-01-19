@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
 use mqtt_format::v3::packet::MPacket;
 
 use crate::{
@@ -21,6 +22,7 @@ impl BehaviourTest for FirstPacketFromClientIsConnect {
         vec![]
     }
 
+    #[tracing::instrument(skip_all)]
     async fn execute(&self, _input: Input, mut output: Output) -> Result<(), miette::Error> {
         output
             .wait_and_check(
@@ -36,7 +38,8 @@ impl BehaviourTest for FirstPacketFromClientIsConnect {
                     std::matches!(packet, MPacket::Connect { .. })
                 }),
             )
-            .await?;
+            .await
+            .context("Waiting for bytes to check")?;
 
         Ok(())
     }

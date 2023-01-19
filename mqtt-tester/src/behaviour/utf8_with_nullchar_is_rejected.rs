@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use miette::Context;
 use mqtt_format::v3::{
     connect_return::MConnectReturnCode, header::MPacketKind, packet::MConnack,
     qos::MQualityOfService,
@@ -24,13 +25,15 @@ impl BehaviourTest for Utf8WithNullcharIsRejected {
         vec![]
     }
 
+    #[tracing::instrument(skip_all)]
     async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
         input
             .send_packet(MConnack {
                 session_present: false,
                 connect_return_code: MConnectReturnCode::Accepted,
             })
-            .await?;
+            .await
+            .context("Sending packet CONNACK")?;
 
         input
             .send(&[
@@ -50,7 +53,8 @@ impl BehaviourTest for Utf8WithNullcharIsRejected {
                 0b0000_0001,
                 0x1, // Payload
             ])
-            .await?;
+            .await
+            .context("Sending broken packet PUBLISH")?;
         Ok(())
     }
 
