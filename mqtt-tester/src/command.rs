@@ -128,7 +128,7 @@ impl Output {
                 }
             }
             Ok(Err(e)) => return Err(e),
-            Err(_elapsed) => return Err(miette::miette!("Did not hear from server until timeout")),
+            Err(_elapsed) => return Err(miette::miette!("Did not hear from client until timeout")),
         }
 
         Ok(())

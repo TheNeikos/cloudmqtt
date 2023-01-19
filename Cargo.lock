@@ -569,6 +569,8 @@ dependencies = [
  "static_assertions",
  "textwrap 0.16.0",
  "tokio",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
