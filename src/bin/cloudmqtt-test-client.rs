@@ -10,7 +10,7 @@ use cloudmqtt::{client::MqttClient, client::MqttConnectionParams};
 use futures::StreamExt;
 use mqtt_format::v3::will::MLastWill;
 
-fn print_error_and_quit(e: &str) -> ! {
+fn print_error_and_quit(e: String) -> ! {
     eprintln!("{}", e);
     exit(1);
 }
@@ -24,7 +24,7 @@ async fn main() {
     tokio::spawn(async move { tokio::io::copy(&mut tokio::io::stdin(), &mut write_dup).await });
     tokio::spawn(async move { tokio::io::copy(&mut read_dup, &mut tokio::io::stdout()).await });
 
-    let client = match MqttClient::connect_v3_duplex(
+    let client = MqttClient::connect_v3_duplex(
         client_duplex,
         MqttConnectionParams {
             clean_session: false,
@@ -45,10 +45,7 @@ async fn main() {
         },
     )
     .await
-    {
-        Ok(client) => client,
-        Err(e) => print_error_and_quit(&format!("Could not connect: {e}")),
-    };
+    .unwrap_or_else(|e| print_error_and_quit(format!("Could not connect: {e}")));
 
     tokio::spawn(client.heartbeat(None));
 
@@ -62,7 +59,7 @@ async fn main() {
                 eprintln!("Stream ended, stopping");
                 break;
             }
-            Some(Err(error)) => print_error_and_quit(&format!("Stream errored: {error}")),
+            Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
         };
     }
 }
