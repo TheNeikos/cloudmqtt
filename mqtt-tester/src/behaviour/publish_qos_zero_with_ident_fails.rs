@@ -1,0 +1,70 @@
+//
+//   This Source Code Form is subject to the terms of the Mozilla Public
+//   License, v. 2.0. If a copy of the MPL was not distributed with this
+//   file, You can obtain one at http://mozilla.org/MPL/2.0/.
+//
+
+use mqtt_format::v3::{
+    connect_return::MConnectReturnCode,
+    identifier::MPacketIdentifier,
+    packet::{MConnack, MPublish},
+    qos::MQualityOfService,
+    strings::MString,
+};
+
+use crate::{
+    behaviour_test::BehaviourTest,
+    command::{Input, Output},
+    executable::ClientExecutableCommand,
+    report::ReportResult,
+};
+
+pub struct PublishQosZeroWithIdentFails;
+
+#[async_trait::async_trait]
+impl BehaviourTest for PublishQosZeroWithIdentFails {
+    fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>> {
+        vec![]
+    }
+
+    async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
+        input
+            .send_packet(MConnack {
+                session_present: false,
+                connect_return_code: MConnectReturnCode::Accepted,
+            })
+            .await?;
+
+        input
+            .send_packet(MPublish {
+                dup: false,
+                qos: MQualityOfService::AtMostOnce, // QoS 0
+                retain: false,
+                topic_name: MString { value: "a" },
+                id: Some(MPacketIdentifier(1)),
+                payload: &[0x00],
+            })
+            .await?;
+        Ok(())
+    }
+
+    fn report_name(&self) -> &str {
+        "A PUBLISH packet with QoS zero must not contain a packet identifier"
+    }
+
+    fn report_desc(&self) -> &str {
+        "A PUBLISH Packet MUST NOT contain a Packet Identifier if its QoS value is set to 0."
+    }
+
+    fn report_normative(&self) -> &str {
+        "[MQTT-2.3.1-5]"
+    }
+
+    fn translate_client_exit_code(&self, success: bool) -> ReportResult {
+        if success {
+            ReportResult::Failure
+        } else {
+            ReportResult::Success
+        }
+    }
+}
