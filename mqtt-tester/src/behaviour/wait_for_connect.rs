@@ -16,7 +16,7 @@ pub struct WaitForConnect;
 #[async_trait::async_trait]
 impl BehaviourTest for WaitForConnect {
     fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>> {
-        vec![Box::new(crate::executable::QuitCommand)]
+        vec![]
     }
 
     async fn execute(&self, _input: Input, mut output: Output) -> Result<(), miette::Error> {

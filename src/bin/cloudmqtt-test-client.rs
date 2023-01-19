@@ -6,13 +6,43 @@
 
 use std::process::exit;
 
+use clap::Parser;
 use cloudmqtt::{client::MqttClient, client::MqttConnectionParams};
 use futures::StreamExt;
-use mqtt_format::v3::will::MLastWill;
+use mqtt_format::v3::{
+    packet::{MPacket, MPublish},
+    qos::MQualityOfService,
+    strings::MString,
+    subscription_request::MSubscriptionRequest,
+    will::MLastWill,
+};
 
 fn print_error_and_quit(e: String) -> ! {
     eprintln!("{}", e);
     exit(1);
+}
+
+#[derive(clap::Parser, Debug)]
+struct Args {
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(clap::Subcommand, Debug)]
+enum Command {
+    Quit,
+    Subscribe {
+        topic: String,
+    },
+    SendToTopic {
+        topic: String,
+        qos: u8,
+        message: String,
+    },
+    ExpectOnTopic {
+        topic: String,
+        qos: u8,
+    },
 }
 
 #[tokio::main]
@@ -23,6 +53,16 @@ async fn main() {
 
     tokio::spawn(async move { tokio::io::copy(&mut tokio::io::stdin(), &mut write_dup).await });
     tokio::spawn(async move { tokio::io::copy(&mut read_dup, &mut tokio::io::stdout()).await });
+
+    let args = {
+        std::env::args()
+            .skip(1)
+            .collect::<String>()
+            .split("----")
+            .map(|els| Args::try_parse_from(els.split(' ')))
+            .collect::<Result<Vec<Args>, _>>()
+            .expect("Parsing Arguments failed")
+    };
 
     let client = MqttClient::connect_v3_duplex(
         client_duplex,
@@ -52,14 +92,61 @@ async fn main() {
     let packet_stream = client.build_packet_stream().build();
     let mut packet_stream = Box::pin(packet_stream.stream());
 
-    loop {
-        let _packet = match packet_stream.next().await {
-            Some(Ok(packet)) => packet,
-            None => {
-                eprintln!("Stream ended, stopping");
-                break;
+    for arg in args {
+        match arg.command {
+            Command::Quit => {}
+            Command::Subscribe { topic } => {
+                let subscription_requests = [MSubscriptionRequest {
+                    topic: MString { value: &topic },
+                    qos: MQualityOfService::AtMostOnce, // TODO
+                }];
+                client.subscribe(&subscription_requests).await.unwrap();
             }
-            Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
-        };
+            Command::SendToTopic {
+                topic: _,
+                qos: _,
+                message: _,
+            } => {
+                unimplemented!()
+            }
+            Command::ExpectOnTopic {
+                topic: expected_topic,
+                qos: expected_qos,
+            } => {
+                let packet = match packet_stream.next().await {
+                    Some(Ok(packet)) => packet,
+                    None => {
+                        eprintln!("Stream ended, stopping");
+                        break;
+                    }
+                    Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
+                };
+
+                if let MPacket::Publish(MPublish {
+                    qos, topic_name, ..
+                }) = packet.get_packet()
+                {
+                    if topic_name.value != expected_topic {
+                        eprintln!(
+                            "Expected Publish on topic {}, got on {}",
+                            expected_topic, topic_name.value
+                        );
+                        break;
+                    }
+                    if qos.to_byte() != expected_qos {
+                        eprintln!(
+                            "Expected Publish with QoS {}, got {}",
+                            expected_qos,
+                            qos.to_byte()
+                        );
+                        break;
+                    }
+                    // all ok
+                } else {
+                    eprintln!("Expected Publish, got {:?}", packet.get_packet());
+                    break;
+                }
+            }
+        }
     }
 }
