@@ -11,10 +11,9 @@ use futures::FutureExt;
 
 use mqtt_format::v3::packet::{MConnect, MPacket};
 
-use mqtt_format::v3::strings::MString;
-
 use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
+use crate::invariant::connect_packet_protocol_name::ConnectPacketProtocolName;
 use crate::invariant::no_username_means_no_password::NoUsernameMeansNoPassword;
 use crate::packet_invariant::PacketInvariant;
 use crate::report::{Report, ReportResult};
@@ -28,7 +27,6 @@ pub async fn create_client_report(
     let executable = ClientExecutable::new(client_exe_path);
 
     let reports = vec![
-        check_connect_packet_protocol_name(&executable).boxed_local(),
         check_connect_packet_reserved_flag_zero(&executable).boxed_local(),
         check_connect_flag_username_set_username_present(&executable).boxed_local(),
         check_connect_flag_password_set_password_present(&executable).boxed_local(),
@@ -47,7 +45,10 @@ pub async fn create_client_report(
         Box::new(crate::behaviour::FirstPacketFromClientIsConnect),
     ];
 
-    let invariants: Vec<Arc<dyn PacketInvariant>> = vec![Arc::new(NoUsernameMeansNoPassword)];
+    let invariants: Vec<Arc<dyn PacketInvariant>> = vec![
+        Arc::new(NoUsernameMeansNoPassword),
+        Arc::new(ConnectPacketProtocolName),
+    ];
 
     let mut collected_reports = Vec::with_capacity(flows.len());
     for flow in flows {
@@ -196,48 +197,6 @@ macro_rules! wait_for_output {
 
         (result, output)
     }};
-}
-
-async fn check_connect_packet_protocol_name(
-    executable: &ClientExecutable,
-) -> miette::Result<Report> {
-    let (client, _input, mut output) = executable
-        .call(&[])
-        .map(crate::command::Command::new)?
-        .spawn()?;
-
-    output
-        .wait_and_check(
-            &(|bytes: &[u8]| -> bool {
-                let packet =
-                    match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(bytes) {
-                        Ok((_, packet)) => packet,
-                        Err(_e) => return false,
-                    };
-
-                match packet {
-                    MPacket::Connect(connect) => connect.protocol_name == MString { value: "MQTT" },
-                    _ => false,
-                }
-            }),
-        )
-        .await?;
-
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { ReportResult::Success },
-        out_failure => { ReportResult::Inconclusive }
-    };
-
-    Ok(mk_report! {
-        name: "Protocol name should be 'MQTT'",
-        desc: "If the protocol name is incorrect the Server MAY disconnect the Client, or it MAY continue processing the CONNECT packet in accordance with some other specification. In the latter case, the Server MUST NOT continue to process the CONNECT packet in line with this specification",
-        normative: "[MQTT-3.1.2-1]",
-        result,
-        output
-    })
 }
 
 async fn check_connect_packet_reserved_flag_zero(

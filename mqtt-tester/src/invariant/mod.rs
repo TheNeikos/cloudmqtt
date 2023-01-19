@@ -4,4 +4,5 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+pub mod connect_packet_protocol_name;
 pub mod no_username_means_no_password;
