@@ -23,7 +23,11 @@ impl BehaviourTest for InvalidFirstPacketIsRejected {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
+    async fn execute(
+        &self,
+        mut input: Input,
+        _output: Output,
+    ) -> Result<ReportResult, miette::Error> {
         input
             .send_packet(MConnect {
                 protocol_name: MString { value: "foo" },
@@ -37,7 +41,7 @@ impl BehaviourTest for InvalidFirstPacketIsRejected {
             })
             .await
             .context("Sending bytes")?;
-        Ok(())
+        Ok(ReportResult::Success)
     }
 
     fn report_name(&self) -> &str {

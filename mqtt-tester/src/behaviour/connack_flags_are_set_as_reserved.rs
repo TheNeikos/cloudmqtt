@@ -22,7 +22,11 @@ impl BehaviourTest for ConnackFlagsAreSetAsReserved {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
+    async fn execute(
+        &self,
+        mut input: Input,
+        _output: Output,
+    ) -> Result<ReportResult, miette::Error> {
         input
             .send(&[
                 0b0010_0000 | 0b0000_1000, // CONNACK + garbage
@@ -32,7 +36,7 @@ impl BehaviourTest for ConnackFlagsAreSetAsReserved {
             ])
             .await
             .context("Sending bytes")?;
-        Ok(())
+        Ok(ReportResult::Success)
     }
 
     fn report_name(&self) -> &str {

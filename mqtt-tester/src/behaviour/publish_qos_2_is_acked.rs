@@ -29,7 +29,11 @@ impl BehaviourTest for PublishQos2IsAcked {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
+    async fn execute(
+        &self,
+        mut input: Input,
+        _output: Output,
+    ) -> Result<ReportResult, miette::Error> {
         input
             .send_packet(MConnack {
                 session_present: false,
@@ -50,7 +54,7 @@ impl BehaviourTest for PublishQos2IsAcked {
             .await
             .context("Sending packet PUBLISH")?;
 
-        Ok(())
+        Ok(ReportResult::Success)
     }
 
     fn report_name(&self) -> &str {

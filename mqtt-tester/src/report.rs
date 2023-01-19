@@ -14,6 +14,16 @@ pub enum ReportResult {
     Inconclusive,
 }
 
+impl From<bool> for ReportResult {
+    fn from(b: bool) -> Self {
+        if b {
+            Self::Success
+        } else {
+            Self::Failure
+        }
+    }
+}
+
 pub struct Report {
     pub name: String,
     pub description: String,

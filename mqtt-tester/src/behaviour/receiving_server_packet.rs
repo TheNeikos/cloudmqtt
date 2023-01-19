@@ -28,7 +28,11 @@ impl BehaviourTest for ReceivingServerPacket {
     }
 
     #[tracing::instrument(skip_all)]
-    async fn execute(&self, mut input: Input, _output: Output) -> Result<(), miette::Error> {
+    async fn execute(
+        &self,
+        mut input: Input,
+        _output: Output,
+    ) -> Result<ReportResult, miette::Error> {
         input
             .send_packet(MConnack {
                 session_present: false,
@@ -47,7 +51,7 @@ impl BehaviourTest for ReceivingServerPacket {
             })
             .await
             .context("Sending packet SUBSCRIBE")?;
-        Ok(())
+        Ok(ReportResult::Success)
     }
 
     fn report_name(&self) -> &str {

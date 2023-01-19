@@ -14,7 +14,11 @@ use crate::{
 pub trait BehaviourTest {
     fn commands(&self) -> Vec<Box<dyn ClientExecutableCommand>>;
 
-    async fn execute(&self, mut input: Input, mut output: Output) -> Result<(), miette::Error>;
+    async fn execute(
+        &self,
+        mut input: Input,
+        mut output: Output,
+    ) -> Result<ReportResult, miette::Error>;
 
     fn report_name(&self) -> &str;
     fn report_desc(&self) -> &str;
