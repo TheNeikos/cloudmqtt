@@ -149,4 +149,15 @@ async fn main() {
             }
         }
     }
+
+    loop {
+        let _packet = match packet_stream.next().await {
+            Some(Ok(packet)) => packet,
+            None => {
+                eprintln!("Stream ended, stopping");
+                break;
+            }
+            Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
+        };
+    }
 }
