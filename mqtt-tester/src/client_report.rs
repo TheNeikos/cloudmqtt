@@ -8,7 +8,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures::FutureExt;
-use miette::IntoDiagnostic;
 
 use mqtt_format::v3::packet::{MConnect, MPacket};
 
@@ -52,6 +51,7 @@ pub async fn create_client_report(
 
     let mut collected_reports = Vec::with_capacity(flows.len());
     for flow in flows {
+        tracing::debug!("Executing behaviour test: {:?}", flow.report_name());
         let commands = flow.commands();
 
         let (client, input, mut output) = executable
@@ -61,19 +61,65 @@ pub async fn create_client_report(
 
         output.with_invariants(invariants.iter().cloned());
 
-        let flow_result = flow.execute(input, output).await;
-        let client_output = client.wait_with_output().await.into_diagnostic()?;
+        let (result, output) = {
+            let duration = std::time::Duration::from_millis(100);
+            let flow_fut = tokio::time::timeout(duration, flow.execute(input, output));
+            let client_fut = tokio::time::timeout(duration, client.wait_with_output());
+
+            let (flow_fut, client_fut) = tokio::join!(flow_fut, client_fut);
+            let flow_fut = match flow_fut {
+                Ok(f) => f,
+                Err(_e) => {
+                    collected_reports.push({
+                        Report {
+                            name: String::from(flow.report_name()),
+                            description: String::from(flow.report_desc()),
+                            normative_statement_number: String::from(flow.report_normative()),
+                            result: ReportResult::Failure,
+                            output: None,
+                        }
+                    });
+                    continue;
+                }
+            };
+            let client_fut = match client_fut {
+                Ok(f) => f,
+                Err(_e) => {
+                    collected_reports.push({
+                        Report {
+                            name: String::from(flow.report_name()),
+                            description: String::from(flow.report_desc()),
+                            normative_statement_number: String::from(flow.report_normative()),
+                            result: ReportResult::Failure,
+                            output: None,
+                        }
+                    });
+                    continue;
+                }
+            };
+
+            match (flow_fut, client_fut) {
+                (Ok(flowout), Ok(out)) => {
+                    tracing::debug!(
+                        "Output ({}): ({:?}, {:?})",
+                        flow.report_name(),
+                        flowout,
+                        out
+                    );
+                    let res = flow.translate_client_exit_code(out.status.success());
+                    (res, Some(out.stderr))
+                }
+                (Err(_), _) | (_, Err(_)) => (ReportResult::Failure, None),
+            }
+        };
 
         collected_reports.push({
             Report {
                 name: String::from(flow.report_name()),
                 description: String::from(flow.report_desc()),
                 normative_statement_number: String::from(flow.report_normative()),
-                result: match flow_result {
-                    Ok(_) => flow.translate_client_exit_code(client_output.status.success()),
-                    Err(_e) => ReportResult::Failure,
-                },
-                output: Some(client_output.stdout),
+                result,
+                output,
             }
         })
     }
