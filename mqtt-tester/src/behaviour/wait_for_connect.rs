@@ -35,9 +35,12 @@ impl BehaviourTest for WaitForConnect {
                     } else {
                         return false;
                     };
+                    tracing::trace!(?connect_flags, "Connect flags");
 
                     let username_flag_set = 0 != (connect_flags & 0b1000_0000); // Username flag
                     let password_flag_set = 0 != (connect_flags & 0b0100_0000); // Username flag
+                    tracing::trace!(?username_flag_set, "username flag");
+                    tracing::trace!(?password_flag_set, "password flag");
 
                     if username_flag_set {
                         !password_flag_set
@@ -49,6 +52,7 @@ impl BehaviourTest for WaitForConnect {
             .await
             .context("Waiting for bytes to check")?;
 
+        tracing::trace!(?check_result, "result of check");
         Ok(check_result)
     }
 
@@ -85,10 +89,18 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
     }
 
     if getbyte!(0) != 0b0001_0000 {
+        tracing::trace!("Not a CONNECT packet");
         return None;
     }
 
     let str_len = getbyte!(4);
+    tracing::trace!(?str_len, "Length of protocol name");
+
     let connect_flag_position = 4usize + (str_len as usize) + 2;
-    Some(getbyte!(connect_flag_position))
+    tracing::trace!(?connect_flag_position, "Position of CONNECT flags");
+
+    let flags = getbyte!(connect_flag_position);
+    tracing::trace!(?flags, "CONNECT flags");
+
+    Some(flags)
 }
