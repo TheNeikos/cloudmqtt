@@ -13,6 +13,7 @@ use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
     process::{ChildStdin, ChildStdout},
 };
+use tracing::Instrument;
 
 use crate::{packet_invariant::PacketInvariant, report::ReportResult};
 
@@ -94,31 +95,36 @@ impl Output {
     }
 
     pub async fn wait_and_check(&mut self, check: impl CheckBytes) -> miette::Result<ReportResult> {
-        tokio::time::timeout(std::time::Duration::from_millis(100), async {
-            let mut buffer = BytesMut::new();
-            buffer.put_u16(self.stdout.read_u16().await.into_diagnostic()?);
+        tokio::time::timeout(
+            std::time::Duration::from_millis(100),
+            async {
+                let mut buffer = BytesMut::new();
+                buffer.put_u16(self.stdout.read_u16().await.into_diagnostic()?);
 
-            if buffer[1] & 0b1000_0000 != 0 {
-                buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
-                if buffer[2] & 0b1000_0000 != 0 {
+                if buffer[1] & 0b1000_0000 != 0 {
                     buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
-                    if buffer[3] & 0b1000_0000 != 0 {
+                    if buffer[2] & 0b1000_0000 != 0 {
                         buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
+                        if buffer[3] & 0b1000_0000 != 0 {
+                            buffer.put_u8(self.stdout.read_u8().await.into_diagnostic()?);
+                        }
                     }
                 }
+
+                let rest_len = buffer[1..].iter().enumerate().fold(0, |val, (exp, len)| {
+                    val + (*len as u32 & 0b0111_1111) * 128u32.pow(exp as u32)
+                });
+                tracing::trace!("Rest-Len: {}", rest_len);
+
+                let mut rest_buf = buffer.limit(rest_len as usize);
+                self.stdout
+                    .read_buf(&mut rest_buf)
+                    .await
+                    .into_diagnostic()?;
+                Ok::<_, miette::Error>(rest_buf.into_inner())
             }
-
-            let rest_len = buffer[1..].iter().enumerate().fold(0, |val, (exp, len)| {
-                val + (*len as u32 & 0b0111_1111) * 128u32.pow(exp as u32)
-            });
-
-            let mut rest_buf = buffer.limit(rest_len as usize);
-            self.stdout
-                .read_buf(&mut rest_buf)
-                .await
-                .into_diagnostic()?;
-            Ok::<_, miette::Error>(rest_buf.into_inner())
-        })
+            .instrument(tracing::trace_span!("Reading bytes from connection")),
+        )
         .await
         .map_err(|_elapsed| miette::miette!("Did not hear from client until timeout"))?
         .map(|buffer| ReportResult::from(check.check_bytes(&buffer)))
