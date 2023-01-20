@@ -62,7 +62,9 @@ pub struct Input(ChildStdin);
 
 impl Input {
     pub async fn send(&mut self, bytes: &[u8]) -> miette::Result<()> {
-        self.0.write_all(bytes).await.into_diagnostic()
+        self.0.write_all(bytes).await.into_diagnostic()?;
+        self.0.flush().await.into_diagnostic()?;
+        Ok(())
     }
 
     pub async fn send_packet<'m, P>(&mut self, packet: P) -> miette::Result<()>
