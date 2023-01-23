@@ -2,9 +2,9 @@ name: "Check CloudMQTT"
 
 on:
   push:
-    branches: [main, staging, trying]
+    branches: [main, staging, trying, release/*]
   pull_request:
-    branches: [main]
+    branches: [main, release/*]
 
 env:
   CARGO_TERM_COLOR: always
