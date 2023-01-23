@@ -218,7 +218,7 @@ async fn check_connect_packet_reserved_flag_zero(
         .map(crate::command::Command::new)?
         .spawn()?;
 
-    output
+    let check_result = output
         .wait_and_check(
             &(|bytes: &[u8]| -> bool {
                 bytes[0] == 0b0001_0000 // CONNECT packet with flags set to 0000
@@ -231,7 +231,7 @@ async fn check_connect_packet_reserved_flag_zero(
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
-        out_success => { ReportResult::Success },
+        out_success => { check_result },
         out_failure => { ReportResult::Inconclusive }
     };
 
@@ -273,7 +273,7 @@ async fn check_connect_flag_username_set_username_present(
         .map(crate::command::Command::new)?
         .spawn()?;
 
-    output
+    let check_result = output
         .wait_and_check(
             &(|bytes: &[u8]| -> bool {
                 let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
@@ -308,7 +308,7 @@ async fn check_connect_flag_username_set_username_present(
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
-        out_success => { ReportResult::Success },
+        out_success => { check_result },
         out_failure => { ReportResult::Inconclusive }
     };
 
@@ -330,7 +330,7 @@ async fn check_connect_flag_password_set_password_present(
         .map(crate::command::Command::new)?
         .spawn()?;
 
-    output
+    let check_result = output
         .wait_and_check(
             &(|bytes: &[u8]| -> bool {
                 let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
@@ -365,7 +365,7 @@ async fn check_connect_flag_password_set_password_present(
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
-        out_success => { ReportResult::Success },
+        out_success => { check_result },
         out_failure => { ReportResult::Inconclusive }
     };
 
@@ -387,7 +387,7 @@ async fn check_connect_flag_username_zero_means_password_zero(
         .map(crate::command::Command::new)?
         .spawn()?;
 
-    output
+    let check_result = output
         .wait_and_check(
             &(|bytes: &[u8]| -> bool {
                 let connect_flags = if let Some(flags) = find_connect_flags(bytes) {
@@ -413,7 +413,7 @@ async fn check_connect_flag_username_zero_means_password_zero(
     let (result, output) = wait_for_output! {
         output,
         timeout_ms: 100,
-        out_success => { ReportResult::Success },
+        out_success => { check_result },
         out_failure => { ReportResult::Inconclusive }
     };
 
