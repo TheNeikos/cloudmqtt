@@ -18,11 +18,6 @@ use mqtt_format::v3::{
 };
 use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 
-fn print_error_and_quit(e: String) -> ! {
-    tracing::error!("{}", e);
-    exit(1);
-}
-
 #[derive(clap::Parser, Debug)]
 struct Args {
     #[command(subcommand)]
@@ -106,9 +101,13 @@ async fn main() {
         },
     )
     .await
-    .unwrap_or_else(|e| print_error_and_quit(format!("Could not connect: {e}")));
+    .unwrap_or_else(|e| {
+        tracing::error!(error = ?e, "Could not connect");
+        exit(1);
+    });
 
-    tokio::spawn(client.heartbeat(None));
+    let cancel_token = tokio_util::sync::CancellationToken::new();
+    tokio::spawn(client.heartbeat(Some(cancel_token.clone())));
 
     let packet_stream = client.build_packet_stream().build();
     let mut packet_stream = Box::pin(packet_stream.stream());
@@ -140,7 +139,10 @@ async fn main() {
                         tracing::error!("Stream ended, stopping");
                         break;
                     }
-                    Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
+                    Some(Err(error)) => {
+                        tracing::error!(?error, "Stream errored");
+                        exit(1);
+                    }
                 };
 
                 if let MPacket::Publish(MPublish {
@@ -181,9 +183,14 @@ async fn main() {
             Some(Ok(packet)) => packet,
             None => {
                 tracing::error!("Stream ended, stopping");
+                cancel_token.cancel();
                 break;
             }
-            Some(Err(error)) => print_error_and_quit(format!("Stream errored: {error}")),
+            Some(Err(error)) => {
+                cancel_token.cancel();
+                tracing::error!(?error, "Stream errored");
+                exit(1);
+            }
         };
     }
 }
