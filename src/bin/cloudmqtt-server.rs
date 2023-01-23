@@ -72,9 +72,9 @@ async fn main() {
         .with_login_handler(SimpleLoginHandler)
         .with_subscription_handler(SimpleSubscriptionHandler);
 
-    let server = Arc::new(server);
+    let server = server;
 
-    tokio::spawn(server.clone().subscribe_to_message(
+    tokio::spawn(server.subscribe_to_message(
         vec![String::from("foo/bar"), String::from("bar/#")],
         |msg| async move {
             info!("Got message: {msg:?}");
