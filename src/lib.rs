@@ -113,5 +113,6 @@ pub(crate) async fn write_packet<W: AsyncWrite + std::marker::Unpin>(
     packet.write_to(Pin::new(&mut buf)).await?;
     buf.flush().await?;
 
+    trace!(?packet, "Packet sending successfull");
     Ok(())
 }

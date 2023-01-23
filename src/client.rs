@@ -142,6 +142,7 @@ impl MqttClient {
                         let packet = MPingreq;
 
                         crate::write_packet(&mut client_stream, packet).await?;
+                        trace!("Sending heartbeat successful");
                     },
 
                     _ = cancel_token.cancelled() => break Ok(()),
