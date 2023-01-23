@@ -1,6 +1,6 @@
 [package]
 name = "cloudmqtt"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["Marcel Müller <neikos@neikos.email>"]
 description = "A pure Rust MQTT client and server library"
