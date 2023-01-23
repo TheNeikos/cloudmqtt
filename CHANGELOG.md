@@ -1,5 +1,13 @@
 # Changelog 'cloudmqtt'
 
+## v0.4.0
+
+The 0.4.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
+
+Changed:
+
+- Removed requirement of the server to be behind an `Arc`. It can be used as is normally now.
+
 ## v0.3.1
 
 The 0.3.1 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
