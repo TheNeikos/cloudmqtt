@@ -113,7 +113,11 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                         None => return Err(MqttError::ConnectionClosed),
                     };
 
-                    crate::read_one_packet(client_stream).await?
+                    match crate::read_one_packet(client_stream).await {
+                        Err(crate::PacketIOError::EofOnFirstByte) => return Ok(None),
+                        Err(other) => return Err(MqttError::from(other)),
+                        Ok(msg) => msg,
+                    }
                 };
 
                 let packet = next_message.get_packet();
