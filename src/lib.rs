@@ -47,6 +47,8 @@ pub enum PacketIOError {
     InvalidParsedPacket,
     #[error("A packet could not be written to its endpoint")]
     InvalidReceivedPacket(#[from] MPacketWriteError),
+    #[error("Received EOF on reading first byte")]
+    EofOnFirstByte,
 }
 
 pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
@@ -55,7 +57,16 @@ pub(crate) async fn read_one_packet<W: tokio::io::AsyncRead + Unpin>(
     debug!("Reading a packet");
 
     let mut buffer = BytesMut::new();
-    buffer.put_u16(reader.read_u16().await?);
+    let first_byte = reader.read_u8().await.map_err(|e| {
+        if e.kind() == std::io::ErrorKind::UnexpectedEof {
+            PacketIOError::EofOnFirstByte
+        } else {
+            PacketIOError::from(e)
+        }
+    })?;
+    let second_byte = reader.read_u8().await?;
+    buffer.put_u8(first_byte);
+    buffer.put_u8(second_byte);
 
     trace!(
         "Packet has reported size on first byte: 0b{size:08b} = {size}",
