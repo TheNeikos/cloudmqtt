@@ -51,100 +51,96 @@ pub async fn create_client_report(
         Arc::new(ConnectPacketProtocolName),
     ];
 
-    let mut collected_reports = Vec::with_capacity(flows.len());
-    for flow in flows {
-        tracing::debug!("Executing behaviour test: {:?}", flow.report_name());
-        let commands = flow.commands();
+    futures::stream::iter(flows)
+        .map(|flow| execute_flow(&executable, flow, &invariants).boxed_local())
+        .chain(futures::stream::iter(reports))
+        .buffered(parallelism.get())
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .collect::<Result<Vec<_>, _>>()
+}
 
-        let (client, input, mut output) = executable
-            .call(&commands)
-            .map(crate::command::Command::new)
-            .context("Creating client executable call")?
-            .spawn()
-            .context("Spawning client executable")?;
+async fn execute_flow<'a>(
+    executable: &'a ClientExecutable,
+    flow: Box<dyn BehaviourTest>,
+    invariants: &'a [Arc<dyn PacketInvariant>],
+) -> miette::Result<Report> {
+    tracing::debug!("Executing behaviour test: {:?}", flow.report_name());
+    let commands = flow.commands();
 
-        output.with_invariants(invariants.iter().cloned());
+    let (client, input, mut output) = executable
+        .call(&commands)
+        .map(crate::command::Command::new)
+        .context("Creating client executable call")?
+        .spawn()
+        .context("Spawning client executable")?;
 
-        let (result, output) = {
-            let duration = std::time::Duration::from_millis(100);
-            let flow_fut = tokio::time::timeout(duration, flow.execute(input, output));
-            let client_fut = tokio::time::timeout(duration, client.wait_with_output());
+    tracing::debug!("Attaching invariants to flow output");
+    output.with_invariants(invariants.iter().cloned());
 
-            let (flow_fut, client_fut) = tokio::join!(flow_fut, client_fut);
-            let flow_fut = match flow_fut {
-                Ok(f) => f,
-                Err(_e) => {
-                    collected_reports.push({
-                        Report {
-                            name: String::from(flow.report_name()),
-                            description: String::from(flow.report_desc()),
-                            normative_statement_number: String::from(flow.report_normative()),
-                            result: ReportResult::Failure,
-                            output: None,
-                        }
-                    });
-                    continue;
-                }
-            };
-            let client_fut = match client_fut {
-                Ok(f) => f,
-                Err(_e) => {
-                    collected_reports.push({
-                        Report {
-                            name: String::from(flow.report_name()),
-                            description: String::from(flow.report_desc()),
-                            normative_statement_number: String::from(flow.report_normative()),
-                            result: ReportResult::Failure,
-                            output: None,
-                        }
-                    });
-                    continue;
-                }
-            };
+    let duration = std::time::Duration::from_millis(100);
+    let flow_fut = tokio::time::timeout(duration, flow.execute(input, output));
+    let client_fut = tokio::time::timeout(duration, client.wait_with_output());
 
-            match (flow_fut, client_fut) {
-                (Ok(flowout), Ok(out)) => {
-                    tracing::debug!(
-                        "Output ({}): ({:?}, {:?})",
-                        flow.report_name(),
-                        flowout,
-                        out
-                    );
-                    let res = flow.translate_client_exit_code(out.status.success());
-                    (res, Some(out.stderr))
-                }
-                (Err(e), _) => {
-                    tracing::error!("Error during behaviour testing: {:?}", e);
-                    (ReportResult::Failure, None)
-                }
-                (_, Err(e)) => {
-                    tracing::error!("Error during behaviour testing: {:?}", e);
-                    (ReportResult::Failure, None)
-                }
-            }
-        };
-
-        collected_reports.push({
-            Report {
+    let (flow_fut, client_fut) = tokio::join!(flow_fut, client_fut);
+    let flow_fut = match flow_fut {
+        Ok(f) => f,
+        Err(_e) => {
+            return Ok(Report {
                 name: String::from(flow.report_name()),
                 description: String::from(flow.report_desc()),
                 normative_statement_number: String::from(flow.report_normative()),
-                result,
-                output,
-            }
-        })
-    }
+                result: ReportResult::Failure,
+                output: None,
+            })
+        }
+    };
+    let client_fut = match client_fut {
+        Ok(f) => f,
+        Err(_e) => {
+            return Ok(Report {
+                name: String::from(flow.report_name()),
+                description: String::from(flow.report_desc()),
+                normative_statement_number: String::from(flow.report_normative()),
+                result: ReportResult::Failure,
+                output: None,
+            })
+        }
+    };
 
-    Ok({
-        futures::stream::iter(reports)
-            .buffered(parallelism.get())
-            .collect::<Vec<_>>()
-            .await
-            .into_iter()
-            .collect::<Result<Vec<_>, _>>()?
-            .into_iter()
-            .chain(collected_reports.into_iter())
-            .collect()
+    let (result, output) = match (flow_fut, client_fut) {
+        (Ok(flow_result), Ok(out)) => {
+            tracing::debug!("Output ({}): {:?}", flow.report_name(), out);
+
+            let res = flow.translate_client_exit_code(out.status.success());
+
+            // If the client binary exited with success
+            if res == ReportResult::Success {
+                // We use the result of the flow itself, to return whether the test has succeeded
+                (flow_result, Some(out.stderr))
+            } else {
+                // else, the binary exit result is sufficient (because it is either Inconclusive or
+                // an error)
+                (res, Some(out.stderr))
+            }
+        }
+        (Err(e), _) => {
+            tracing::error!("Error during behaviour testing: {:?}", e);
+            (ReportResult::Failure, None)
+        }
+        (_, Err(e)) => {
+            tracing::error!("Error during behaviour testing: {:?}", e);
+            (ReportResult::Failure, None)
+        }
+    };
+
+    Ok(Report {
+        name: String::from(flow.report_name()),
+        description: String::from(flow.report_desc()),
+        normative_statement_number: String::from(flow.report_normative()),
+        result,
+        output,
     })
 }
 
