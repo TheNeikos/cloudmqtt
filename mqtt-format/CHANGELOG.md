@@ -1,5 +1,11 @@
 # Changelog 'mqtt-format'
 
+## v0.4.0
+
+The 0.4.0 is a public release of the mqtt-format crate. It is still in an alpha state.
+
+No changes were made.
+
 ## v0.3.0
 
 The 0.3.0 is a public release of the mqtt-format crate. It is still in an alpha state.
