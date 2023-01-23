@@ -11,7 +11,7 @@ use miette::IntoDiagnostic;
 use mqtt_format::v3::packet::MPacket;
 use tokio::{
     io::{AsyncReadExt, AsyncWriteExt},
-    process::{ChildStdin, ChildStdout},
+    process::{ChildStderr, ChildStdin, ChildStdout},
 };
 use tracing::Instrument;
 
@@ -42,10 +42,11 @@ impl Command {
         Self { inner }
     }
 
-    pub fn spawn(mut self) -> miette::Result<(tokio::process::Child, Input, Output)> {
+    pub fn spawn(mut self) -> miette::Result<(tokio::process::Child, Input, Output, ErrOut)> {
         let mut client = self.inner.spawn().into_diagnostic()?;
         let to_client = client.stdin.take().unwrap();
         let stdout = client.stdout.take().unwrap();
+        let stderr = client.stderr.take().unwrap();
 
         Ok((
             client,
@@ -54,7 +55,25 @@ impl Command {
                 stdout,
                 attached_invariants: vec![],
             },
+            ErrOut(stderr),
         ))
+    }
+}
+
+pub struct ErrOut(ChildStderr);
+
+impl ErrOut {
+    pub async fn collect(mut self) -> miette::Result<Vec<u8>> {
+        let mut buffer = BytesMut::new();
+        loop {
+            let read_len = self.0.read_buf(&mut buffer).await.into_diagnostic()?;
+
+            if read_len == 0 {
+                break;
+            }
+        }
+
+        Ok(buffer.to_vec())
     }
 }
 

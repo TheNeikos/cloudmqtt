@@ -72,7 +72,7 @@ async fn execute_flow<'a>(
     tracing::debug!("Executing behaviour test: {:?}", flow.report_name());
     let commands = flow.commands();
 
-    let (client, input, mut output) = executable
+    let (mut client, input, mut output, err_out) = executable
         .call(&commands)
         .map(crate::command::Command::new)
         .context("Creating client executable call")?
@@ -84,9 +84,9 @@ async fn execute_flow<'a>(
 
     let duration = std::time::Duration::from_millis(100);
     let flow_fut = tokio::time::timeout(duration, flow.execute(input, output));
-    let client_fut = tokio::time::timeout(duration, client.wait_with_output());
+    let client_fut = tokio::time::timeout(duration, client.wait());
 
-    let (flow_fut, client_fut) = tokio::join!(flow_fut, client_fut);
+    let flow_fut = flow_fut.await;
     let flow_fut = match flow_fut {
         Ok(f) => f,
         Err(e) => {
@@ -100,6 +100,12 @@ async fn execute_flow<'a>(
             });
         }
     };
+    tracing::info!(flow = flow.report_name(), result = ?flow_fut, "Returned");
+
+    // collect stderr
+    let stderr = err_out.collect().await?;
+
+    let client_fut = client_fut.await;
     let client_fut = match client_fut {
         Ok(f) => f,
         Err(e) => {
@@ -118,16 +124,16 @@ async fn execute_flow<'a>(
         (Ok(flow_result), Ok(out)) => {
             tracing::debug!("Output ({}): {:?}", flow.report_name(), out);
 
-            let res = flow.translate_client_exit_code(out.status.success());
+            let res = flow.translate_client_exit_code(out.success());
 
             // If the client binary exited with success
             if res == ReportResult::Success {
                 // We use the result of the flow itself, to return whether the test has succeeded
-                (flow_result, Some(out.stderr))
+                (flow_result, Some(stderr))
             } else {
                 // else, the binary exit result is sufficient (because it is either Inconclusive or
                 // an error)
-                (res, Some(out.stderr))
+                (res, Some(stderr))
             }
         }
         (Err(e), _) => {
@@ -179,42 +185,11 @@ macro_rules! mk_report {
     };
 }
 
-#[macro_export]
-macro_rules! wait_for_output {
-    ($output:ident,
-     timeout_ms: $timeout_ms:literal,
-     out_success => $success:block,
-     out_failure => $failure:block
-    ) => {{
-        #[allow(unused_imports)]
-        use futures::Future;
-
-        let (result, output) = match tokio::time::timeout(
-            std::time::Duration::from_millis($timeout_ms),
-            $output,
-        )
-        .await
-        {
-            Ok(Ok(out)) => (
-                if out.status.success() {
-                    $success
-                } else {
-                    $failure
-                },
-                Some(out.stderr),
-            ),
-            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
-        };
-
-        (result, output)
-    }};
-}
-
 #[tracing::instrument(skip_all)]
 async fn check_connect_packet_reserved_flag_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let (client, _input, mut output) = executable
+    let (mut client, _input, mut output, err_out) = executable
         .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
@@ -228,13 +203,20 @@ async fn check_connect_packet_reserved_flag_zero(
         .await
         .context("Waiting for bytes to check")?;
 
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { check_result },
-        out_failure => { ReportResult::Inconclusive }
-    };
+    let stderr = err_out.collect().await?;
+    let (result, output) =
+        match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
+            Ok(Ok(out)) => {
+                let res = if out.success() {
+                    check_result
+                } else {
+                    ReportResult::Inconclusive
+                };
+
+                (res, Some(stderr))
+            }
+            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+        };
 
     Ok(mk_report! {
         name: "The CONNECT packet flags must be zero.",
@@ -269,7 +251,7 @@ fn find_connect_flags(bytes: &[u8]) -> Option<u8> {
 async fn check_connect_flag_username_set_username_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let (client, _input, mut output) = executable
+    let (mut client, _input, mut output, err_out) = executable
         .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
@@ -305,13 +287,20 @@ async fn check_connect_flag_username_set_username_present(
         .await
         .context("Waiting for bytes to check")?;
 
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { check_result },
-        out_failure => { ReportResult::Inconclusive }
-    };
+    let stderr = err_out.collect().await?;
+    let (result, output) =
+        match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
+            Ok(Ok(out)) => {
+                let res = if out.success() {
+                    check_result
+                } else {
+                    ReportResult::Inconclusive
+                };
+
+                (res, Some(stderr))
+            }
+            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+        };
 
     Ok(mk_report! {
         name: "If the CONNECT packet flag for username is set, a username must be present",
@@ -326,7 +315,7 @@ async fn check_connect_flag_username_set_username_present(
 async fn check_connect_flag_password_set_password_present(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let (client, _input, mut output) = executable
+    let (mut client, _input, mut output, err_out) = executable
         .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
@@ -362,13 +351,20 @@ async fn check_connect_flag_password_set_password_present(
         .await
         .context("Waiting for bytes to check")?;
 
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { check_result },
-        out_failure => { ReportResult::Inconclusive }
-    };
+    let stderr = err_out.collect().await?;
+    let (result, output) =
+        match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
+            Ok(Ok(out)) => {
+                let res = if out.success() {
+                    check_result
+                } else {
+                    ReportResult::Inconclusive
+                };
+
+                (res, Some(stderr))
+            }
+            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+        };
 
     Ok(mk_report! {
         name: "If the CONNECT packet flag for password is set, a password must be present",
@@ -383,7 +379,7 @@ async fn check_connect_flag_password_set_password_present(
 async fn check_connect_flag_username_zero_means_password_zero(
     executable: &ClientExecutable,
 ) -> miette::Result<Report> {
-    let (client, _input, mut output) = executable
+    let (mut client, _input, mut output, err_out) = executable
         .call(&[])
         .map(crate::command::Command::new)?
         .spawn()?;
@@ -410,13 +406,20 @@ async fn check_connect_flag_username_zero_means_password_zero(
         .await
         .context("Waiting for bytes to check")?;
 
-    let output = client.wait_with_output();
-    let (result, output) = wait_for_output! {
-        output,
-        timeout_ms: 100,
-        out_success => { check_result },
-        out_failure => { ReportResult::Inconclusive }
-    };
+    let stderr = err_out.collect().await?;
+    let (result, output) =
+        match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
+            Ok(Ok(out)) => {
+                let res = if out.success() {
+                    check_result
+                } else {
+                    ReportResult::Inconclusive
+                };
+
+                (res, Some(stderr))
+            }
+            Ok(Err(_)) | Err(_) => (ReportResult::Failure, None),
+        };
 
     Ok(mk_report! {
         name: "If the CONNECT packet flag for password is set, a password must be present",
