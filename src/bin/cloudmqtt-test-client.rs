@@ -179,18 +179,29 @@ async fn main() {
     }
 
     loop {
-        let _packet = match packet_stream.next().await {
-            Some(Ok(packet)) => packet,
-            None => {
-                tracing::error!("Stream ended, stopping");
-                cancel_token.cancel();
+        tokio::select! {
+            _ = tokio::signal::ctrl_c() => {
+                tracing::warn!("Received CTRL-C");
                 break;
-            }
-            Some(Err(error)) => {
-                cancel_token.cancel();
-                tracing::error!(?error, "Stream errored");
-                exit(1);
-            }
-        };
+            },
+
+            packet = packet_stream.next() => {
+                match packet {
+                    Some(Ok(packet)) => {
+                        tracing::info!(?packet, "Received packet");
+                    },
+                    None => {
+                        tracing::error!("Stream ended, stopping");
+                        cancel_token.cancel();
+                        break;
+                    }
+                    Some(Err(error)) => {
+                        cancel_token.cancel();
+                        tracing::error!(?error, "Stream errored");
+                        exit(1);
+                    }
+                }
+            },
+        }
     }
 }
