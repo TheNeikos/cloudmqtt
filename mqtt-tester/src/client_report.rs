@@ -110,6 +110,13 @@ async fn execute_flow<'a>(
         Ok(f) => f,
         Err(e) => {
             tracing::error!(?e, flow = flow.report_name(), "Error: Client future");
+            if let Some(procid) = client.id() {
+                use nix::unistd::Pid;
+                use nix::sys::signal::{self, Signal};
+
+                tracing::debug!(?procid, "Sending SIGTERM to process");
+                signal::kill(Pid::from_raw(procid.try_into().into_diagnostic()?), Signal::SIGTERM).into_diagnostic()?;
+            }
             return Ok(Report {
                 name: String::from(flow.report_name()),
                 description: String::from(flow.report_desc()),
