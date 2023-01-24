@@ -63,12 +63,22 @@ impl Command {
 pub struct ErrOut(ChildStderr);
 
 impl ErrOut {
-    pub async fn collect(mut self) -> miette::Result<Vec<u8>> {
+    pub async fn collect(mut self, read_timeout: std::time::Duration) -> miette::Result<Vec<u8>> {
+        tracing::debug!("Collecting stderr..");
         let mut buffer = BytesMut::new();
         loop {
-            let read_len = self.0.read_buf(&mut buffer).await.into_diagnostic()?;
+            let read_fut = tokio::time::timeout(read_timeout, self.0.read_buf(&mut buffer));
+            let read_len = match read_fut.await {
+                Err(_elapsed) => {
+                    tracing::trace!("Breaking read loop: Timeout");
+                    break
+                },
+                Ok(inner) => inner.into_diagnostic()?,
+            };
 
+            tracing::debug!("Read {} bytes", read_len);
             if read_len == 0 {
+                tracing::trace!("Breaking read loop");
                 break;
             }
         }

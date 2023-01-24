@@ -102,10 +102,8 @@ async fn execute_flow<'a>(
     };
     tracing::info!(flow = flow.report_name(), result = ?flow_fut, "Returned");
 
-    // collect stderr
-    let stderr = err_out.collect().await?;
-
-    let client_fut = client_fut.await;
+    let (stderr, client_fut) = tokio::join!(err_out.collect(std::time::Duration::from_millis(10)), client_fut);
+    let stderr = stderr?;
     let client_fut = match client_fut {
         Ok(f) => f,
         Err(e) => {
@@ -210,7 +208,7 @@ async fn check_connect_packet_reserved_flag_zero(
         .await
         .context("Waiting for bytes to check")?;
 
-    let stderr = err_out.collect().await?;
+    let stderr = err_out.collect(std::time::Duration::from_millis(10)).await?;
     let (result, output) =
         match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
             Ok(Ok(out)) => {
@@ -294,7 +292,7 @@ async fn check_connect_flag_username_set_username_present(
         .await
         .context("Waiting for bytes to check")?;
 
-    let stderr = err_out.collect().await?;
+    let stderr = err_out.collect(std::time::Duration::from_millis(10)).await?;
     let (result, output) =
         match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
             Ok(Ok(out)) => {
@@ -358,7 +356,7 @@ async fn check_connect_flag_password_set_password_present(
         .await
         .context("Waiting for bytes to check")?;
 
-    let stderr = err_out.collect().await?;
+    let stderr = err_out.collect(std::time::Duration::from_millis(10)).await?;
     let (result, output) =
         match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
             Ok(Ok(out)) => {
@@ -413,7 +411,7 @@ async fn check_connect_flag_username_zero_means_password_zero(
         .await
         .context("Waiting for bytes to check")?;
 
-    let stderr = err_out.collect().await?;
+    let stderr = err_out.collect(std::time::Duration::from_millis(10)).await?;
     let (result, output) =
         match tokio::time::timeout(std::time::Duration::from_millis(100), client.wait()).await {
             Ok(Ok(out)) => {
