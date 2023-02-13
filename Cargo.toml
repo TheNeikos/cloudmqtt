@@ -46,7 +46,7 @@ tokio = { version = "1.25.0", default-features = false, features = [
 ] }
 arc-swap = "1.6.0"
 rpds = "0.12.0"
-tokio-util = { version = "0.7.4", features = [
+tokio-util = { version = "0.7.7", features = [
     "futures-io",
     "io",
     "io-util",
