@@ -18,7 +18,7 @@ yoke = ["dep:yoke"]
 futures = "0.3.27"
 nom = "7.1.3"
 nom-supreme = "0.8.0"
-thiserror = "1.0.39"
+thiserror = "1.0.40"
 yoke = { version = "0.7.0", features = ["derive"], optional = true }
 
 [dev-dependencies]
