@@ -32,7 +32,7 @@ bin = ["clap", "tokio/rt-multi-thread", "tokio/macros", "tokio/io-std", "tracing
 
 [dependencies]
 bytes = "1.4.0"
-clap = { version = "4.1.11", optional = true, features = ["derive"] }
+clap = { version = "4.2.1", optional = true, features = ["derive"] }
 dashmap = "5.4.0"
 futures = "0.3.27"
 mqtt-format = { version = "0.5.0", path = "mqtt-format", features = ["yoke"] }
