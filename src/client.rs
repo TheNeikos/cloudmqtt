@@ -150,6 +150,19 @@ impl MqttClient {
         }
     }
 
+    pub async fn send(&self, packet: impl Into<MPacket<'_>>) -> Result<(), MqttError> {
+        let packet = packet.into();
+
+        let mut mutex = self.client_sender().lock().await;
+        let mut client_stream = match mutex.as_mut() {
+            Some(cs) => cs,
+            None => return Err(MqttError::ConnectionClosed),
+        };
+        trace!(?packet, "Sending packet");
+        crate::write_packet(&mut client_stream, packet).await?;
+        Ok(())
+    }
+
     pub(crate) async fn acknowledge_packet<W: tokio::io::AsyncWrite + Unpin>(
         mut writer: W,
         packet: &MPacket<'_>,
