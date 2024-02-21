@@ -150,6 +150,25 @@ impl MqttClient {
         }
     }
 
+    pub async fn publish(
+        &self,
+        qos: MQualityOfService,
+        retain: bool,
+        topic: &str,
+        payload: &[u8],
+    ) -> Result<(), MqttError> {
+        let packet = MPacket::Publish(MPublish {
+            dup: false,
+            qos,
+            retain,
+            topic_name: MString { value: topic },
+            id: None,
+            payload,
+        });
+
+        self.send(packet).await
+    }
+
     pub async fn send(&self, packet: impl Into<MPacket<'_>>) -> Result<(), MqttError> {
         let packet = packet.into();
 
