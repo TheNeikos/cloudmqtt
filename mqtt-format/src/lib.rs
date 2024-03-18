@@ -7,5 +7,6 @@
 #![deny(clippy::disallowed_methods)]
 #![deny(clippy::disallowed_types)]
 
+#[cfg(mqttv3)]
 pub mod v3;
 pub mod v5;
