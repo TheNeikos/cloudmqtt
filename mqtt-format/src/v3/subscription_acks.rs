@@ -4,13 +4,14 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use futures::{AsyncWrite, AsyncWriteExt};
-use nom::{error::FromExternalError, multi::many1_count};
+use futures::AsyncWrite;
+use futures::AsyncWriteExt;
+use nom::error::FromExternalError;
+use nom::multi::many1_count;
 
-use super::{
-    errors::{MPacketHeaderError, MPacketWriteError},
-    MSResult,
-};
+use super::errors::MPacketHeaderError;
+use super::errors::MPacketWriteError;
+use super::MSResult;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MSubscriptionAcks<'message> {
@@ -85,9 +86,8 @@ pub fn msubscriptionacks<'message>(
 
 #[cfg(test)]
 mod tests {
-    use crate::v3::subscription_acks::MSubscriptionAck;
-
     use super::msubscriptionacks;
+    use crate::v3::subscription_acks::MSubscriptionAck;
 
     #[test]
     fn check_valid_subacks() {

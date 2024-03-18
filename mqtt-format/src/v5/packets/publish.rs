@@ -4,20 +4,21 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{
-    error::{ErrMode, ParserError},
-    stream::Stream,
-    Bytes,
-};
+use winnow::error::ErrMode;
+use winnow::error::ParserError;
+use winnow::stream::Stream;
+use winnow::Bytes;
 
-use crate::v5::{
-    fixed_header::QualityOfService,
-    variable_header::{
-        ContentType, CorrelationData, MessageExpiryInterval, PayloadFormatIndicator, ResponseTopic,
-        SubscriptionIdentifier, TopicAlias, UserProperties,
-    },
-    MResult,
-};
+use crate::v5::fixed_header::QualityOfService;
+use crate::v5::variable_header::ContentType;
+use crate::v5::variable_header::CorrelationData;
+use crate::v5::variable_header::MessageExpiryInterval;
+use crate::v5::variable_header::PayloadFormatIndicator;
+use crate::v5::variable_header::ResponseTopic;
+use crate::v5::variable_header::SubscriptionIdentifier;
+use crate::v5::variable_header::TopicAlias;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::MResult;
 
 #[derive(Debug)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901100")]

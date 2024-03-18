@@ -4,7 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{Bytes, Parser};
+use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::MResult;
 

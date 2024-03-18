@@ -8,24 +8,35 @@
 use std::pin::Pin;
 
 use futures::AsyncWriteExt;
-use nom::{
-    bits, bytes::complete::take, error::FromExternalError, number::complete::be_u16,
-    sequence::tuple, IResult, Parser,
-};
+use nom::bits;
+use nom::bytes::complete::take;
+use nom::error::FromExternalError;
+use nom::number::complete::be_u16;
+use nom::sequence::tuple;
+use nom::IResult;
+use nom::Parser;
 
-use super::{
-    connect_return::{mconnectreturn, MConnectReturnCode},
-    errors::{MPacketHeaderError, MPacketWriteError},
-    header::{mfixedheader, MPacketHeader, MPacketKind},
-    identifier::{mpacketidentifier, MPacketIdentifier},
-    qos::{mquality_of_service, MQualityOfService},
-    strings::{mstring, MString},
-    subscription_acks::{msubscriptionacks, MSubscriptionAcks},
-    subscription_request::{msubscriptionrequests, MSubscriptionRequests},
-    unsubscription_request::{munsubscriptionrequests, MUnsubscriptionRequests},
-    will::MLastWill,
-    MSResult,
-};
+use super::connect_return::mconnectreturn;
+use super::connect_return::MConnectReturnCode;
+use super::errors::MPacketHeaderError;
+use super::errors::MPacketWriteError;
+use super::header::mfixedheader;
+use super::header::MPacketHeader;
+use super::header::MPacketKind;
+use super::identifier::mpacketidentifier;
+use super::identifier::MPacketIdentifier;
+use super::qos::mquality_of_service;
+use super::qos::MQualityOfService;
+use super::strings::mstring;
+use super::strings::MString;
+use super::subscription_acks::msubscriptionacks;
+use super::subscription_acks::MSubscriptionAcks;
+use super::subscription_request::msubscriptionrequests;
+use super::subscription_request::MSubscriptionRequests;
+use super::unsubscription_request::munsubscriptionrequests;
+use super::unsubscription_request::MUnsubscriptionRequests;
+use super::will::MLastWill;
+use super::MSResult;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -773,16 +784,16 @@ pub fn mpacket(input: &[u8]) -> MSResult<'_, MPacket<'_>> {
 
 #[cfg(test)]
 mod tests {
-    use crate::v3::{
-        packet::{MConnect, MDisconnect, MPacket},
-        strings::MString,
-        will::MLastWill,
-    };
-
-    use super::mpacket;
     use std::pin::Pin;
 
     use pretty_assertions::assert_eq;
+
+    use super::mpacket;
+    use crate::v3::packet::MConnect;
+    use crate::v3::packet::MDisconnect;
+    use crate::v3::packet::MPacket;
+    use crate::v3::strings::MString;
+    use crate::v3::will::MLastWill;
 
     #[test]
     fn check_complete_length() {

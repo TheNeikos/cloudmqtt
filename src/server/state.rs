@@ -29,21 +29,26 @@
 //! new connection, starting from the `current_id` field.
 //!
 
-use std::{
-    collections::VecDeque,
-    sync::{atomic::AtomicU16, Arc},
-};
+use std::collections::VecDeque;
+use std::sync::atomic::AtomicU16;
+use std::sync::Arc;
 
-use arc_swap::{ArcSwap, ArcSwapOption};
-use dashmap::{mapref::entry::Entry, DashMap, DashSet};
-use mqtt_format::v3::{identifier::MPacketIdentifier, packet::MPublish, qos::MQualityOfService};
+use arc_swap::ArcSwap;
+use arc_swap::ArcSwapOption;
+use dashmap::mapref::entry::Entry;
+use dashmap::DashMap;
+use dashmap::DashSet;
+use mqtt_format::v3::identifier::MPacketIdentifier;
+use mqtt_format::v3::packet::MPublish;
+use mqtt_format::v3::qos::MQualityOfService;
 use tokio::io::AsyncWriteExt;
 use tokio_util::sync::CancellationToken;
-use tracing::{debug, trace};
+use tracing::debug;
+use tracing::trace;
 
+use super::message::MqttMessage;
+use super::ClientConnection;
 use crate::error::MqttError;
-
-use super::{message::MqttMessage, ClientConnection};
 
 /// A Message that is unacknowledged, at what state depends on the current `packet`
 ///

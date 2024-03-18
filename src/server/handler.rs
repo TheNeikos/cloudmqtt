@@ -5,10 +5,9 @@
 //
 use std::sync::Arc;
 
-use mqtt_format::v3::{
-    connect_return::MConnectReturnCode, qos::MQualityOfService,
-    subscription_request::MSubscriptionRequest,
-};
+use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::subscription_request::MSubscriptionRequest;
 
 use crate::server::ClientId;
 

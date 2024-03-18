@@ -4,22 +4,31 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{
-    error::{ErrMode, InputError, ParserError},
-    Bytes, Parser,
-};
+use winnow::error::ErrMode;
+use winnow::error::InputError;
+use winnow::error::ParserError;
+use winnow::Bytes;
+use winnow::Parser;
 
-use crate::v5::{
-    properties::define_properties,
-    variable_header::{
-        AssignedClientIdentifier, AuthenticationData, AuthenticationMethod, MaximumPacketSize,
-        MaximumQoS, ReasonString, ReceiveMaximum, ResponseInformation, RetainAvailable,
-        ServerKeepAlive, ServerReference, SessionExpiryInterval, SharedSubscriptionAvailable,
-        SubscriptionIdentifiersAvailable, TopicAliasMaximum, UserProperties,
-        WildcardSubscriptionAvailable,
-    },
-    MResult,
-};
+use crate::v5::properties::define_properties;
+use crate::v5::variable_header::AssignedClientIdentifier;
+use crate::v5::variable_header::AuthenticationData;
+use crate::v5::variable_header::AuthenticationMethod;
+use crate::v5::variable_header::MaximumPacketSize;
+use crate::v5::variable_header::MaximumQoS;
+use crate::v5::variable_header::ReasonString;
+use crate::v5::variable_header::ReceiveMaximum;
+use crate::v5::variable_header::ResponseInformation;
+use crate::v5::variable_header::RetainAvailable;
+use crate::v5::variable_header::ServerKeepAlive;
+use crate::v5::variable_header::ServerReference;
+use crate::v5::variable_header::SessionExpiryInterval;
+use crate::v5::variable_header::SharedSubscriptionAvailable;
+use crate::v5::variable_header::SubscriptionIdentifiersAvailable;
+use crate::v5::variable_header::TopicAliasMaximum;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::variable_header::WildcardSubscriptionAvailable;
+use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum ConnectReasonCode {

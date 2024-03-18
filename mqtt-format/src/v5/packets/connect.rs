@@ -4,25 +4,33 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{
-    error::{ErrMode, InputError, ParserError},
-    Bytes, Parser,
-};
+use winnow::error::ErrMode;
+use winnow::error::InputError;
+use winnow::error::ParserError;
+use winnow::Bytes;
+use winnow::Parser;
 
-use crate::v5::{
-    bytes::parse_binary_data,
-    fixed_header::QualityOfService,
-    integers::parse_u16,
-    level::ProtocolLevel,
-    strings::parse_string,
-    variable_header::{
-        AuthenticationData, AuthenticationMethod, ContentType, CorrelationData, MaximumPacketSize,
-        MessageExpiryInterval, PayloadFormatIndicator, ReceiveMaximum, RequestProblemInformation,
-        RequestResponseInformation, ResponseTopic, SessionExpiryInterval, TopicAliasMaximum,
-        UserProperties, WillDelayInterval,
-    },
-    MResult,
-};
+use crate::v5::bytes::parse_binary_data;
+use crate::v5::fixed_header::QualityOfService;
+use crate::v5::integers::parse_u16;
+use crate::v5::level::ProtocolLevel;
+use crate::v5::strings::parse_string;
+use crate::v5::variable_header::AuthenticationData;
+use crate::v5::variable_header::AuthenticationMethod;
+use crate::v5::variable_header::ContentType;
+use crate::v5::variable_header::CorrelationData;
+use crate::v5::variable_header::MaximumPacketSize;
+use crate::v5::variable_header::MessageExpiryInterval;
+use crate::v5::variable_header::PayloadFormatIndicator;
+use crate::v5::variable_header::ReceiveMaximum;
+use crate::v5::variable_header::RequestProblemInformation;
+use crate::v5::variable_header::RequestResponseInformation;
+use crate::v5::variable_header::ResponseTopic;
+use crate::v5::variable_header::SessionExpiryInterval;
+use crate::v5::variable_header::TopicAliasMaximum;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::variable_header::WillDelayInterval;
+use crate::v5::MResult;
 
 #[derive(Debug)]
 pub struct MConnect<'i> {

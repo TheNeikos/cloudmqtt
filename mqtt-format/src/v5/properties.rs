@@ -4,10 +4,9 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{
-    error::{ErrMode, ParserError},
-    Bytes,
-};
+use winnow::error::ErrMode;
+use winnow::error::ParserError;
+use winnow::Bytes;
 
 use super::MResult;
 

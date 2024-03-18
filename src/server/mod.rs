@@ -35,39 +35,55 @@ mod message;
 mod state;
 mod subscriptions;
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
+use std::time::Duration;
 
 use dashmap::DashMap;
-use mqtt_format::v3::{
-    connect_return::MConnectReturnCode,
-    packet::{
-        MConnack, MConnect, MDisconnect, MPacket, MPingreq, MPingresp, MPuback, MPubcomp, MPublish,
-        MPubrec, MPubrel, MSuback, MSubscribe,
-    },
-    qos::MQualityOfService,
-    strings::MString,
-    subscription_acks::MSubscriptionAcks,
-    will::MLastWill,
-};
-use tokio::{
-    io::{AsyncWriteExt, DuplexStream, ReadHalf, WriteHalf},
-    net::{TcpListener, ToSocketAddrs},
-    sync::broadcast::Sender as BroadcastSender,
-    sync::Mutex,
-};
-use tracing::{debug, error, info, trace, warn};
+use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::packet::MConnack;
+use mqtt_format::v3::packet::MConnect;
+use mqtt_format::v3::packet::MDisconnect;
+use mqtt_format::v3::packet::MPacket;
+use mqtt_format::v3::packet::MPingreq;
+use mqtt_format::v3::packet::MPingresp;
+use mqtt_format::v3::packet::MPuback;
+use mqtt_format::v3::packet::MPubcomp;
+use mqtt_format::v3::packet::MPublish;
+use mqtt_format::v3::packet::MPubrec;
+use mqtt_format::v3::packet::MPubrel;
+use mqtt_format::v3::packet::MSuback;
+use mqtt_format::v3::packet::MSubscribe;
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::strings::MString;
+use mqtt_format::v3::subscription_acks::MSubscriptionAcks;
+use mqtt_format::v3::will::MLastWill;
+use subscriptions::ClientInformation;
+use subscriptions::SubscriptionManager;
+use tokio::io::AsyncWriteExt;
+use tokio::io::DuplexStream;
+use tokio::io::ReadHalf;
+use tokio::io::WriteHalf;
+use tokio::net::TcpListener;
+use tokio::net::ToSocketAddrs;
+use tokio::sync::broadcast::Sender as BroadcastSender;
+use tokio::sync::Mutex;
+use tracing::debug;
+use tracing::error;
+use tracing::info;
+use tracing::trace;
+use tracing::warn;
 
-use crate::{error::MqttError, mqtt_stream::MqttStream, PacketIOError};
-use subscriptions::{ClientInformation, SubscriptionManager};
-
-use self::{
-    handler::{
-        AllowAllLogins, AllowAllSubscriptions, LoginError, LoginHandler, SubscriptionHandler,
-    },
-    message::MqttMessage,
-    state::ClientState,
-    subscriptions::TopicFilter,
-};
+use self::handler::AllowAllLogins;
+use self::handler::AllowAllSubscriptions;
+use self::handler::LoginError;
+use self::handler::LoginHandler;
+use self::handler::SubscriptionHandler;
+use self::message::MqttMessage;
+use self::state::ClientState;
+use self::subscriptions::TopicFilter;
+use crate::error::MqttError;
+use crate::mqtt_stream::MqttStream;
+use crate::PacketIOError;
 
 /// The unique id (per server) of a connecting client
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

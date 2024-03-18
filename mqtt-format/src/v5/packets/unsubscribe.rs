@@ -4,14 +4,16 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{combinator::repeat_till, Bytes, Parser};
+use winnow::combinator::repeat_till;
+use winnow::Bytes;
+use winnow::Parser;
 
-use crate::v5::{
-    properties::define_properties,
-    strings::parse_string,
-    variable_header::{PacketIdentifier, SubscriptionIdentifier, UserProperties},
-    MResult,
-};
+use crate::v5::properties::define_properties;
+use crate::v5::strings::parse_string;
+use crate::v5::variable_header::PacketIdentifier;
+use crate::v5::variable_header::SubscriptionIdentifier;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::MResult;
 
 define_properties! {
     packet_type: MUnsubscribe,

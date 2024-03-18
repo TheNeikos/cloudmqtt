@@ -4,9 +4,11 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use futures::{AsyncWrite, AsyncWriteExt};
+use futures::AsyncWrite;
+use futures::AsyncWriteExt;
 
-use super::errors::{MPacketHeaderError, MPacketWriteError};
+use super::errors::MPacketHeaderError;
+use super::errors::MPacketWriteError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MQualityOfService {

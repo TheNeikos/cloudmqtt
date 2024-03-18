@@ -4,9 +4,12 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{Bytes, Parser};
+use winnow::Bytes;
+use winnow::Parser;
 
-use super::{integers::parse_u16, integers::parse_u32, MResult};
+use super::integers::parse_u16;
+use super::integers::parse_u32;
+use super::MResult;
 
 #[derive(Debug, Clone, Copy)]
 pub struct PacketIdentifier(pub u16);
@@ -210,9 +213,10 @@ impl<'i> Iterator for UserPropertyIterator<'i> {
 
 #[cfg(test)]
 mod tests {
-    use crate::v5::variable_header::{MqttProperties, RetainAvailable, UserProperty};
-
     use super::UserProperties;
+    use crate::v5::variable_header::MqttProperties;
+    use crate::v5::variable_header::RetainAvailable;
+    use crate::v5::variable_header::UserProperty;
 
     #[test]
     fn check_iteration() {

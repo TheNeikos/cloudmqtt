@@ -4,13 +4,15 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{Bytes, Parser};
+use winnow::Bytes;
+use winnow::Parser;
 
-use crate::v5::{
-    properties::define_properties,
-    variable_header::{ReasonString, ServerReference, SessionExpiryInterval, UserProperties},
-    MResult,
-};
+use crate::v5::properties::define_properties;
+use crate::v5::variable_header::ReasonString;
+use crate::v5::variable_header::ServerReference;
+use crate::v5::variable_header::SessionExpiryInterval;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum DisconnectReasonCode {

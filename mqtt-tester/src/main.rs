@@ -13,13 +13,17 @@ mod invariant;
 mod packet_invariant;
 mod report;
 
-use std::{path::PathBuf, process::exit};
+use std::path::PathBuf;
+use std::process::exit;
 
-use clap::{Parser, Subcommand};
+use clap::Parser;
+use clap::Subcommand;
 use client_report::create_client_report;
 use miette::IntoDiagnostic;
-use report::{print_report, ReportResult};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
+use report::print_report;
+use report::ReportResult;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[derive(Parser, Debug)]
 #[clap(author, version)]

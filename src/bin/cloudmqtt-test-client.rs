@@ -7,15 +7,15 @@
 use std::process::exit;
 
 use clap::Parser;
-use cloudmqtt::{client::MqttClient, client::MqttConnectionParams};
+use cloudmqtt::client::MqttClient;
+use cloudmqtt::client::MqttConnectionParams;
 use futures::StreamExt;
-use mqtt_format::v3::{
-    packet::{MPacket, MPublish},
-    qos::MQualityOfService,
-    strings::MString,
-    subscription_request::MSubscriptionRequest,
-    will::MLastWill,
-};
+use mqtt_format::v3::packet::MPacket;
+use mqtt_format::v3::packet::MPublish;
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::strings::MString;
+use mqtt_format::v3::subscription_request::MSubscriptionRequest;
+use mqtt_format::v3::will::MLastWill;
 
 fn print_error_and_quit(e: String) -> ! {
     eprintln!("{}", e);

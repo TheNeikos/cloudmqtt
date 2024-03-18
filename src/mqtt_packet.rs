@@ -7,7 +7,8 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use mqtt_format::v3::packet::MPacket;
-use yoke::{Yoke, Yokeable};
+use yoke::Yoke;
+use yoke::Yokeable;
 
 #[derive(Clone)]
 pub struct MqttPacket {

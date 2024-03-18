@@ -8,16 +8,17 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use futures::FutureExt;
-
 use miette::Context;
-use mqtt_format::v3::packet::{MConnect, MPacket};
+use mqtt_format::v3::packet::MConnect;
+use mqtt_format::v3::packet::MPacket;
 
 use crate::behaviour_test::BehaviourTest;
 use crate::executable::ClientExecutable;
 use crate::invariant::connect_packet_protocol_name::ConnectPacketProtocolName;
 use crate::invariant::no_username_means_no_password::NoUsernameMeansNoPassword;
 use crate::packet_invariant::PacketInvariant;
-use crate::report::{Report, ReportResult};
+use crate::report::Report;
+use crate::report::ReportResult;
 
 pub async fn create_client_report(
     client_exe_path: PathBuf,

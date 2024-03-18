@@ -4,22 +4,23 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use std::{
-    collections::{HashMap, VecDeque},
-    sync::Arc,
-};
+use std::collections::HashMap;
+use std::collections::VecDeque;
+use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use futures::{stream::FuturesUnordered, StreamExt};
-use mqtt_format::v3::{
-    qos::MQualityOfService, subscription_acks::MSubscriptionAck,
-    subscription_request::MSubscriptionRequests,
-};
-use tracing::{debug, trace};
+use futures::stream::FuturesUnordered;
+use futures::StreamExt;
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::subscription_acks::MSubscriptionAck;
+use mqtt_format::v3::subscription_request::MSubscriptionRequests;
+use tracing::debug;
+use tracing::trace;
 
-use crate::server::{ClientId, MqttMessage};
-
-use super::handler::{AllowAllSubscriptions, SubscriptionHandler};
+use super::handler::AllowAllSubscriptions;
+use super::handler::SubscriptionHandler;
+use crate::server::ClientId;
+use crate::server::MqttMessage;
 
 // foo/barr/# => vec![Named, Named, MultiWildcard]
 // /foo/barr/# => vec![Empty, ... ]
@@ -255,9 +256,11 @@ mod tests {
 
     use mqtt_format::v3::qos::MQualityOfService;
 
-    use crate::server::{subscriptions::TopicFilter, ClientId};
-
-    use super::{ClientInformation, ClientSubscription, SubscriptionTopic};
+    use super::ClientInformation;
+    use super::ClientSubscription;
+    use super::SubscriptionTopic;
+    use crate::server::subscriptions::TopicFilter;
+    use crate::server::ClientId;
 
     macro_rules! build_subs {
         (@topic "#") => {

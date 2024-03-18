@@ -6,16 +6,18 @@
 
 use std::sync::Arc;
 
-use bytes::{BufMut, BytesMut};
+use bytes::BufMut;
+use bytes::BytesMut;
 use miette::IntoDiagnostic;
 use mqtt_format::v3::packet::MPacket;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    process::{ChildStdin, ChildStdout},
-};
+use tokio::io::AsyncReadExt;
+use tokio::io::AsyncWriteExt;
+use tokio::process::ChildStdin;
+use tokio::process::ChildStdout;
 use tracing::Instrument;
 
-use crate::{packet_invariant::PacketInvariant, report::ReportResult};
+use crate::packet_invariant::PacketInvariant;
+use crate::report::ReportResult;
 
 pub struct Command {
     inner: tokio::process::Command,

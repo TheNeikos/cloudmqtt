@@ -4,13 +4,14 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{
-    binary::length_take,
-    error::{ErrMode, FromExternalError},
-    Bytes, Parser,
-};
+use winnow::binary::length_take;
+use winnow::error::ErrMode;
+use winnow::error::FromExternalError;
+use winnow::Bytes;
+use winnow::Parser;
 
-use super::{integers::parse_u16, MResult};
+use super::integers::parse_u16;
+use super::MResult;
 
 pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
     let maybe_str = length_take(parse_u16).parse_next(input)?;

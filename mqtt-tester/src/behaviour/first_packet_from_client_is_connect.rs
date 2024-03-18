@@ -7,12 +7,11 @@
 use miette::Context;
 use mqtt_format::v3::packet::MPacket;
 
-use crate::{
-    behaviour_test::BehaviourTest,
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::behaviour_test::BehaviourTest;
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 pub struct FirstPacketFromClientIsConnect;
 
