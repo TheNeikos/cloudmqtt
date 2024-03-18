@@ -1,3 +1,4 @@
 mod integers;
+mod strings;
 
-pub type IMResult<I, O> = winnow::IResult<I, O>;
+pub type MResult<O> = winnow::PResult<O>;
