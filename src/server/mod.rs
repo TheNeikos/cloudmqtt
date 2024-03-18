@@ -429,7 +429,10 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                                 }
 
                                 let Some(client_state) = clients.get(&publisher_client_id) else {
-                                    debug!(?publisher_client_id, "Associated state no longer exists");
+                                    debug!(
+                                        ?publisher_client_id,
+                                        "Associated state no longer exists"
+                                    );
                                     break;
                                 };
 
