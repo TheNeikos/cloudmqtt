@@ -34,6 +34,12 @@ macro_rules! define_properties {
                 $fun(input)
             }
         }
+
+        impl<'i> From< $name <$($tylt)?> > for Property<'i> {
+            fn from(value: $name) -> Property<'i> {
+                Property::$name(value)
+            }
+        }
     }
 }
 
