@@ -1,21 +1,39 @@
 use winnow::Bytes;
 
-use crate::v5::{fixed_header::QualityOfService, level::ProtocolLevel, MResult};
+use crate::v5::{
+    bytes::parse_data, fixed_header::{PacketType, QualityOfService}, integers::{parse_u16, parse_u32, parse_variable}, level::ProtocolLevel, strings::parse_string, variable_header::{AuthenticationData, AuthenticationMethod, ContentType, CorrelationData, MaximumPacketSize, MessageExpiryInterval, PayloadFormatIndicator, ReceiveMaximum, RequestProblemInformation, RequestResponseInformation, ResponseTopic, SessionExpiryInterval, TopicAliasMaximum, UserProperty, WillDelayInterval}, MResult
+};
 
-pub struct MControlVariableHeader<'i> {
-    protocol_name: &'i str,
-    protocol_level: ProtocolLevel,
+use super::payload::ApplicationMessagePayload;
 
-    user_name_flag: bool,
-    password_flag: bool,
-    will_retain: bool,
-    will_qos: QualityOfService,
-    will_flag: bool,
+pub struct MConnect<'i> {
+    client_identifier: &'i str,
+    username: Option<&'i str>,
+    password: Option<&'i [u8]>,
     clean_start: bool,
+    will: Option<Will<'i>>,
+    properties: ConnectProperties<'i>,
 }
 
-impl<'i> MControlVariableHeader<'i> {
-    pub fn parse(input: &mut &'i Bytes) -> MResult<MControlVariableHeader<'i>> {
+crate::v5::properties::define_properties! {
+    pub struct ConnectProperties<'i> {
+        session_expiry_interval: SessionExpiryInterval,
+        receive_maximum: ReceiveMaximum,
+        maximum_packet_size: MaximumPacketSize,
+        topic_alias_maximum: TopicAliasMaximum,
+        request_response_information: RequestResponseInformation,
+        request_problem_information: RequestProblemInformation,
+        user_property: UserProperty<'i>,
+        authentication_method: AuthenticationMethod<'i>,
+        authentication_data: AuthenticationData<'i>,
+    }
+}
+
+impl<'i> MConnect<'i> {
+    const PACKET_TYPE: PacketType = PacketType::Connect;
+
+    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+        // parse header
         let protocol_name = crate::v5::strings::parse_string(input)?;
         let protocol_level = ProtocolLevel::parse(input)?;
         let connect_flags = winnow::binary::u8(input)?;
@@ -27,16 +45,61 @@ impl<'i> MControlVariableHeader<'i> {
         let will_flag = 0b0000_0100 & connect_flags != 0;
         let clean_start = 0b0000_0001 & connect_flags != 0;
 
-        Ok(Self {
-            protocol_name,
-            protocol_level,
+        let keep_alive = parse_u16(input)?;
 
-            user_name_flag,
-            password_flag,
-            will_retain,
-            will_qos,
-            will_flag,
+        let properties = ConnectProperties::parse(input)?;
+
+        // finished parsing header, now parse payload
+
+        let client_identifier = {
+            let client_identifier = parse_string(input)?;
+            if client_identifier.len() == 0 {
+                // Generate client ID?
+            }
+            client_identifier
+        };
+
+        let will = will_flag
+            .then(|| {
+                let properties = ConnectWillProperties::parse(input)?;
+                let topic = parse_string(input)?;
+                let payload = ApplicationMessagePayload::parse(input)?;
+
+                Ok(Will {
+                    properties,
+                    topic,
+                    payload,
+                })
+            })
+            .transpose()?;
+
+        let username = user_name_flag.then(|| parse_string(input)).transpose()?;
+        let password = password_flag.then(|| parse_data(input)).transpose()?;
+
+        Ok(Self {
+            client_identifier,
+            username,
+            password,
+            will,
             clean_start,
+            properties,
         })
+    }
+}
+
+pub struct Will<'i> {
+    properties: ConnectWillProperties<'i>,
+    topic: &'i str,
+    payload: ApplicationMessagePayload<'i>,
+}
+
+crate::v5::properties::define_properties! {
+    pub struct ConnectWillProperties<'i> {
+        will_delay_interval: WillDelayInterval,
+        payload_format_indicator: PayloadFormatIndicator,
+        message_expiry_interval: MessageExpiryInterval,
+        content_type: ContentType<'i>,
+        response_topic: ResponseTopic<'i>,
+        correlation_data: CorrelationData<'i>,
     }
 }
