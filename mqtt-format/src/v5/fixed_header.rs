@@ -13,6 +13,20 @@ pub enum QualityOfService {
     ExactlyOnce,
 }
 
+impl QualityOfService {
+    pub fn from_byte(u: u8, input: &mut &Bytes) -> MResult<Self> {
+        match u {
+            0 => Ok(QualityOfService::AtMostOnce),
+            1 => Ok(QualityOfService::AtLeastOnce),
+            2 => Ok(QualityOfService::ExactlyOnce),
+            _ => Err(ErrMode::from_error_kind(
+                input,
+                winnow::error::ErrorKind::Verify,
+            )),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum PacketType {
     Connect,
@@ -63,17 +77,7 @@ pub fn parse_fixed_header<'i>(input: &mut &'i Bytes) -> MResult<MFixedHeader> {
         (2, 0) => PacketType::Connect,
         (3, flags) => PacketType::Publish {
             dup: (0b1000 & flags) != 0,
-            qos: match (flags & 0b0110) >> 1 {
-                0 => QualityOfService::AtMostOnce,
-                1 => QualityOfService::AtLeastOnce,
-                2 => QualityOfService::ExactlyOnce,
-                _ => {
-                    return Err(ErrMode::from_error_kind(
-                        input,
-                        winnow::error::ErrorKind::Verify,
-                    ))
-                }
-            },
+            qos: QualityOfService::from_byte((flags & 0b0110) >> 1, input)?,
             retain: (0b0001 & flags) != 0,
         },
         (4, 0) => PacketType::Puback,
