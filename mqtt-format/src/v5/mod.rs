@@ -5,6 +5,7 @@ pub mod reason_code;
 pub mod strings;
 pub mod variable_header;
 pub mod packet;
+pub mod properties;
 pub mod level;
 
 pub type MResult<O> = winnow::PResult<O>;

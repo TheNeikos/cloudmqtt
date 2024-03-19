@@ -1,4 +1,4 @@
-use winnow::Bytes;
+use winnow::{Bytes, Parser};
 
 use super::{integers::parse_u16, integers::parse_u32, MResult};
 
@@ -8,15 +8,27 @@ pub fn parse_packet_identifier<'i>(input: &mut &'i Bytes) -> MResult<PacketIdent
     parse_u16(input).map(PacketIdentifier)
 }
 
+pub trait MqttProperties<'lt>: Sized {
+    const IDENTIFIER: u32;
+    const ALLOW_REPEATING: bool;
+
+    fn parse<'input>(input: &mut &'input Bytes) -> MResult<Self>
+    where
+        'input: 'lt;
+}
+
 macro_rules! define_properties {
+    (@ignore $lt:lifetime $($rest:tt)*) => {
+        $lt
+    };
     ($name:ident $(< $tylt:lifetime >)? as $id:expr => parse with $parser:path as $($lt:lifetime)? $kind:ty) => {
-        define_properties!(@impl $name $($tylt)? as $id => $kind => |input: &mut &Bytes| -> MResult<Self> {
+        define_properties!(@impl $name $($tylt)? as $id => $kind => input {
             Ok(Self($parser(input)?))
         });
     };
 
     ($name:ident $(< $tylt:lifetime >)? as $id:expr => parser: $parser:path as $($lt:lifetime)? $kind:ty) => {
-        define_properties!(@impl $name $($tylt)? as $id => $kind => |input: &mut & $($tylt)? Bytes| -> MResult<Self> {
+        define_properties!(@impl $name $($tylt)? as $id => $kind => input {
             #[allow(unused_imports)]
             use winnow::Parser;
 
@@ -24,19 +36,25 @@ macro_rules! define_properties {
         });
     };
 
-    (@impl $name:ident $($tylt:lifetime)? as $id:expr => $($lt:lifetime)? $kind:ty => $fun:expr) => {
+    (@impl $name:ident $($tylt:lifetime)? as $id:expr => $($lt:lifetime)? $kind:ty => $input:ident $fun:block) => {
         pub struct $name < $($tylt)? >(pub $(& $lt)? $kind);
 
-        impl<$($tylt)?> $name < $($tylt)? > {
+        impl<'lt $(, $tylt)?> MqttProperties<'lt> for $name < $($tylt)? >
+            $(where $tylt: 'lt, 'lt: $tylt)?
+        {
             const IDENTIFIER: u32 = $id;
+            const ALLOW_REPEATING: bool = false;
 
-            pub fn parse(input: &mut & $($tylt)? Bytes) -> MResult<$name <$($tylt)?>> {
-                $fun(input)
+            fn parse<'input>($input: &mut &'input Bytes) -> MResult<$name <$($tylt)?>>
+                where
+                    'input: 'lt
+            {
+                $fun
             }
         }
 
         impl<'i> From< $name <$($tylt)?> > for Property<'i> {
-            fn from(value: $name) -> Property<'i> {
+            fn from(value: $name <$($tylt)?>) -> Property<'i> {
                 Property::$name(value)
             }
         }
@@ -95,8 +113,32 @@ define_properties!(TopicAliasMaximum as 0x22 => parser: parse_u32 as u32);
 define_properties!(TopicAlias as 0x23 => parser: parse_u32 as u32);
 define_properties!(MaximumQoS as 0x24 => parse with winnow::binary::u8 as u8);
 define_properties!(RetainAvailable as 0x25 => parse with winnow::binary::u8 as u8);
-define_properties!(UserProperty<'i> as 0x26 => parser: super::strings::string_pair as (&'i str, &'i str ));
 define_properties!(MaximumPacketSize as 0x27 => parser: parse_u32 as u32);
 define_properties!(WildcardSubscriptionAvailable as 0x28 => parse with winnow::binary::u8 as u8);
 define_properties!(SubscriptionIdentifiersAvailable as 0x29 => parse with winnow::binary::u8 as u8);
 define_properties!(SharedSubscriptionAvailable as 0x2A => parse with winnow::binary::u8 as u8);
+
+pub struct UserProperty<'i>(pub &'i [u8]);
+
+impl<'i> MqttProperties<'i> for UserProperty<'i> {
+    const IDENTIFIER: u32 = 0x26;
+    const ALLOW_REPEATING: bool = true;
+
+    fn parse<'input>(input: &mut &'input Bytes) -> MResult<Self>
+    where
+        'input: 'i,
+    {
+        let checkpoint = *input;
+
+        // We only need to verify there is a correct string pair
+        let _ = crate::v5::strings::string_pair.parse_peek(input)?;
+
+        Ok(Self(checkpoint.as_ref()))
+    }
+}
+
+impl<'i> From<UserProperty<'i>> for Property<'i> {
+    fn from(value: UserProperty<'i>) -> Property<'i> {
+        Property::UserProperty(value)
+    }
+}
