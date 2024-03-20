@@ -60,6 +60,7 @@ crate::v5::properties::define_properties! {
     }
 }
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901033")]
 impl<'i> MConnect<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         // parse header

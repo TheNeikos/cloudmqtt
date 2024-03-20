@@ -24,6 +24,7 @@ crate::v5::properties::define_properties! {
     }
 }
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901151")]
 pub struct MPubcomp<'i> {
     pub packet_identifier: PacketIdentifier,
     pub reason: PubcompReasonCode,

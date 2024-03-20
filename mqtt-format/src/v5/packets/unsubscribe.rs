@@ -74,6 +74,7 @@ impl<'i> Unsubscription<'i> {
     }
 }
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901179")]
 pub struct MUnsubscribe<'i> {
     pub packet_identifier: PacketIdentifier,
     pub properties: UnsubscribeProperties<'i>,

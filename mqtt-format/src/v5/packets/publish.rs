@@ -13,6 +13,7 @@ use crate::v5::{
     MResult,
 };
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901100")]
 pub struct MPublish<'i> {
     pub duplicate: bool,
     pub quality_of_service: QualityOfService,

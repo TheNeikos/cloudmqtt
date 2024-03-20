@@ -25,6 +25,7 @@ crate::v5::properties::define_properties! {
     }
 }
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901187")]
 pub struct MUnsuback<'i> {
     pub packet_identifier: PacketIdentifier,
     pub properties: UnsubackProperties<'i>,

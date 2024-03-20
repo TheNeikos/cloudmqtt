@@ -2,6 +2,7 @@ use winnow::Bytes;
 
 use crate::v5::MResult;
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901200")]
 pub struct MPingresp;
 
 impl MPingresp {

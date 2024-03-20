@@ -60,6 +60,7 @@ impl SubscriptionOptions {
     }
 }
 
+#[doc = crate::v5::util::md_speclink!("_Toc3901161")]
 pub struct Subscription<'i> {
     pub topic_filter: &'i str,
     pub options: SubscriptionOptions,
