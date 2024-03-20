@@ -160,7 +160,6 @@ impl ClientState {
                 let conn = self.conn.clone();
                 let token = self.connection_token.load().clone();
                 tokio::spawn(Self::with_connection(token, conn, move |conn| async move {
-                    let msg = msg;
                     let packet = MPublish {
                         dup: false,
                         qos: msg.qos(),
