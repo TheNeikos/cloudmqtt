@@ -76,12 +76,15 @@ pub struct MDisconnect<'i> {
 
 impl<'i> MDisconnect<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<MDisconnect<'i>> {
-        let (reason_code, properties) =
-            (DisconnectReasonCode::parse, DisconnectProperties::parse).parse_next(input)?;
+        winnow::combinator::trace("MDisconnect", |input: &mut &'i Bytes| {
+            let (reason_code, properties) =
+                (DisconnectReasonCode::parse, DisconnectProperties::parse).parse_next(input)?;
 
-        Ok(MDisconnect {
-            reason_code,
-            properties,
+            Ok(MDisconnect {
+                reason_code,
+                properties,
+            })
         })
+        .parse_next(input)
     }
 }

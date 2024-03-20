@@ -5,6 +5,7 @@
 //
 
 use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::ReasonString;
@@ -40,13 +41,16 @@ pub struct MPubcomp<'i> {
 
 impl<'i> MPubcomp<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = PacketIdentifier::parse(input)?;
-        let reason = PubcompReasonCode::parse(input)?;
-        let properties = PubcompProperties::parse(input)?;
-        Ok(Self {
-            packet_identifier,
-            reason,
-            properties,
+        winnow::combinator::trace("MPubcomp", |input: &mut &'i Bytes| {
+            let packet_identifier = PacketIdentifier::parse(input)?;
+            let reason = PubcompReasonCode::parse(input)?;
+            let properties = PubcompProperties::parse(input)?;
+            Ok(Self {
+                packet_identifier,
+                reason,
+                properties,
+            })
         })
+        .parse_next(input)
     }
 }

@@ -41,26 +41,29 @@ pub struct MUnsuback<'i> {
 
 impl<'i> MUnsuback<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = PacketIdentifier::parse(input)?;
-        let properties = UnsubackProperties::parse(input)?;
+        winnow::combinator::trace("MUnsuback", |input: &mut &'i Bytes| {
+            let packet_identifier = PacketIdentifier::parse(input)?;
+            let properties = UnsubackProperties::parse(input)?;
 
-        // Verify that the payload only contains valid reason codes
-        let payload: &[u8] = winnow::combinator::repeat_till::<_, _, (), _, _, _, _>(
-            0..,
-            UnsubackReasonCode::parse,
-            winnow::combinator::eof,
-        )
-        .recognize()
-        .parse_next(input)?;
+            // Verify that the payload only contains valid reason codes
+            let payload: &[u8] = winnow::combinator::repeat_till::<_, _, (), _, _, _, _>(
+                0..,
+                UnsubackReasonCode::parse,
+                winnow::combinator::eof,
+            )
+            .recognize()
+            .parse_next(input)?;
 
-        // SAFETY: We verified above that the payload slice only contains valid UnsubackReasonCode
-        // bytes
-        let reasons: &[UnsubackReasonCode] = unsafe { std::mem::transmute(payload) };
+            // SAFETY: We verified above that the payload slice only contains valid UnsubackReasonCode
+            // bytes
+            let reasons: &[UnsubackReasonCode] = unsafe { std::mem::transmute(payload) };
 
-        Ok(Self {
-            packet_identifier,
-            properties,
-            reasons,
+            Ok(Self {
+                packet_identifier,
+                properties,
+                reasons,
+            })
         })
+        .parse_next(input)
     }
 }

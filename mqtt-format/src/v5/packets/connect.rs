@@ -79,84 +79,88 @@ crate::v5::properties::define_properties! {
 #[doc = crate::v5::util::md_speclink!("_Toc3901033")]
 impl<'i> MConnect<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        // parse header
+        winnow::combinator::trace("MConnect", |input: &mut &'i Bytes| {
+            // parse header
 
-        // verify the protocol name
-        let _ = crate::v5::strings::parse_string
-            .verify(|s: &str| s == "MQTT")
-            .parse_next(input)?;
+            // verify the protocol name
+            let _ = crate::v5::strings::parse_string
+                .verify(|s: &str| s == "MQTT")
+                .parse_next(input)?;
 
-        // just for verification
-        let _ = ProtocolLevel::parse
-            .verify(|lvl: &ProtocolLevel| *lvl == ProtocolLevel::V5)
-            .parse_next(input)?;
+            // just for verification
+            let _ = ProtocolLevel::parse
+                .verify(|lvl: &ProtocolLevel| *lvl == ProtocolLevel::V5)
+                .parse_next(input)?;
 
-        let (
-            _reserved,
-            clean_start,
-            will_flag,
-            will_qos,
-            will_retain,
-            password_flag,
-            user_name_flag,
-        ) = winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
-            winnow::binary::bits::pattern(0x0, 1usize),
-            winnow::binary::bits::bool,
-            winnow::binary::bits::bool,
-            winnow::binary::bits::take(2usize).try_map(<QualityOfService as TryFrom<u8>>::try_from),
-            winnow::binary::bits::bool,
-            winnow::binary::bits::bool,
-            winnow::binary::bits::bool,
-        ))
-        .parse_next(input)
-        .map_err(|_: ErrMode<InputError<_>>| {
-            ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-        })?;
+            let (
+                _reserved,
+                clean_start,
+                will_flag,
+                will_qos,
+                will_retain,
+                password_flag,
+                user_name_flag,
+            ) = winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
+                winnow::binary::bits::pattern(0x0, 1usize),
+                winnow::binary::bits::bool,
+                winnow::binary::bits::bool,
+                winnow::binary::bits::take(2usize)
+                    .try_map(<QualityOfService as TryFrom<u8>>::try_from),
+                winnow::binary::bits::bool,
+                winnow::binary::bits::bool,
+                winnow::binary::bits::bool,
+            ))
+            .parse_next(input)
+            .map_err(|_: ErrMode<InputError<_>>| {
+                ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
+            })?;
 
-        let keep_alive = parse_u16(input)?;
+            let keep_alive = parse_u16(input)?;
 
-        let properties = ConnectProperties::parse(input)?;
+            let properties = ConnectProperties::parse(input)?;
 
-        // finished parsing header, now parse payload
+            // finished parsing header, now parse payload
 
-        let client_identifier = {
-            let client_identifier = parse_string(input)?;
-            if client_identifier.is_empty() {
-                // Generate client ID?
-            }
-            client_identifier
-        };
+            let client_identifier = {
+                let client_identifier = parse_string(input)?;
+                if client_identifier.is_empty() {
+                    // Generate client ID?
+                }
+                client_identifier
+            };
 
-        let will = will_flag
-            .then(|| {
-                let properties = ConnectWillProperties::parse(input)?;
-                let topic = parse_string(input)?;
-                let payload = crate::v5::bytes::parse_binary_data(input)?;
+            let will = will_flag
+                .then(|| {
+                    let properties = ConnectWillProperties::parse(input)?;
+                    let topic = parse_string(input)?;
+                    let payload = crate::v5::bytes::parse_binary_data(input)?;
 
-                Ok(Will {
-                    properties,
-                    topic,
-                    payload,
-                    will_qos,
-                    will_retain,
+                    Ok(Will {
+                        properties,
+                        topic,
+                        payload,
+                        will_qos,
+                        will_retain,
+                    })
                 })
+                .transpose()?;
+
+            let username = user_name_flag.then(|| parse_string(input)).transpose()?;
+            let password = password_flag
+                .then(|| parse_binary_data(input))
+                .transpose()?;
+
+            Ok(Self {
+                client_identifier,
+                username,
+                password,
+                will,
+                clean_start,
+                properties,
+                keep_alive,
             })
-            .transpose()?;
-
-        let username = user_name_flag.then(|| parse_string(input)).transpose()?;
-        let password = password_flag
-            .then(|| parse_binary_data(input))
-            .transpose()?;
-
-        Ok(Self {
-            client_identifier,
-            username,
-            password,
-            will,
-            clean_start,
-            properties,
-            keep_alive,
         })
+        .parse_next(input)
     }
 }
 

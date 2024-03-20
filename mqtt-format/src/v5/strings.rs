@@ -14,17 +14,23 @@ use super::integers::parse_u16;
 use super::MResult;
 
 pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
-    let maybe_str = length_take(parse_u16).parse_next(input)?;
+    winnow::combinator::trace("mqtt_string", |input: &mut &'i Bytes| {
+        let maybe_str = length_take(parse_u16).parse_next(input)?;
 
-    std::str::from_utf8(maybe_str)
-        .map_err(|e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e))
+        std::str::from_utf8(maybe_str)
+            .map_err(|e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e))
+    })
+    .parse_next(input)
 }
 
 pub fn string_pair<'i>(input: &mut &'i Bytes) -> MResult<(&'i str, &'i str)> {
-    let first = parse_string(input)?;
-    let second = parse_string(input)?;
+    winnow::combinator::trace("mqtt_string_pair", |input: &mut &'i Bytes| {
+        let first = parse_string(input)?;
+        let second = parse_string(input)?;
 
-    Ok((first, second))
+        Ok((first, second))
+    })
+    .parse_next(input)
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@
 //
 
 use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::properties::define_properties;
 use crate::v5::variable_header::PacketIdentifier;
@@ -41,22 +42,25 @@ pub struct MPubrel<'i> {
 
 impl<'i> MPubrel<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = PacketIdentifier::parse(input)?;
+        winnow::combinator::trace("MPubrel", |input: &mut &'i Bytes| {
+            let packet_identifier = PacketIdentifier::parse(input)?;
 
-        if input.is_empty() {
-            Ok(Self {
-                packet_identifier,
-                reason: PubrelReasonCode::Success,
-                properties: PubrelProperties::new(),
-            })
-        } else {
-            let reason = PubrelReasonCode::parse(input)?;
-            let properties = PubrelProperties::parse(input)?;
-            Ok(Self {
-                packet_identifier,
-                reason,
-                properties,
-            })
-        }
+            if input.is_empty() {
+                Ok(Self {
+                    packet_identifier,
+                    reason: PubrelReasonCode::Success,
+                    properties: PubrelProperties::new(),
+                })
+            } else {
+                let reason = PubrelReasonCode::parse(input)?;
+                let properties = PubrelProperties::parse(input)?;
+                Ok(Self {
+                    packet_identifier,
+                    reason,
+                    properties,
+                })
+            }
+        })
+        .parse_next(input)
     }
 }

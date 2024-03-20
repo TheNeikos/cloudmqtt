@@ -63,33 +63,38 @@ pub enum MqttPacket<'i> {
 
 impl<'i> MqttPacket<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let fixed_header = MFixedHeader::parse(input)?;
+        winnow::combinator::trace("MqttPacket", |input: &mut &'i Bytes| {
+            let fixed_header = MFixedHeader::parse(input)?;
 
-        let parse_packet = |input: &mut &'i Bytes| match fixed_header.packet_type {
-            PacketType::Connect => MConnect::parse(input).map(MqttPacket::from),
-            PacketType::Connack => MConnack::parse(input).map(MqttPacket::from),
-            PacketType::Publish { dup, qos, retain } => {
-                MPublish::parse(dup, qos, retain, input).map(MqttPacket::from)
-            }
-            PacketType::Puback => MPuback::parse(input).map(MqttPacket::from),
-            PacketType::Pubrec => MPubrec::parse(input).map(MqttPacket::from),
-            PacketType::Pubrel => MPubrel::parse(input).map(MqttPacket::from),
-            PacketType::Pubcomp => MPubcomp::parse(input).map(MqttPacket::from),
-            PacketType::Subscribe => MSubscribe::parse(input).map(MqttPacket::from),
-            PacketType::Suback => MSuback::parse(input).map(MqttPacket::from),
-            PacketType::Unsubscribe => MUnsubscribe::parse(input).map(MqttPacket::from),
-            PacketType::Unsuback => MUnsuback::parse(input).map(MqttPacket::from),
-            PacketType::Pingreq => MPingreq::parse(input).map(MqttPacket::from),
-            PacketType::Pingresp => MPingresp::parse(input).map(MqttPacket::from),
-            PacketType::Disconnect => MDisconnect::parse(input).map(MqttPacket::from),
-            PacketType::Auth => MAuth::parse(input).map(MqttPacket::from),
-        };
+            let parse_packet = |input: &mut &'i Bytes| match fixed_header.packet_type {
+                PacketType::Connect => MConnect::parse(input).map(MqttPacket::from),
+                PacketType::Connack => MConnack::parse(input).map(MqttPacket::from),
+                PacketType::Publish { dup, qos, retain } => {
+                    MPublish::parse(dup, qos, retain, input).map(MqttPacket::from)
+                }
+                PacketType::Puback => MPuback::parse(input).map(MqttPacket::from),
+                PacketType::Pubrec => MPubrec::parse(input).map(MqttPacket::from),
+                PacketType::Pubrel => MPubrel::parse(input).map(MqttPacket::from),
+                PacketType::Pubcomp => MPubcomp::parse(input).map(MqttPacket::from),
+                PacketType::Subscribe => MSubscribe::parse(input).map(MqttPacket::from),
+                PacketType::Suback => MSuback::parse(input).map(MqttPacket::from),
+                PacketType::Unsubscribe => MUnsubscribe::parse(input).map(MqttPacket::from),
+                PacketType::Unsuback => MUnsuback::parse(input).map(MqttPacket::from),
+                PacketType::Pingreq => MPingreq::parse(input).map(MqttPacket::from),
+                PacketType::Pingresp => MPingresp::parse(input).map(MqttPacket::from),
+                PacketType::Disconnect => MDisconnect::parse(input).map(MqttPacket::from),
+                PacketType::Auth => MAuth::parse(input).map(MqttPacket::from),
+            };
 
-        let packet =
-            winnow::binary::length_and_then(crate::v5::integers::parse_variable_u32, parse_packet)
-                .parse_next(input)?;
+            let packet = winnow::binary::length_and_then(
+                crate::v5::integers::parse_variable_u32,
+                parse_packet,
+            )
+            .parse_next(input)?;
 
-        Ok(packet)
+            Ok(packet)
+        })
+        .parse_next(input)
     }
 }
 

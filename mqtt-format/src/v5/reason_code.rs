@@ -18,9 +18,11 @@ macro_rules! make_combined_reason_code {
         impl $name {
             pub fn parse(input: &mut &winnow::Bytes) -> crate::v5::MResult<Self> {
                 use winnow::Parser;
-                winnow::binary::u8
-                    .try_map($name::try_from)
-                    .parse_next(input)
+                winnow::combinator::trace(stringify!($name), |input: &mut &Bytes| {
+                    winnow::binary::u8
+                        .try_map($name::try_from)
+                        .parse_next(input)
+                }).parse_next(input)
             }
         }
     }
