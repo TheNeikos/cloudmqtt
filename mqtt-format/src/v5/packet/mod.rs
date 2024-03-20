@@ -10,4 +10,5 @@ pub mod publish;
 pub mod pubrec;
 pub mod pubrel;
 pub mod suback;
+pub mod subscribe;
 pub mod unsuback;
