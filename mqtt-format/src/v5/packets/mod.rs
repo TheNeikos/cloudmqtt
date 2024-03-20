@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use winnow::error::ContextError;
+use winnow::error::ErrMode;
 use winnow::Bytes;
 use winnow::Parser;
 
@@ -95,6 +97,10 @@ impl<'i> MqttPacket<'i> {
             Ok(packet)
         })
         .parse_next(input)
+    }
+
+    pub fn parse_complete(input: &'i [u8]) -> Result<Self, ErrMode<ContextError>> {
+        Self::parse(&mut Bytes::new(input))
     }
 }
 
