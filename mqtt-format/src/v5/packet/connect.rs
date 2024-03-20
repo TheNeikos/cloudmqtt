@@ -1,6 +1,6 @@
 use winnow::{
-    error::{ErrMode, FromExternalError},
-    Bytes,
+    error::{ErrMode, FromExternalError, InputError, ParserError},
+    Bytes, Parser,
 };
 
 use crate::v5::{
@@ -48,17 +48,21 @@ impl<'i> MConnect<'i> {
         // parse header
         let protocol_name = crate::v5::strings::parse_string(input)?;
         let protocol_level = ProtocolLevel::parse(input)?;
-        let connect_flags = winnow::binary::u8(input)?;
-
-        let user_name_flag = 0b1000_0000 & connect_flags != 0;
-        let password_flag = 0b0100_0000 & connect_flags != 0;
-        let will_retain = 0b0010_0000 & connect_flags != 0;
-        let will_qos =
-            QualityOfService::try_from((0b0001_1000 & connect_flags) >> 3).map_err(|e| {
-                ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
+        let (_, clean_start, will_flag, will_qos, will_retain, password_flag, user_name_flag) =
+            winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
+                winnow::binary::bits::pattern(0x0, 1usize),
+                winnow::binary::bits::bool,
+                winnow::binary::bits::bool,
+                winnow::binary::bits::take(2usize)
+                    .try_map(<QualityOfService as TryFrom<u8>>::try_from),
+                winnow::binary::bits::bool,
+                winnow::binary::bits::bool,
+                winnow::binary::bits::bool,
+            ))
+            .parse_next(input)
+            .map_err(|_: ErrMode<InputError<_>>| {
+                ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
             })?;
-        let will_flag = 0b0000_0100 & connect_flags != 0;
-        let clean_start = 0b0000_0001 & connect_flags != 0;
 
         let keep_alive = parse_u16(input)?;
 
@@ -89,7 +93,9 @@ impl<'i> MConnect<'i> {
             .transpose()?;
 
         let username = user_name_flag.then(|| parse_string(input)).transpose()?;
-        let password = password_flag.then(|| parse_binary_data(input)).transpose()?;
+        let password = password_flag
+            .then(|| parse_binary_data(input))
+            .transpose()?;
 
         Ok(Self {
             client_identifier,
