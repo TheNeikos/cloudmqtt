@@ -9,9 +9,7 @@ use crate::v5::{
     fixed_header::QualityOfService,
     properties::define_properties,
     strings::parse_string,
-    variable_header::{
-        PacketIdentifier, SubscriptionIdentifier, UserProperties,
-    },
+    variable_header::{PacketIdentifier, SubscriptionIdentifier, UserProperties},
     MResult,
 };
 
@@ -91,6 +89,31 @@ impl<'i> Subscriptions<'i> {
                 .parse_next(input)?;
 
         Ok(Subscriptions { start })
+    }
+
+    pub fn iter(&self) -> SubscriptionsIter<'i> {
+        SubscriptionsIter {
+            current: Bytes::new(self.start),
+        }
+    }
+}
+
+pub struct SubscriptionsIter<'i> {
+    current: &'i Bytes,
+}
+
+impl<'i> Iterator for SubscriptionsIter<'i> {
+    type Item = Subscription<'i>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.current.is_empty() {
+            let sub = Subscription::parse(&mut self.current)
+                .expect("Already parsed subscriptions should be valid");
+
+            return Some(sub);
+        }
+
+        None
     }
 }
 
