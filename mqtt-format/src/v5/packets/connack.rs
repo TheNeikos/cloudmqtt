@@ -123,23 +123,26 @@ pub struct MConnack<'i> {
 
 impl<'i> MConnack<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<MConnack<'i>> {
-        let (session_present, _) =
-            winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
-                winnow::binary::bits::take(1usize).map(|b: u8| b == 1),
-                winnow::binary::bits::pattern(0b000_0000, 7usize),
-            ))
-            .parse_next(input)
-            .map_err(|_: ErrMode<InputError<_>>| {
-                ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-            })?;
+        winnow::combinator::trace("MConnack", |input: &mut &'i Bytes| {
+            let (session_present, _) =
+                winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
+                    winnow::binary::bits::take(1usize).map(|b: u8| b == 1),
+                    winnow::binary::bits::pattern(0b000_0000, 7usize),
+                ))
+                .parse_next(input)
+                .map_err(|_: ErrMode<InputError<_>>| {
+                    ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
+                })?;
 
-        let reason_code = ConnectReasonCode::parse(input)?;
-        let properties = ConnackProperties::parse(input)?;
+            let reason_code = ConnectReasonCode::parse(input)?;
+            let properties = ConnackProperties::parse(input)?;
 
-        Ok(MConnack {
-            session_present,
-            reason_code,
-            properties,
+            Ok(MConnack {
+                session_present,
+                reason_code,
+                properties,
+            })
         })
+        .parse_next(input)
     }
 }

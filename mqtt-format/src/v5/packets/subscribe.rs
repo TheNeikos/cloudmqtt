@@ -45,26 +45,29 @@ pub struct SubscriptionOptions {
 
 impl SubscriptionOptions {
     fn parse(input: &mut &Bytes) -> MResult<SubscriptionOptions> {
-        let (quality_of_service, no_local, retain_as_published, retain_handling) =
-            bits::<_, _, InputError<(_, usize)>, _, _>((
-                winnow::binary::bits::take(2usize)
-                    .try_map(<QualityOfService as TryFrom<u8>>::try_from),
-                winnow::binary::bits::bool,
-                winnow::binary::bits::bool,
-                winnow::binary::bits::take(2usize)
-                    .try_map(<RetainHandling as TryFrom<u8>>::try_from),
-            ))
-            .parse_next(input)
-            .map_err(|_: ErrMode<InputError<_>>| {
-                ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-            })?;
+        winnow::combinator::trace("SubscriptionOptions", |input: &mut &Bytes| {
+            let (quality_of_service, no_local, retain_as_published, retain_handling) =
+                bits::<_, _, InputError<(_, usize)>, _, _>((
+                    winnow::binary::bits::take(2usize)
+                        .try_map(<QualityOfService as TryFrom<u8>>::try_from),
+                    winnow::binary::bits::bool,
+                    winnow::binary::bits::bool,
+                    winnow::binary::bits::take(2usize)
+                        .try_map(<RetainHandling as TryFrom<u8>>::try_from),
+                ))
+                .parse_next(input)
+                .map_err(|_: ErrMode<InputError<_>>| {
+                    ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
+                })?;
 
-        Ok(SubscriptionOptions {
-            quality_of_service,
-            no_local,
-            retain_as_published,
-            retain_handling,
+            Ok(SubscriptionOptions {
+                quality_of_service,
+                no_local,
+                retain_as_published,
+                retain_handling,
+            })
         })
+        .parse_next(input)
     }
 }
 
@@ -77,13 +80,16 @@ pub struct Subscription<'i> {
 
 impl<'i> Subscription<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Subscription<'i>> {
-        let (topic_filter, options) =
-            (parse_string, SubscriptionOptions::parse).parse_next(input)?;
+        winnow::combinator::trace("Subscription", |input: &mut &'i Bytes| {
+            let (topic_filter, options) =
+                (parse_string, SubscriptionOptions::parse).parse_next(input)?;
 
-        Ok(Subscription {
-            topic_filter,
-            options,
+            Ok(Subscription {
+                topic_filter,
+                options,
+            })
         })
+        .parse_next(input)
     }
 }
 
@@ -99,12 +105,18 @@ impl<'i> std::fmt::Debug for Subscriptions<'i> {
 
 impl<'i> Subscriptions<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Subscriptions<'i>> {
-        let start =
-            repeat_till::<_, _, (), _, _, _, _>(1.., Subscription::parse, winnow::combinator::eof)
-                .recognize()
-                .parse_next(input)?;
+        winnow::combinator::trace("Subscriptions", |input: &mut &'i Bytes| {
+            let start = repeat_till::<_, _, (), _, _, _, _>(
+                1..,
+                Subscription::parse,
+                winnow::combinator::eof,
+            )
+            .recognize()
+            .parse_next(input)?;
 
-        Ok(Subscriptions { start })
+            Ok(Subscriptions { start })
+        })
+        .parse_next(input)
     }
 
     pub fn iter(&self) -> SubscriptionsIter<'i> {
@@ -143,15 +155,18 @@ pub struct MSubscribe<'i> {
 
 impl<'i> MSubscribe<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<MSubscribe<'i>> {
-        let (packet_identifier, properties) =
-            (PacketIdentifier::parse, SubscribeProperties::parse).parse_next(input)?;
+        winnow::combinator::trace("MSubscribe", |input: &mut &'i Bytes| {
+            let (packet_identifier, properties) =
+                (PacketIdentifier::parse, SubscribeProperties::parse).parse_next(input)?;
 
-        let subscriptions = Subscriptions::parse(input)?;
+            let subscriptions = Subscriptions::parse(input)?;
 
-        Ok(MSubscribe {
-            packet_identifier,
-            properties,
-            subscriptions,
+            Ok(MSubscribe {
+                packet_identifier,
+                properties,
+                subscriptions,
+            })
         })
+        .parse_next(input)
     }
 }

@@ -5,6 +5,7 @@
 //
 
 use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::MResult;
 
@@ -14,6 +15,7 @@ pub struct MPingresp;
 
 impl MPingresp {
     pub fn parse(input: &mut &Bytes) -> MResult<Self> {
-        winnow::combinator::eof(input).map(|_| Self)
+        winnow::combinator::trace("MPingresp", winnow::combinator::eof.map(|_| Self))
+            .parse_next(input)
     }
 }

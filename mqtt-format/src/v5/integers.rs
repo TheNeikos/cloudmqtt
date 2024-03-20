@@ -13,7 +13,7 @@ use super::MResult;
 
 pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     trace(
-        "parse_u16",
+        "mqtt_u16",
         winnow::binary::u16(winnow::binary::Endianness::Big),
     )
     .parse_next(input)
@@ -21,14 +21,14 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
 
 pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
     trace(
-        "parse_u32",
+        "mqtt_u32",
         winnow::binary::u32(winnow::binary::Endianness::Big),
     )
     .parse_next(input)
 }
 
 pub fn parse_variable_u32(input: &mut &Bytes) -> MResult<u32> {
-    trace("parse_variable_u32", |input: &mut &Bytes| {
+    trace("mqtt_variable_u32", |input: &mut &Bytes| {
         let var_bytes = (
             take_while(0..=3, |b| b & 0b1000_0000 != 0),
             winnow::binary::u8.verify(|b: &u8| b & 0b1000_0000 == 0),

@@ -11,7 +11,10 @@ use winnow::Parser;
 use super::MResult;
 
 pub fn parse_binary_data<'i>(input: &mut &'i Bytes) -> MResult<&'i [u8]> {
-    length_take(super::integers::parse_u16).parse_next(input)
+    winnow::combinator::trace("mqtt_binary_data", |input: &mut &'i Bytes| {
+        length_take(super::integers::parse_u16).parse_next(input)
+    })
+    .parse_next(input)
 }
 
 #[cfg(test)]

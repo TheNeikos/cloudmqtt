@@ -16,7 +16,10 @@ pub struct PacketIdentifier(pub u16);
 
 impl PacketIdentifier {
     pub fn parse(input: &mut &Bytes) -> MResult<Self> {
-        parse_u16(input).map(PacketIdentifier)
+        winnow::combinator::trace("PacketIdentifier", |input: &mut &Bytes| {
+            parse_u16(input).map(PacketIdentifier)
+        })
+        .parse_next(input)
     }
 }
 
@@ -51,10 +54,11 @@ macro_rules! define_properties {
                         'input: 'lt
                 {
                     use winnow::Parser;
-
-                    Ok(Self(
-                        winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
-                    ))
+                    winnow::combinator::trace("PacketIdentifier", |input: &mut &'input Bytes| {
+                        Ok(Self(
+                            winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
+                        ))
+                    }).parse_next(input)
                 }
             }
 
@@ -134,12 +138,13 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
     where
         'input: 'i,
     {
-        // We only need to verify there is a correct string pair
-        let prop = crate::v5::strings::string_pair
-            .recognize()
-            .parse_next(input)?;
+        winnow::combinator::trace("UserProperties", |input: &mut &'input Bytes| {
+            // We only need to verify there is a correct string pair
+            let prop = UserProperty::parse.recognize().parse_next(input)?;
 
-        Ok(Self(prop))
+            Ok(Self(prop))
+        })
+        .parse_next(input)
     }
 }
 
@@ -169,9 +174,12 @@ pub struct UserProperty<'i> {
 
 impl<'i> UserProperty<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<UserProperty<'i>> {
-        crate::v5::strings::string_pair
-            .map(|(k, v)| UserProperty { key: k, value: v })
-            .parse_next(input)
+        winnow::combinator::trace("UserProperty", |input: &mut &'i Bytes| {
+            crate::v5::strings::string_pair
+                .map(|(k, v)| UserProperty { key: k, value: v })
+                .parse_next(input)
+        })
+        .parse_next(input)
     }
 }
 

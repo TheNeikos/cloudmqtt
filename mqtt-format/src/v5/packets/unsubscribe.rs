@@ -39,15 +39,18 @@ impl<'i> std::fmt::Debug for Unsubscriptions<'i> {
 
 impl<'i> Unsubscriptions<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Unsubscriptions<'i>> {
-        let start = repeat_till::<_, _, (), _, _, _, _>(
-            1..,
-            Unsubscription::parse,
-            winnow::combinator::eof,
-        )
-        .recognize()
-        .parse_next(input)?;
+        winnow::combinator::trace("Unsubscriptions", |input: &mut &'i Bytes| {
+            let start = repeat_till::<_, _, (), _, _, _, _>(
+                1..,
+                Unsubscription::parse,
+                winnow::combinator::eof,
+            )
+            .recognize()
+            .parse_next(input)?;
 
-        Ok(Unsubscriptions { start })
+            Ok(Unsubscriptions { start })
+        })
+        .parse_next(input)
     }
 
     pub fn iter(&self) -> UnsubscriptionsIter<'i> {
@@ -84,9 +87,12 @@ pub struct Unsubscription<'i> {
 
 impl<'i> Unsubscription<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let topic_filter = parse_string(input)?;
+        winnow::combinator::trace("Unsubscription", |input: &mut &'i Bytes| {
+            let topic_filter = parse_string(input)?;
 
-        Ok(Unsubscription { topic_filter })
+            Ok(Unsubscription { topic_filter })
+        })
+        .parse_next(input)
     }
 }
 
@@ -100,17 +106,20 @@ pub struct MUnsubscribe<'i> {
 
 impl<'i> MUnsubscribe<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let (packet_identifier, properties, unsubscriptions) = (
-            PacketIdentifier::parse,
-            UnsubscribeProperties::parse,
-            Unsubscriptions::parse,
-        )
-            .parse_next(input)?;
+        winnow::combinator::trace("MUnsubscribe", |input: &mut &'i Bytes| {
+            let (packet_identifier, properties, unsubscriptions) = (
+                PacketIdentifier::parse,
+                UnsubscribeProperties::parse,
+                Unsubscriptions::parse,
+            )
+                .parse_next(input)?;
 
-        Ok(MUnsubscribe {
-            packet_identifier,
-            properties,
-            unsubscriptions,
+            Ok(MUnsubscribe {
+                packet_identifier,
+                properties,
+                unsubscriptions,
+            })
         })
+        .parse_next(input)
     }
 }

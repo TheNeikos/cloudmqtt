@@ -51,26 +51,29 @@ pub struct MSuback<'i> {
 
 impl<'i> MSuback<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = PacketIdentifier::parse(input)?;
-        let properties = SubackProperties::parse(input)?;
+        winnow::combinator::trace("MSuback", |input: &mut &'i Bytes| {
+            let packet_identifier = PacketIdentifier::parse(input)?;
+            let properties = SubackProperties::parse(input)?;
 
-        // Verify that the payload only contains valid reason codes
-        let payload: &[u8] = winnow::combinator::repeat_till::<_, _, (), _, _, _, _>(
-            0..,
-            SubackReasonCode::parse,
-            winnow::combinator::eof,
-        )
-        .recognize()
-        .parse_next(input)?;
+            // Verify that the payload only contains valid reason codes
+            let payload: &[u8] = winnow::combinator::repeat_till::<_, _, (), _, _, _, _>(
+                0..,
+                SubackReasonCode::parse,
+                winnow::combinator::eof,
+            )
+            .recognize()
+            .parse_next(input)?;
 
-        // SAFETY: We verified above that the payload slice only contains valid SubackReasonCode
-        // bytes
-        let reasons: &[SubackReasonCode] = unsafe { std::mem::transmute(payload) };
+            // SAFETY: We verified above that the payload slice only contains valid SubackReasonCode
+            // bytes
+            let reasons: &[SubackReasonCode] = unsafe { std::mem::transmute(payload) };
 
-        Ok(Self {
-            packet_identifier,
-            properties,
-            reasons,
+            Ok(Self {
+                packet_identifier,
+                properties,
+                reasons,
+            })
         })
+        .parse_next(input)
     }
 }

@@ -8,6 +8,7 @@ use winnow::error::ErrMode;
 use winnow::error::ParserError;
 use winnow::stream::Stream;
 use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::fixed_header::QualityOfService;
 use crate::v5::variable_header::ContentType;
@@ -69,28 +70,31 @@ impl<'i> MPublish<'i> {
         retain: bool,
         input: &mut &'i Bytes,
     ) -> MResult<Self> {
-        let topic_name = crate::v5::strings::parse_string(input)?;
-        if !sanity_check_topic_name(topic_name) {
-            return Err(ErrMode::from_error_kind(
-                input,
-                winnow::error::ErrorKind::Verify,
-            ));
-        }
+        winnow::combinator::trace("MPublish", |input: &mut &'i Bytes| {
+            let topic_name = crate::v5::strings::parse_string(input)?;
+            if !sanity_check_topic_name(topic_name) {
+                return Err(ErrMode::from_error_kind(
+                    input,
+                    winnow::error::ErrorKind::Verify,
+                ));
+            }
 
-        let packet_identifier = crate::v5::variable_header::PacketIdentifier::parse(input)?;
-        let properties = PublishProperties::parse(input)?;
+            let packet_identifier = crate::v5::variable_header::PacketIdentifier::parse(input)?;
+            let properties = PublishProperties::parse(input)?;
 
-        let payload = input.finish();
+            let payload = input.finish();
 
-        Ok(Self {
-            duplicate,
-            quality_of_service,
-            retain,
-            topic_name,
-            packet_identifier,
-            properties,
-            payload,
+            Ok(Self {
+                duplicate,
+                quality_of_service,
+                retain,
+                topic_name,
+                packet_identifier,
+                properties,
+                payload,
+            })
         })
+        .parse_next(input)
     }
 }
 

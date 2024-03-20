@@ -5,6 +5,7 @@
 //
 
 use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::variable_header::AuthenticationData;
 use crate::v5::variable_header::AuthenticationMethod;
@@ -47,9 +48,12 @@ pub struct MAuth<'i> {
 
 impl<'i> MAuth<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let reason = AuthReasonCode::parse(input)?;
-        let properties = AuthProperties::parse(input)?;
+        winnow::combinator::trace("MAuth", |input: &mut &'i Bytes| {
+            let reason = AuthReasonCode::parse(input)?;
+            let properties = AuthProperties::parse(input)?;
 
-        Ok(Self { reason, properties })
+            Ok(Self { reason, properties })
+        })
+        .parse_next(input)
     }
 }

@@ -5,6 +5,7 @@
 //
 
 use winnow::Bytes;
+use winnow::Parser;
 
 use crate::v5::properties::define_properties;
 use crate::v5::variable_header::PacketIdentifier;
@@ -48,22 +49,25 @@ pub struct MPuback<'i> {
 
 impl<'i> MPuback<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = PacketIdentifier::parse(input)?;
+        winnow::combinator::trace("MPuback", |input: &mut &'i Bytes| {
+            let packet_identifier = PacketIdentifier::parse(input)?;
 
-        if input.is_empty() {
-            Ok(Self {
-                packet_identifier,
-                reason: PubackReasonCode::Success,
-                properties: PubackProperties::new(),
-            })
-        } else {
-            let reason = PubackReasonCode::parse(input)?;
-            let properties = PubackProperties::parse(input)?;
-            Ok(Self {
-                packet_identifier,
-                reason,
-                properties,
-            })
-        }
+            if input.is_empty() {
+                Ok(Self {
+                    packet_identifier,
+                    reason: PubackReasonCode::Success,
+                    properties: PubackProperties::new(),
+                })
+            } else {
+                let reason = PubackReasonCode::parse(input)?;
+                let properties = PubackProperties::parse(input)?;
+                Ok(Self {
+                    packet_identifier,
+                    reason,
+                    properties,
+                })
+            }
+        })
+        .parse_next(input)
     }
 }

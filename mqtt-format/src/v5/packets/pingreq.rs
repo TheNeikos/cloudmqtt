@@ -15,6 +15,7 @@ pub struct MPingreq;
 
 impl MPingreq {
     pub fn parse(input: &mut &Bytes) -> MResult<MPingreq> {
-        winnow::combinator::eof.map(|_| MPingreq).parse_next(input)
+        winnow::combinator::trace("MPingreq", winnow::combinator::eof.map(|_| Self))
+            .parse_next(input)
     }
 }
