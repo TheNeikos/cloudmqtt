@@ -49,6 +49,12 @@ macro_rules! define_properties {
         }
 
         impl<$lt> $name <$lt> {
+            pub(crate) fn new() -> Self {
+                $name {
+                    $($prop_name: None),*
+                }
+            }
+
             pub fn parse(input: &mut & $lt winnow::Bytes) -> crate::v5::MResult<$name<$lt>> {
                 use winnow::Parser;
                 use winnow::error::ErrMode;
