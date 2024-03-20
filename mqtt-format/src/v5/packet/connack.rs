@@ -3,7 +3,18 @@ use winnow::{
     Bytes, Parser,
 };
 
-use crate::v5::{fixed_header::PacketType, MResult};
+use crate::v5::{
+    fixed_header::PacketType,
+    properties::define_properties,
+    variable_header::{
+        AssignedClientIdentifier, AuthenticationData, AuthenticationMethod, MaximumPacketSize,
+        MaximumQoS, ReasonString, ReceiveMaximum, ResponseInformation, RetainAvailable,
+        ServerKeepAlive, ServerReference, SessionExpiryInterval, SharedSubscriptionAvailable,
+        SubscriptionIdentifiersAvailable, TopicAliasMaximum, UserProperty,
+        WildcardSubscriptionAvailable,
+    },
+    MResult,
+};
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum ConnectReasonCode {
@@ -31,10 +42,32 @@ crate::v5::reason_code::make_combined_reason_code! {
     }
 }
 
+define_properties![
+    pub struct ConnackProperties<'i> {
+        session_expiry_interval: SessionExpiryInterval,
+        receive_maximum: ReceiveMaximum,
+        maximum_qos: MaximumQoS,
+        retain_available: RetainAvailable,
+        maximum_packet_size: MaximumPacketSize,
+        assigned_client_identifier: AssignedClientIdentifier<'i>,
+        topic_alias_maximum: TopicAliasMaximum,
+        reason_string: ReasonString<'i>,
+        user_property: UserProperty<'i>,
+        wildcard_subscription_available: WildcardSubscriptionAvailable,
+        subscription_identifiers_available: SubscriptionIdentifiersAvailable,
+        shared_scubscription_available: SharedSubscriptionAvailable,
+        server_keep_alive: ServerKeepAlive,
+        response_information: ResponseInformation<'i>,
+        server_reference: ServerReference<'i>,
+        authentication_method: AuthenticationMethod<'i>,
+        authentication_data: AuthenticationData<'i>,
+    }
+];
+
 pub struct MConnack<'i> {
     pub session_present: bool,
     pub reason_code: ConnectReasonCode,
-    pd: &'i (),
+    pub properties: ConnackProperties<'i>,
 }
 
 impl<'i> MConnack<'i> {
@@ -52,11 +85,12 @@ impl<'i> MConnack<'i> {
             })?;
 
         let reason_code = ConnectReasonCode::parse(input)?;
+        let properties = ConnackProperties::parse(input)?;
 
         Ok(MConnack {
             session_present,
             reason_code,
-            pd: &(),
+            properties,
         })
     }
 }
