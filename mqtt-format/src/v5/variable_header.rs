@@ -123,3 +123,36 @@ impl<'i> From<UserProperty<'i>> for Property<'i> {
         Property::UserProperty(value)
     }
 }
+
+impl<'i> UserProperty<'i> {
+    pub fn iter(&'i self) -> UserPropertyIterator<'i> {
+        UserPropertyIterator {
+            // This is amazing.
+            //
+            // Bytes is unsized, so we can create it like this
+            current: &Bytes::new(&self.0),
+        }
+    }
+}
+
+pub struct UserPropertyIterator<'i> {
+    current: &'i Bytes,
+}
+
+impl<'i> Iterator for UserPropertyIterator<'i> {
+    type Item = UserProperty<'i>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while !self.current.is_empty() {
+            let property = Property::parse(&mut self.current)
+                .expect("This has already been parsed, and should be valid.");
+
+            match property {
+                Property::UserProperty(prop) => return Some(prop),
+                _ => continue,
+            }
+        }
+
+        None
+    }
+}
