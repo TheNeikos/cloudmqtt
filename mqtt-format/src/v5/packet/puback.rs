@@ -1,3 +1,12 @@
+use winnow::Bytes;
+
+use crate::v5::{
+    fixed_header::PacketType,
+    properties::define_properties,
+    variable_header::{parse_packet_identifier, PacketIdentifier, ReasonString, UserProperties},
+    MResult,
+};
+
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum PubackReasonCode {
         ImplementationSpecificError = crate::v5::reason_code::ImplementationSpecificError,
@@ -9,5 +18,42 @@ crate::v5::reason_code::make_combined_reason_code! {
         Success = crate::v5::reason_code::Success,
         TopicNameInvalid = crate::v5::reason_code::TopicNameInvalid,
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
+    }
+}
+
+define_properties!(
+    pub struct PubackProperties<'i> {
+        reason_string: ReasonString<'i>,
+        user_properties: UserProperties<'i>,
+    }
+);
+
+pub struct MPuback<'i> {
+    packet_identifier: PacketIdentifier,
+    reason: PubackReasonCode,
+    properties: PubackProperties<'i>,
+}
+
+impl<'i> MPuback<'i> {
+    pub const PACKET_TYPE: PacketType = PacketType::Puback;
+
+    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+        let packet_identifier = parse_packet_identifier(input)?;
+
+        if input.is_empty() {
+            Ok(Self {
+                packet_identifier,
+                reason: PubackReasonCode::Success,
+                properties: PubackProperties::new(),
+            })
+        } else {
+            let reason = PubackReasonCode::parse(input)?;
+            let properties = PubackProperties::parse(input)?;
+            Ok(Self {
+                packet_identifier,
+                reason,
+                properties,
+            })
+        }
     }
 }
