@@ -3,7 +3,7 @@ use winnow::Bytes;
 use crate::v5::{
     bytes::parse_data,
     fixed_header::{PacketType, QualityOfService},
-    integers::{parse_u16, parse_u32, parse_variable},
+    integers::{parse_u16, parse_u32, parse_variable_u32},
     level::ProtocolLevel,
     strings::parse_string,
     variable_header::{

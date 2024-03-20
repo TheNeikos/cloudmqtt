@@ -4,7 +4,7 @@ use winnow::{
     Bytes, Parser,
 };
 
-use super::{integers::parse_variable, MResult};
+use super::{integers::parse_variable_u32, MResult};
 
 #[derive(Debug, PartialEq)]
 pub enum QualityOfService {
@@ -100,7 +100,7 @@ pub fn parse_fixed_header<'i>(input: &mut &'i Bytes) -> MResult<MFixedHeader> {
         }
     };
 
-    let remaining_length = parse_variable(input)?;
+    let remaining_length = parse_variable_u32(input)?;
 
     Ok(MFixedHeader {
         packet_type,

@@ -10,7 +10,7 @@ pub fn parse_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
     winnow::binary::u32(winnow::binary::Endianness::Big).parse_next(input)
 }
 
-pub fn parse_variable<'i>(input: &mut &'i Bytes) -> MResult<u32> {
+pub fn parse_variable_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
     let var_bytes = (
         take_while(0..=3, |b| b & 0b1000_0000 != 0),
         winnow::binary::u8.verify(|b: &u8| b & 0b1000_0000 == 0),
@@ -30,7 +30,7 @@ pub fn parse_variable<'i>(input: &mut &'i Bytes) -> MResult<u32> {
 mod tests {
     use winnow::Bytes;
 
-    use crate::v5::integers::{parse_u16, parse_u32, parse_variable};
+    use crate::v5::integers::{parse_u16, parse_u32, parse_variable_u32};
 
     #[test]
     fn check_integer_parsing() {
@@ -44,33 +44,39 @@ mod tests {
     #[test]
     fn check_variable_integers() {
         let input = [0x0];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 0);
+        assert_eq!(parse_variable_u32(&mut Bytes::new(&input)).unwrap(), 0);
 
         let input = [0x7F];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 127);
+        assert_eq!(parse_variable_u32(&mut Bytes::new(&input)).unwrap(), 127);
 
         let input = [0x80, 0x01];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 128);
+        assert_eq!(parse_variable_u32(&mut Bytes::new(&input)).unwrap(), 128);
 
         let input = [0xFF, 0x7F];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 16_383);
+        assert_eq!(parse_variable_u32(&mut Bytes::new(&input)).unwrap(), 16_383);
 
         let input = [0x80, 0x80, 0x01];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 16_384);
+        assert_eq!(parse_variable_u32(&mut Bytes::new(&input)).unwrap(), 16_384);
 
         let input = [0xFF, 0xFF, 0x7F];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 2_097_151);
+        assert_eq!(
+            parse_variable_u32(&mut Bytes::new(&input)).unwrap(),
+            2_097_151
+        );
 
         let input = [0x80, 0x80, 0x80, 0x01];
-        assert_eq!(parse_variable(&mut Bytes::new(&input)).unwrap(), 2_097_152);
+        assert_eq!(
+            parse_variable_u32(&mut Bytes::new(&input)).unwrap(),
+            2_097_152
+        );
 
         let input = [0xFF, 0xFF, 0xFF, 0x7F];
         assert_eq!(
-            parse_variable(&mut Bytes::new(&input)).unwrap(),
+            parse_variable_u32(&mut Bytes::new(&input)).unwrap(),
             268_435_455
         );
 
         let input = [0xFF, 0xFF, 0xFF, 0x8F];
-        parse_variable(&mut Bytes::new(&input)).unwrap_err();
+        parse_variable_u32(&mut Bytes::new(&input)).unwrap_err();
     }
 }

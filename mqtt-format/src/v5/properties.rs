@@ -60,11 +60,11 @@ macro_rules! define_properties {
                     let mut $prop_name: MqttPropertySlot<$prop> = MqttPropertySlot::new(<$prop as crate::v5::variable_header::MqttProperties>::ALLOW_REPEATING);
                 )*
 
-                let mut properties_bytes = winnow::Bytes::new(winnow::binary::length_take(crate::v5::integers::parse_variable).parse_next(input)?);
+                let mut properties_bytes = winnow::Bytes::new(winnow::binary::length_take(crate::v5::integers::parse_variable_u32).parse_next(input)?);
 
                 while !properties_bytes.is_empty() {
                     let checkpoint = properties_bytes.checkpoint();
-                    let id = crate::v5::integers::parse_variable(&mut properties_bytes)?;
+                    let id = crate::v5::integers::parse_variable_u32(&mut properties_bytes)?;
 
                     $(
                         if <$prop as crate::v5::variable_header::MqttProperties>::IDENTIFIER == id {
