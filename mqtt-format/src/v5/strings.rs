@@ -33,7 +33,7 @@ pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
 /// MQTT expects that all Strings are UTF-8 encoded
 ///
 #[doc = crate::v5::util::md_speclink!("_Toc3901013")]
-pub fn string_pair<'i>(input: &mut &'i Bytes) -> MResult<(&'i str, &'i str)> {
+pub fn parse_string_pair<'i>(input: &mut &'i Bytes) -> MResult<(&'i str, &'i str)> {
     winnow::combinator::trace("mqtt_string_pair", |input: &mut &'i Bytes| {
         let first = parse_string(input)?;
         let second = parse_string(input)?;

@@ -175,7 +175,7 @@ pub struct UserProperty<'i> {
 impl<'i> UserProperty<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<UserProperty<'i>> {
         winnow::combinator::trace("UserProperty", |input: &mut &'i Bytes| {
-            crate::v5::strings::string_pair
+            crate::v5::strings::parse_string_pair
                 .map(|(k, v)| UserProperty { key: k, value: v })
                 .parse_next(input)
         })
