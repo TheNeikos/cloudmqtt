@@ -12,3 +12,4 @@ pub mod pubrel;
 pub mod suback;
 pub mod subscribe;
 pub mod unsuback;
+pub mod unsubscribe;
