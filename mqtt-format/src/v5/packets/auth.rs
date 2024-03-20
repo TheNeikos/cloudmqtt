@@ -14,10 +14,19 @@ crate::v5::reason_code::make_combined_reason_code! {
 }
 
 crate::v5::properties::define_properties! {
+    packet_type: MAuth,
+    anker: "_Toc3901221",
     pub struct AuthProperties<'i> {
+        (anker: "_Toc3901223")
         authentication_method: AuthenticationMethod<'i>,
+
+        (anker: "_Toc3901224")
         authentication_data: AuthenticationData<'i>,
+
+        (anker: "_Toc3901225")
         reason_string: ReasonString<'i>,
+
+        (anker: "_Toc3901226")
         user_properties: UserProperties<'i>,
     }
 }
