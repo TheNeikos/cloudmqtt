@@ -41,11 +41,26 @@ impl<T> MqttPropertySlot<T> {
 }
 
 macro_rules! define_properties {
-    (pub struct $name:ident <$lt:lifetime> {
-        $($prop_name:ident : $prop:ty),* $(,)?
+    (
+        $( packet_type: $packettypename:ident $(,)?)?
+        $( anker: $anker:literal $(,)?)?
+        pub struct $name:ident <$lt:lifetime> {
+        $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ty),* $(,)?
     }) => {
+        $(
+            #[doc = std::concat!("Properties helper type for the [", std::stringify!($packettypename), "] type.")]
+            #[doc = ""] // newline
+        )?
+        $(
+            #[doc = std::concat!("[Specification](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#", $anker, ")")]
+        )?
         pub struct $name < $lt > {
-            $($prop_name: Option<$prop>),*
+            $(
+                $(
+                    #[doc = std::concat!("[Specification](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#", $prop_anker, ")")]
+                )?
+                $prop_name: Option<$prop>
+            ),*
         }
 
         impl<$lt> $name <$lt> {
