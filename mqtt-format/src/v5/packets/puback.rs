@@ -22,8 +22,13 @@ crate::v5::reason_code::make_combined_reason_code! {
 }
 
 define_properties!(
+    packet_type: MPuback,
+    anker: "_Toc3901125",
     pub struct PubackProperties<'i> {
+        (anker: "_Toc3901127")
         reason_string: ReasonString<'i>,
+
+        (anker: "_Toc3901128")
         user_properties: UserProperties<'i>,
     }
 );
