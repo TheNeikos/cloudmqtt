@@ -20,7 +20,7 @@ define_properties! {
     }
 }
 
-#[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
+#[derive(Debug, num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
 #[repr(u8)]
 pub enum RetainHandling {
     SendRetainedMessagesAlways = 0,
@@ -28,6 +28,7 @@ pub enum RetainHandling {
     DoNotSendRetainedMessages = 2,
 }
 
+#[derive(Debug)]
 pub struct SubscriptionOptions {
     pub quality_of_service: QualityOfService,
     pub no_local: bool,
@@ -60,6 +61,7 @@ impl SubscriptionOptions {
     }
 }
 
+#[derive(Debug)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901161")]
 pub struct Subscription<'i> {
     pub topic_filter: &'i str,
@@ -82,6 +84,12 @@ pub struct Subscriptions<'i> {
     start: &'i [u8],
 }
 
+impl<'i> std::fmt::Debug for Subscriptions<'i> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Subscriptions").finish()
+    }
+}
+
 impl<'i> Subscriptions<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Subscriptions<'i>> {
         let start =
@@ -99,6 +107,7 @@ impl<'i> Subscriptions<'i> {
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct SubscriptionsIter<'i> {
     current: &'i Bytes,
 }
@@ -118,6 +127,7 @@ impl<'i> Iterator for SubscriptionsIter<'i> {
     }
 }
 
+#[derive(Debug)]
 pub struct MSubscribe<'i> {
     pub packet_identifier: PacketIdentifier,
     pub properties: SubscribeProperties<'i>,

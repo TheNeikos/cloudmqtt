@@ -25,6 +25,7 @@ define_properties!(
     }
 );
 
+#[derive(Debug)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901141")]
 pub struct MPubrel<'i> {
     pub packet_identifier: PacketIdentifier,

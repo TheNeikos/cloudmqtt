@@ -28,6 +28,7 @@ pub mod subscribe;
 pub mod unsuback;
 pub mod unsubscribe;
 
+#[derive(Debug)]
 pub enum MqttPacket<'i> {
     Auth(MAuth<'i>),
     Connack(MConnack<'i>),

@@ -98,6 +98,7 @@ define_properties![
     }
 ];
 
+#[derive(Debug)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901074")]
 pub struct MConnack<'i> {
     pub session_present: bool,

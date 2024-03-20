@@ -2,6 +2,7 @@ use winnow::{Bytes, Parser};
 
 use crate::v5::MResult;
 
+#[derive(Debug)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901195")]
 pub struct MPingreq;
 

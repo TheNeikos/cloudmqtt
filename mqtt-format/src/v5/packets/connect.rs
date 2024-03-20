@@ -18,6 +18,7 @@ use crate::v5::{
     MResult,
 };
 
+#[derive(Debug)]
 pub struct MConnect<'i> {
     pub client_identifier: &'i str,
     pub username: Option<&'i str>,
@@ -135,6 +136,7 @@ impl<'i> MConnect<'i> {
     }
 }
 
+#[derive(Debug)]
 pub struct Will<'i> {
     pub properties: ConnectWillProperties<'i>,
     pub topic: &'i str,

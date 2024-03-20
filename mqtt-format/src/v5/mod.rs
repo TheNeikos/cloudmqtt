@@ -1,3 +1,5 @@
+#![deny(missing_debug_implementations)]
+
 pub mod bytes;
 pub mod fixed_header;
 pub mod integers;

@@ -3,7 +3,7 @@ use winnow::Bytes;
 
 use super::MResult;
 
-#[derive(PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ProtocolLevel {
     V3,
     V5,

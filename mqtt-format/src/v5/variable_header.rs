@@ -2,6 +2,7 @@ use winnow::{Bytes, Parser};
 
 use super::{integers::parse_u16, integers::parse_u32, MResult};
 
+#[derive(Debug, Clone, Copy)]
 pub struct PacketIdentifier(pub u16);
 
 impl PacketIdentifier {
@@ -27,6 +28,7 @@ macro_rules! define_properties {
         $(,)?
     ]) => {
         $(
+            #[derive(Debug)]
             pub struct $name < $($tylt)? >(pub $(& $lt)? $kind);
 
             impl<'lt $(, $tylt)?> MqttProperties<'lt> for $name < $($tylt)? >
@@ -54,6 +56,7 @@ macro_rules! define_properties {
             }
         )*
 
+        #[derive(Debug)]
         pub enum Property<'i> {
             $(
                 $name ( $name $(< $tylt >)? ),
@@ -108,6 +111,12 @@ define_properties! {[
 
 pub struct UserProperties<'i>(pub &'i [u8]);
 
+impl<'i> std::fmt::Debug for UserProperties<'i> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("UserProperties").finish()
+    }
+}
+
 impl<'i> MqttProperties<'i> for UserProperties<'i> {
     const IDENTIFIER: u32 = 0x26;
     const ALLOW_REPEATING: bool = true;
@@ -157,6 +166,7 @@ impl<'i> UserProperty<'i> {
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct UserPropertyIterator<'i> {
     current: &'i Bytes,
     first_prop: bool,

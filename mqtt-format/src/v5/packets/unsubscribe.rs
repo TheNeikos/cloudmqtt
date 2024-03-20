@@ -23,6 +23,12 @@ pub struct Unsubscriptions<'i> {
     start: &'i [u8],
 }
 
+impl<'i> std::fmt::Debug for Unsubscriptions<'i> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Unsubscriptions").finish()
+    }
+}
+
 impl<'i> Unsubscriptions<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Unsubscriptions<'i>> {
         let start = repeat_till::<_, _, (), _, _, _, _>(
@@ -43,6 +49,7 @@ impl<'i> Unsubscriptions<'i> {
     }
 }
 
+#[allow(missing_debug_implementations)]
 pub struct UnsubscriptionsIter<'i> {
     current: &'i Bytes,
 }
@@ -62,6 +69,7 @@ impl<'i> Iterator for UnsubscriptionsIter<'i> {
     }
 }
 
+#[derive(Debug)]
 pub struct Unsubscription<'i> {
     pub topic_filter: &'i str,
 }
@@ -74,6 +82,7 @@ impl<'i> Unsubscription<'i> {
     }
 }
 
+#[derive(Debug)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901179")]
 pub struct MUnsubscribe<'i> {
     pub packet_identifier: PacketIdentifier,

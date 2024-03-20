@@ -5,7 +5,7 @@ use winnow::{
 
 use super::MResult;
 
-pub struct MqttPropertySlot<T> {
+pub(crate) struct MqttPropertySlot<T> {
     allow_repeat: bool,
     slot: Option<T>,
 }
@@ -54,6 +54,7 @@ macro_rules! define_properties {
         $(
             #[doc = $crate::v5::util::md_speclink!($anker)]
         )?
+        #[derive(Debug)]
         pub struct $name < $lt > {
             $(
                 $(
