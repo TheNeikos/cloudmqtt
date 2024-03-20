@@ -7,7 +7,7 @@ use winnow::{
 use crate::v5::{
     variable_header::{
         ContentType, CorrelationData, MessageExpiryInterval, PayloadFormatIndicator, ResponseTopic,
-        SubscriptionIdentifier, TopicAlias, UserProperty,
+        SubscriptionIdentifier, TopicAlias, UserProperties,
     },
     MResult,
 };
@@ -26,7 +26,7 @@ crate::v5::properties::define_properties! {
         topic_alias: TopicAlias,
         response_topic: ResponseTopic<'i>,
         correlation_data: CorrelationData<'i>,
-        user_property: UserProperty<'i>,
+        user_properties: UserProperties<'i>,
         subscription_identifier: SubscriptionIdentifier,
         content_type: ContentType<'i>,
     }

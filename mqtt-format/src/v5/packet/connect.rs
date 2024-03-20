@@ -10,7 +10,7 @@ use crate::v5::{
         AuthenticationData, AuthenticationMethod, ContentType, CorrelationData, MaximumPacketSize,
         MessageExpiryInterval, PayloadFormatIndicator, ReceiveMaximum, RequestProblemInformation,
         RequestResponseInformation, ResponseTopic, SessionExpiryInterval, TopicAliasMaximum,
-        UserProperty, WillDelayInterval,
+        UserProperties, WillDelayInterval,
     },
     MResult,
 };
@@ -34,7 +34,7 @@ crate::v5::properties::define_properties! {
         topic_alias_maximum: TopicAliasMaximum,
         request_response_information: RequestResponseInformation,
         request_problem_information: RequestProblemInformation,
-        user_property: UserProperty<'i>,
+        user_properties: UserProperties<'i>,
         authentication_method: AuthenticationMethod<'i>,
         authentication_data: AuthenticationData<'i>,
     }

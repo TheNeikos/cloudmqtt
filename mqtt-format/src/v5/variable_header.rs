@@ -56,7 +56,7 @@ macro_rules! define_properties {
             $(
                 $name ( $name $(< $tylt >)? ),
             )*
-            UserProperty(UserProperty<'i>),
+            UserProperties(UserProperties<'i>),
         }
 
         impl<'i> Property<'i> {
@@ -65,6 +65,7 @@ macro_rules! define_properties {
                     $(
                         $id => $name::parse.map(Property::from),
                     )*
+                    0x26 => UserProperties::parse.map(Property::from),
                     _ => winnow::combinator::fail
                 };
 
@@ -103,9 +104,9 @@ define_properties! {[
     SharedSubscriptionAvailable as 0x2A => parse with winnow::binary::u8 as u8,
 ]}
 
-pub struct UserProperty<'i>(pub &'i [u8]);
+pub struct UserProperties<'i>(pub &'i [u8]);
 
-impl<'i> MqttProperties<'i> for UserProperty<'i> {
+impl<'i> MqttProperties<'i> for UserProperties<'i> {
     const IDENTIFIER: u32 = 0x26;
     const ALLOW_REPEATING: bool = true;
 
@@ -113,50 +114,124 @@ impl<'i> MqttProperties<'i> for UserProperty<'i> {
     where
         'input: 'i,
     {
-        let checkpoint = *input;
-
         // We only need to verify there is a correct string pair
-        let _ = crate::v5::strings::string_pair.parse_peek(input)?;
+        let prop = crate::v5::strings::string_pair
+            .recognize()
+            .parse_next(input)?;
 
-        Ok(Self(checkpoint.as_ref()))
+        Ok(Self(prop))
     }
 }
 
-impl<'i> From<UserProperty<'i>> for Property<'i> {
-    fn from(value: UserProperty<'i>) -> Property<'i> {
-        Property::UserProperty(value)
+impl<'i> From<UserProperties<'i>> for Property<'i> {
+    fn from(value: UserProperties<'i>) -> Property<'i> {
+        Property::UserProperties(value)
     }
 }
 
-impl<'i> UserProperty<'i> {
+impl<'i> UserProperties<'i> {
     pub fn iter(&'i self) -> UserPropertyIterator<'i> {
+        // UserProperties (note the plural) points to the start of the first _valid_ UserProperty.
+        // This means that the iterator first needs to consume that property before searching for
+        // the next!
         UserPropertyIterator {
             // This is amazing.
             //
             // Bytes is unsized, so we can create it like this
             current: &Bytes::new(&self.0),
+            first_prop: true,
         }
+    }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct UserProperty<'i> {
+    pub key: &'i str,
+    pub value: &'i str,
+}
+
+impl<'i> UserProperty<'i> {
+    pub fn parse(input: &mut &'i Bytes) -> MResult<UserProperty<'i>> {
+        crate::v5::strings::string_pair
+            .map(|(k, v)| UserProperty { key: k, value: v })
+            .parse_next(input)
     }
 }
 
 pub struct UserPropertyIterator<'i> {
     current: &'i Bytes,
+    first_prop: bool,
 }
 
 impl<'i> Iterator for UserPropertyIterator<'i> {
     type Item = UserProperty<'i>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.first_prop {
+            self.first_prop = false;
+            return Some(UserProperty::parse(&mut self.current).expect(
+                "This has already been parsed and the first item should be a UserProperty",
+            ));
+        }
+
         while !self.current.is_empty() {
             let property = Property::parse(&mut self.current)
                 .expect("This has already been parsed, and should be valid.");
 
             match property {
-                Property::UserProperty(prop) => return Some(prop),
+                Property::UserProperties(prop) => {
+                    return Some(
+                        UserProperty::parse(&mut Bytes::new(prop.0))
+                            .expect("This has already been parsed and should be valid"),
+                    )
+                }
                 _ => continue,
             }
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::v5::variable_header::{MqttProperties, RetainAvailable, UserProperty};
+
+    use super::UserProperties;
+
+    #[test]
+    fn check_iteration() {
+        #[rustfmt::skip]
+        let input = &[
+            // First the string pair of the UserProp
+            0x0, 0x1, b'a',
+            0x0, 0x2, b'b', b'c',
+            // Retain Available
+            RetainAvailable::IDENTIFIER as u8,
+            0x1,
+            // User Property
+            UserProperties::IDENTIFIER as u8,
+            // Now a string pair
+            0x0, 0x1, b'f',
+            0x0, 0x2, b'h', b'j',
+        ];
+
+        let result = UserProperties(input);
+        let props = result.iter().collect::<Vec<_>>();
+        assert_eq!(props.len(), 2);
+        assert_eq!(
+            props[0],
+            UserProperty {
+                key: "a",
+                value: "bc"
+            }
+        );
+        assert_eq!(
+            props[1],
+            UserProperty {
+                key: "f",
+                value: "hj"
+            }
+        );
     }
 }
