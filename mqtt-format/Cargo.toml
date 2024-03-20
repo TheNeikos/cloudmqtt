@@ -13,6 +13,7 @@ categories = ["embedded", "parsing"]
 
 [features]
 yoke = ["dep:yoke"]
+debug = ["winnow/debug"]
 
 [dependencies]
 futures = "0.3.28"
