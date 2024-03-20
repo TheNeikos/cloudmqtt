@@ -1,3 +1,11 @@
+use winnow::{Bytes, Parser};
+
+use crate::v5::{
+    properties::define_properties,
+    variable_header::{ReasonString, ServerReference, SessionExpiryInterval, UserProperties},
+    MResult,
+};
+
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum DisconnectReasonCode {
         AdministrativeAction = crate::v5::reason_code::AdministrativeAction,
@@ -30,5 +38,31 @@ crate::v5::reason_code::make_combined_reason_code! {
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
         UseAnotherServer = crate::v5::reason_code::UseAnotherServer,
         WildcardSubscriptionsNotSupported = crate::v5::reason_code::WildcardSubscriptionsNotSupported,
+    }
+}
+
+define_properties! {
+    pub struct DisconnectProperties<'i> {
+        session_expiry_interval: SessionExpiryInterval,
+        reason_string: ReasonString<'i>,
+        user_properties: UserProperties<'i>,
+        server_reference: ServerReference<'i>
+    }
+}
+
+pub struct MDisconnect<'i> {
+    reason_code: DisconnectReasonCode,
+    properties: DisconnectProperties<'i>,
+}
+
+impl<'i> MDisconnect<'i> {
+    fn parse(input: &mut &'i Bytes) -> MResult<MDisconnect<'i>> {
+        let (reason_code, properties) =
+            (DisconnectReasonCode::parse, DisconnectProperties::parse).parse_next(input)?;
+
+        Ok(MDisconnect {
+            reason_code,
+            properties,
+        })
     }
 }
