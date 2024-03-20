@@ -8,5 +8,6 @@ pub mod puback;
 pub mod pubcomp;
 pub mod publish;
 pub mod pubrec;
+pub mod pubrel;
 pub mod suback;
 pub mod unsuback;
