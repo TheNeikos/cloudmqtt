@@ -62,7 +62,7 @@ impl MFixedHeader {
                 ))
             }
             (1, 0) => PacketType::Connect,
-            (2, 0) => PacketType::Connect,
+            (2, 0) => PacketType::Connack,
             (3, flags) => PacketType::Publish {
                 dup: (0b1000 & flags) != 0,
                 qos: QualityOfService::try_from((flags & 0b0110) >> 1).map_err(|e| {
