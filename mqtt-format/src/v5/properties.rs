@@ -49,11 +49,18 @@ macro_rules! define_properties {
         }
 
         impl<$lt> $name <$lt> {
+            #[allow(dead_code)]
             pub(crate) fn new() -> Self {
                 $name {
                     $($prop_name: None),*
                 }
             }
+
+            $(
+                pub fn $prop_name(&self) -> Option<& $prop> {
+                    self.$prop_name.as_ref()
+                }
+            )*
 
             pub fn parse(input: &mut & $lt winnow::Bytes) -> crate::v5::MResult<$name<$lt>> {
                 use winnow::Parser;
