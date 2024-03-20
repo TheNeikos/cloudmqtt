@@ -1,3 +1,11 @@
+use winnow::Bytes;
+
+use crate::v5::{
+    fixed_header::PacketType,
+    variable_header::{parse_packet_identifier, PacketIdentifier, ReasonString, UserProperties},
+    MResult,
+};
+
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum PubrecReasonCode {
         ImplementationSpecificError = crate::v5::reason_code::ImplementationSpecificError,
@@ -10,5 +18,33 @@ crate::v5::reason_code::make_combined_reason_code! {
         Success = crate::v5::reason_code::Success,
         TopicNameInvalid = crate::v5::reason_code::TopicNameInvalid,
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
+    }
+}
+
+crate::v5::properties::define_properties![
+    pub struct PubrecProperties<'i> {
+        reason_string: ReasonString<'i>,
+        user_properties: UserProperties<'i>,
+    }
+];
+
+pub struct MPubrec<'i> {
+    packet_identifier: PacketIdentifier,
+    reason: PubrecReasonCode,
+    properties: PubrecProperties<'i>,
+}
+
+impl<'i> MPubrec<'i> {
+    pub const PACKET_TYPE: PacketType = PacketType::Pubrec;
+
+    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+        let packet_identifier = parse_packet_identifier(input)?;
+        let reason = PubrecReasonCode::parse(input)?;
+        let properties = PubrecProperties::parse(input)?;
+        Ok(Self {
+            packet_identifier,
+            reason,
+            properties,
+        })
     }
 }
