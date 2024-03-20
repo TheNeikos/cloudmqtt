@@ -39,7 +39,9 @@ macro_rules! define_properties {
                 {
                     use winnow::Parser;
 
-                    Ok(Self($parser.parse_next(input)?))
+                    Ok(Self(
+                        winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
+                    ))
                 }
             }
 
@@ -59,12 +61,14 @@ macro_rules! define_properties {
 
         impl<'i> Property<'i> {
             pub fn parse(input: &mut &'i Bytes) -> MResult<Property<'i>> {
-                winnow::combinator::dispatch! { crate::v5::integers::parse_variable_u32;
+                let disp = winnow::combinator::dispatch! { crate::v5::integers::parse_variable_u32;
                     $(
                         $id => $name::parse.map(Property::from),
                     )*
                     _ => winnow::combinator::fail
-                }.parse_next(input)
+                };
+
+                winnow::combinator::trace("Property", disp).parse_next(input)
             }
         }
     }
