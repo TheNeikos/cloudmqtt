@@ -55,22 +55,10 @@
           cargoExtraArgs = "--all-features --all";
         };
 
-        cloudmqtt-client = craneLib.buildPackage {
-          inherit cargoArtifacts src version;
-          cargoExtraArgs = "--bin=cloudmqtt-client --features=bin";
-        };
-
-        cloudmqtt-server = craneLib.buildPackage {
-          inherit cargoArtifacts src version;
-          cargoExtraArgs = "--bin=cloudmqtt-server --features=bin";
-        };
-
       in
       rec {
         checks = {
           inherit cloudmqtt;
-          inherit cloudmqtt-client;
-          inherit cloudmqtt-server;
 
           cloudmqtt-clippy = craneLib.cargoClippy {
             inherit cargoArtifacts src;
@@ -92,20 +80,10 @@
 
         packages.cloudmqtt = cloudmqtt;
         packages.default = packages.cloudmqtt;
-        packages.cloudmqtt-client = cloudmqtt-client;
-        packages.cloudmqtt-server = cloudmqtt-server;
 
         apps.cloudmqtt = flake-utils.lib.mkApp {
           name = "cloudmqtt";
           drv = cloudmqtt;
-        };
-        apps.cloudmqtt-client = flake-utils.lib.mkApp {
-          name = "cloudmqtt-client";
-          drv = cloudmqtt-client;
-        };
-        apps.cloudmqtt-server = flake-utils.lib.mkApp {
-          name = "cloudmqtt-server";
-          drv = cloudmqtt-server;
         };
         apps.default = apps.cloudmqtt;
 
