@@ -22,8 +22,13 @@ crate::v5::reason_code::make_combined_reason_code! {
 }
 
 crate::v5::properties::define_properties![
+    packet_type: MPubrec,
+    anker: "_Toc3901135",
     pub struct PubrecProperties<'i> {
+        (anker: "_Toc3901137")
         reason_string: ReasonString<'i>,
+
+        (anker: "_Toc3901138")
         user_properties: UserProperties<'i>,
     }
 ];
