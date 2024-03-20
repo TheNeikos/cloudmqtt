@@ -2,7 +2,6 @@ pub mod auth;
 pub mod connack;
 pub mod connect;
 pub mod disconnect;
-pub mod payload;
 pub mod pingreq;
 pub mod pingresp;
 pub mod puback;

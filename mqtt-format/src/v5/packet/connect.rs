@@ -18,8 +18,6 @@ use crate::v5::{
     MResult,
 };
 
-use super::payload::ApplicationMessagePayload;
-
 pub struct MConnect<'i> {
     client_identifier: &'i str,
     username: Option<&'i str>,
@@ -80,7 +78,7 @@ impl<'i> MConnect<'i> {
             .then(|| {
                 let properties = ConnectWillProperties::parse(input)?;
                 let topic = parse_string(input)?;
-                let payload = ApplicationMessagePayload::parse(input)?;
+                let payload = crate::v5::bytes::parse_binary_data(input)?;
 
                 Ok(Will {
                     properties,
@@ -107,7 +105,7 @@ impl<'i> MConnect<'i> {
 pub struct Will<'i> {
     properties: ConnectWillProperties<'i>,
     topic: &'i str,
-    payload: ApplicationMessagePayload<'i>,
+    payload: &'i [u8],
 }
 
 crate::v5::properties::define_properties! {
