@@ -10,7 +10,11 @@ pub(crate) use speclink;
 
 macro_rules! md_speclink {
     ($anker:literal) => {
-        std::concat!("[Specification](", $crate::v5::util::speclink!($anker), ")")
+        std::concat!(
+            "[📖 Specification](",
+            $crate::v5::util::speclink!($anker),
+            ")"
+        )
     };
 }
 pub(crate) use md_speclink;
