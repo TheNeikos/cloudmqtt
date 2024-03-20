@@ -135,10 +135,7 @@ impl<'i> UserProperties<'i> {
         // This means that the iterator first needs to consume that property before searching for
         // the next!
         UserPropertyIterator {
-            // This is amazing.
-            //
-            // Bytes is unsized, so we can create it like this
-            current: &Bytes::new(&self.0),
+            current: Bytes::new(&self.0),
             first_prop: true,
         }
     }
