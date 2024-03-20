@@ -52,12 +52,12 @@ macro_rules! define_properties {
             #[doc = ""] // newline
         )?
         $(
-            #[doc = std::concat!("[Specification](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#", $anker, ")")]
+            #[doc = $crate::v5::util::md_speclink!($anker)]
         )?
         pub struct $name < $lt > {
             $(
                 $(
-                    #[doc = std::concat!("[Specification](https://docs.oasis-open.org/mqtt/mqtt/v5.0/os/mqtt-v5.0-os.html#", $prop_anker, ")")]
+                    #[doc = $crate::v5::util::md_speclink!($prop_anker)]
                 )?
                 $prop_name: Option<$prop>
             ),*
