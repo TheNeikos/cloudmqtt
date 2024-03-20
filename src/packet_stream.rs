@@ -128,7 +128,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                         match qos {
                             MQualityOfService::AtMostOnce => {}
                             MQualityOfService::AtLeastOnce => {
-                                self.ack_fn.handle(next_message.clone());
+                                self.ack_fn.handle(next_message.clone()).await;
                                 // client
                                 //     .received_packet_storage
                                 //     .push_to_storage(next_message.clone());
@@ -148,7 +148,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                                     continue;
                                 }
 
-                                self.ack_fn.handle(next_message.clone());
+                                self.ack_fn.handle(next_message.clone()).await;
 
                                 trace!(?packet, "Inserting packet into received");
                                 client.received_packets().insert(id.0);
@@ -166,7 +166,7 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
                     }
                     MPacket::Pubrel(MPubrel { id }) => {
                         if client.received_packets().contains(&id.0) {
-                            self.ack_fn.handle(next_message.clone());
+                            self.ack_fn.handle(next_message.clone()).await;
 
                             let mut mutex = client.client_sender().lock().await;
 

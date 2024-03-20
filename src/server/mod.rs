@@ -402,7 +402,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
                     .inner
                     .clients
                     .entry((*client_id).clone())
-                    .or_insert_with(ClientState::default);
+                    .or_default();
                 client_state
                     .set_new_connection(client_connection.clone())
                     .await;
@@ -451,15 +451,12 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
             };
 
             let read_loop = {
-                let keep_alive = keep_alive;
                 let subscription_manager = server.inner.subscription_manager.clone();
                 let client_id = client_id.clone();
                 let clients = server.inner.clients.clone();
                 let extra_listener = server.inner.extra_listeners.clone();
 
                 tokio::spawn(async move {
-                    let client_id = client_id;
-                    let client_connection = client_connection;
                     let mut reader = client_connection.reader.lock().await;
                     let keep_alive_duration = Duration::from_secs((keep_alive as u64 * 150) / 100);
                     let subscription_manager = subscription_manager;
@@ -623,7 +620,7 @@ impl<LH: LoginHandler, SH: SubscriptionHandler> MqttServer<LH, SH> {
 
                     if let Some(will) = last_will {
                         debug!(?will, "Sending out will");
-                        let _ = published_packets.route_message(will);
+                        let _ = published_packets.route_message(will).await;
                     }
 
                     if let Err(e) = client_connection.writer.lock().await.shutdown().await {

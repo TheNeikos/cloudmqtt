@@ -185,10 +185,7 @@ impl<SH: SubscriptionHandler> SubscriptionManager<SH> {
 
         let topic_names = TopicName::parse_from(topic);
 
-        let matches = topic_names
-            .get_matches(0, &routing)
-            .into_iter()
-            .collect::<Vec<_>>();
+        let matches = topic_names.get_matches(0, &routing).collect::<Vec<_>>();
 
         debug!(?matches, "Sending to matching subscriptions");
 

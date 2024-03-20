@@ -124,7 +124,7 @@ impl MqttClient {
     ) -> impl std::future::Future<Output = Result<(), MqttError>> {
         let keep_alive_duration = self.keep_alive_duration;
         let sender = self.client_sender.clone();
-        let cancel_token = cancel_token.unwrap_or_else(CancellationToken::new);
+        let cancel_token = cancel_token.unwrap_or_default();
         async move {
             loop {
                 tokio::select! {
