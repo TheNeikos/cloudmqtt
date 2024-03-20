@@ -53,7 +53,7 @@ macro_rules! define_properties {
         $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ty),* $(,)?
     }) => {
         $(
-            #[doc = std::concat!("Properties helper type for the [", std::stringify!($packettypename), "] type.")]
+            #[doc = core::concat!("Properties helper type for the [", core::stringify!($packettypename), "] type.")]
             #[doc = ""] // newline
         )?
         $(
