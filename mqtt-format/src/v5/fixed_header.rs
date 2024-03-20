@@ -1,30 +1,18 @@
 use winnow::{
     binary::bits::bits,
-    error::{ErrMode, InputError, ParserError},
+    error::{ErrMode, FromExternalError, InputError, ParserError},
     Bytes, Parser,
 };
 
 use super::{integers::parse_variable_u32, MResult};
 
+#[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
+#[repr(u8)]
 #[derive(Debug, PartialEq)]
 pub enum QualityOfService {
-    AtMostOnce,
-    AtLeastOnce,
-    ExactlyOnce,
-}
-
-impl QualityOfService {
-    pub fn from_byte(u: u8, input: &mut &Bytes) -> MResult<Self> {
-        match u {
-            0 => Ok(QualityOfService::AtMostOnce),
-            1 => Ok(QualityOfService::AtLeastOnce),
-            2 => Ok(QualityOfService::ExactlyOnce),
-            _ => Err(ErrMode::from_error_kind(
-                input,
-                winnow::error::ErrorKind::Verify,
-            )),
-        }
-    }
+    AtMostOnce = 0,
+    AtLeastOnce = 1,
+    ExactlyOnce = 2,
 }
 
 #[derive(Debug, PartialEq)]
@@ -77,7 +65,9 @@ pub fn parse_fixed_header<'i>(input: &mut &'i Bytes) -> MResult<MFixedHeader> {
         (2, 0) => PacketType::Connect,
         (3, flags) => PacketType::Publish {
             dup: (0b1000 & flags) != 0,
-            qos: QualityOfService::from_byte((flags & 0b0110) >> 1, input)?,
+            qos: QualityOfService::try_from((flags & 0b0110) >> 1).map_err(|e| {
+                ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
+            })?,
             retain: (0b0001 & flags) != 0,
         },
         (4, 0) => PacketType::Puback,

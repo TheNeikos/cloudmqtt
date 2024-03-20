@@ -1,4 +1,7 @@
-use winnow::Bytes;
+use winnow::{
+    error::{ErrMode, FromExternalError},
+    Bytes,
+};
 
 use crate::v5::{
     bytes::parse_data,
@@ -52,7 +55,10 @@ impl<'i> MConnect<'i> {
         let user_name_flag = 0b1000_0000 & connect_flags != 0;
         let password_flag = 0b0100_0000 & connect_flags != 0;
         let will_retain = 0b0010_0000 & connect_flags != 0;
-        let will_qos = QualityOfService::from_byte((0b0001_1000 & connect_flags) >> 3, input)?;
+        let will_qos =
+            QualityOfService::try_from((0b0001_1000 & connect_flags) >> 3).map_err(|e| {
+                ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
+            })?;
         let will_flag = 0b0000_0100 & connect_flags != 0;
         let clean_start = 0b0000_0001 & connect_flags != 0;
 
