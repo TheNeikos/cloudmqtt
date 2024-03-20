@@ -5,6 +5,8 @@
 //
 
 #![deny(missing_debug_implementations)]
+#![deny(clippy::std_instead_of_core)]
+#![deny(clippy::alloc_instead_of_core)]
 
 pub mod bytes;
 pub mod fixed_header;
