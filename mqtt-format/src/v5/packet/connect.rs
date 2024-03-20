@@ -4,7 +4,7 @@ use winnow::{
 };
 
 use crate::v5::{
-    bytes::parse_data,
+    bytes::parse_binary_data,
     fixed_header::{PacketType, QualityOfService},
     integers::{parse_u16, parse_u32, parse_variable_u32},
     level::ProtocolLevel,
@@ -91,7 +91,7 @@ impl<'i> MConnect<'i> {
             .transpose()?;
 
         let username = user_name_flag.then(|| parse_string(input)).transpose()?;
-        let password = password_flag.then(|| parse_data(input)).transpose()?;
+        let password = password_flag.then(|| parse_binary_data(input)).transpose()?;
 
         Ok(Self {
             client_identifier,
