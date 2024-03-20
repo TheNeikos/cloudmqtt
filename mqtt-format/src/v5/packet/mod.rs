@@ -3,6 +3,7 @@ pub mod connack;
 pub mod connect;
 pub mod disconnect;
 pub mod payload;
+pub mod pingresp;
 pub mod puback;
 pub mod pubcomp;
 pub mod publish;
