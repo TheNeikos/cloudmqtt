@@ -1,4 +1,11 @@
-pub mod connect;
+pub mod auth;
 pub mod connack;
+pub mod connect;
+pub mod disconnect;
 pub mod payload;
+pub mod puback;
+pub mod pubcomp;
 pub mod publish;
+pub mod pubrec;
+pub mod suback;
+pub mod unsuback;

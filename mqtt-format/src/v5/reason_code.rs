@@ -26,7 +26,7 @@ macro_rules! define_reason_code {
         impl $name {
             pub const CODE: u8 = $code;
         }
-    }
+    };
 }
 
 define_reason_code!(GrantedQoS0 => 0x00);
@@ -74,4 +74,3 @@ define_reason_code!(ConnectionRateExceeded => 0x9F);
 define_reason_code!(MaximumConnectTime => 0xA0);
 define_reason_code!(SubscriptionIdentifiersNotSupported => 0xA1);
 define_reason_code!(WildcardSubscriptionsNotSupported => 0xA2);
-
