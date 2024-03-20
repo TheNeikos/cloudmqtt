@@ -6,7 +6,7 @@ use winnow::{
 use crate::v5::{
     bytes::parse_binary_data,
     fixed_header::{PacketType, QualityOfService},
-    integers::{parse_u16},
+    integers::parse_u16,
     level::ProtocolLevel,
     strings::parse_string,
     variable_header::{
@@ -19,12 +19,12 @@ use crate::v5::{
 };
 
 pub struct MConnect<'i> {
-    client_identifier: &'i str,
-    username: Option<&'i str>,
-    password: Option<&'i [u8]>,
-    clean_start: bool,
-    will: Option<Will<'i>>,
-    properties: ConnectProperties<'i>,
+    pub client_identifier: &'i str,
+    pub username: Option<&'i str>,
+    pub password: Option<&'i [u8]>,
+    pub clean_start: bool,
+    pub will: Option<Will<'i>>,
+    pub properties: ConnectProperties<'i>,
 }
 
 crate::v5::properties::define_properties! {

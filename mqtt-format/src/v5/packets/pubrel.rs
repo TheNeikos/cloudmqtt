@@ -22,9 +22,9 @@ define_properties!(
 );
 
 pub struct MPubrel<'i> {
-    packet_identifier: PacketIdentifier,
-    reason: PubrelReasonCode,
-    properties: PubrelProperties<'i>,
+    pub packet_identifier: PacketIdentifier,
+    pub reason: PubrelReasonCode,
+    pub properties: PubrelProperties<'i>,
 }
 
 impl<'i> MPubrel<'i> {

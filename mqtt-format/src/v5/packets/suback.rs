@@ -30,9 +30,9 @@ crate::v5::properties::define_properties! {
 }
 
 pub struct MSuback<'i> {
-    packet_identifier: PacketIdentifier,
-    properties: SubackProperties<'i>,
-    reasons: &'i [SubackReasonCode],
+    pub packet_identifier: PacketIdentifier,
+    pub properties: SubackProperties<'i>,
+    pub reasons: &'i [SubackReasonCode],
 }
 
 impl<'i> MSuback<'i> {

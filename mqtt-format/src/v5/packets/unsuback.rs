@@ -26,9 +26,9 @@ crate::v5::properties::define_properties! {
 }
 
 pub struct MUnsuback<'i> {
-    packet_identifier: PacketIdentifier,
-    properties: UnsubackProperties<'i>,
-    reasons: &'i [UnsubackReasonCode],
+    pub packet_identifier: PacketIdentifier,
+    pub properties: UnsubackProperties<'i>,
+    pub reasons: &'i [UnsubackReasonCode],
 }
 
 impl<'i> MUnsuback<'i> {

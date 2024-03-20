@@ -29,9 +29,9 @@ crate::v5::properties::define_properties![
 ];
 
 pub struct MPubrec<'i> {
-    packet_identifier: PacketIdentifier,
-    reason: PubrecReasonCode,
-    properties: PubrecProperties<'i>,
+    pub packet_identifier: PacketIdentifier,
+    pub reason: PubrecReasonCode,
+    pub properties: PubrecProperties<'i>,
 }
 
 impl<'i> MPubrec<'i> {

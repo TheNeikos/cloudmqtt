@@ -13,10 +13,10 @@ use crate::v5::{
 };
 
 pub struct MPublish<'i> {
-    topic_name: &'i str,
-    packet_identifier: crate::v5::variable_header::PacketIdentifier,
-    properties: PublishProperties<'i>,
-    payload: &'i [u8],
+    pub topic_name: &'i str,
+    pub packet_identifier: crate::v5::variable_header::PacketIdentifier,
+    pub properties: PublishProperties<'i>,
+    pub payload: &'i [u8],
 }
 
 crate::v5::properties::define_properties! {

@@ -20,9 +20,9 @@ crate::v5::properties::define_properties! {
 }
 
 pub struct MPubcomp<'i> {
-    packet_identifier: PacketIdentifier,
-    reason: PubcompReasonCode,
-    properties: PubcompProperties<'i>,
+    pub packet_identifier: PacketIdentifier,
+    pub reason: PubcompReasonCode,
+    pub properties: PubcompProperties<'i>,
 }
 
 impl<'i> MPubcomp<'i> {

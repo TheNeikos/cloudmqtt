@@ -51,8 +51,8 @@ define_properties! {
 }
 
 pub struct MDisconnect<'i> {
-    reason_code: DisconnectReasonCode,
-    properties: DisconnectProperties<'i>,
+    pub reason_code: DisconnectReasonCode,
+    pub properties: DisconnectProperties<'i>,
 }
 
 impl<'i> MDisconnect<'i> {

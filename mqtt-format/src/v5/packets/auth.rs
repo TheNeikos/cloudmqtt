@@ -23,8 +23,8 @@ crate::v5::properties::define_properties! {
 }
 
 pub struct MAuth<'i> {
-    reason: AuthReasonCode,
-    properties: AuthProperties<'i>,
+    pub reason: AuthReasonCode,
+    pub properties: AuthProperties<'i>,
 }
 
 impl<'i> MAuth<'i> {

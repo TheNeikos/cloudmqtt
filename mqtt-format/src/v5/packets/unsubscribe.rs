@@ -45,9 +45,9 @@ impl<'i> Unsubscription<'i> {
 }
 
 pub struct MUnsubscribe<'i> {
-    packet_identifier: PacketIdentifier,
-    properties: UnsubscribeProperties<'i>,
-    unsubscriptions: Unsubscriptions<'i>,
+    pub packet_identifier: PacketIdentifier,
+    pub properties: UnsubscribeProperties<'i>,
+    pub unsubscriptions: Unsubscriptions<'i>,
 }
 
 impl<'i> MUnsubscribe<'i> {

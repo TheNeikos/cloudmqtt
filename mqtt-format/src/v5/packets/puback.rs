@@ -29,9 +29,9 @@ define_properties!(
 );
 
 pub struct MPuback<'i> {
-    packet_identifier: PacketIdentifier,
-    reason: PubackReasonCode,
-    properties: PubackProperties<'i>,
+    pub packet_identifier: PacketIdentifier,
+    pub reason: PubackReasonCode,
+    pub properties: PubackProperties<'i>,
 }
 
 impl<'i> MPuback<'i> {
