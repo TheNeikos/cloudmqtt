@@ -28,13 +28,17 @@
 
         rustTarget = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
         unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override {
-          extensions = [ "rust-src" "miri" ];
+          extensions = [ "rust-src" "miri" "rustfmt" ];
         });
         craneLib = (crane.mkLib pkgs).overrideToolchain rustTarget;
 
         tomlInfo = craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
         inherit (tomlInfo) pname version;
         src = ./.;
+
+        rustfmt' = pkgs.writeShellScriptBin "rustfmt" ''
+          exec "${unstableRustTarget}/bin/rustfmt" "$@"
+        '';
 
         cargoArtifacts = craneLib.buildDepsOnly {
           inherit src;
@@ -110,6 +114,7 @@
           buildInputs = [ ];
 
           nativeBuildInputs = [
+            rustfmt'
             rustTarget
 
             pkgs.cargo-msrv

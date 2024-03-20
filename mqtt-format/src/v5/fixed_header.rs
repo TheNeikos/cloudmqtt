@@ -4,11 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{
-    binary::bits::bits,
-    error::{ErrMode, FromExternalError, InputError, ParserError},
-    Bytes, Parser,
-};
+use winnow::binary::bits::bits;
+use winnow::error::ErrMode;
+use winnow::error::FromExternalError;
+use winnow::error::InputError;
+use winnow::error::ParserError;
+use winnow::Bytes;
+use winnow::Parser;
 
 use super::MResult;
 

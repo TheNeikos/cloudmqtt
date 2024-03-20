@@ -4,10 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use futures::{AsyncWrite, AsyncWriteExt};
-use nom::{number::complete::be_u16, Parser};
+use futures::AsyncWrite;
+use futures::AsyncWriteExt;
+use nom::number::complete::be_u16;
+use nom::Parser;
 
-use super::{errors::MPacketWriteError, MSResult};
+use super::errors::MPacketWriteError;
+use super::MSResult;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MPacketIdentifier(pub u16);

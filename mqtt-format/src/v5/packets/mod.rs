@@ -4,19 +4,27 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use self::{
-    auth::MAuth, connect::MConnect, disconnect::MDisconnect, pingreq::MPingreq,
-    pingresp::MPingresp, puback::MPuback, pubcomp::MPubcomp, publish::MPublish, pubrec::MPubrec,
-    pubrel::MPubrel, suback::MSuback, subscribe::MSubscribe, unsuback::MUnsuback,
-    unsubscribe::MUnsubscribe,
-};
-use crate::v5::fixed_header::MFixedHeader;
-use crate::v5::packets::connack::MConnack;
-use crate::v5::MResult;
 use winnow::Bytes;
 use winnow::Parser;
 
+use self::auth::MAuth;
+use self::connect::MConnect;
+use self::disconnect::MDisconnect;
+use self::pingreq::MPingreq;
+use self::pingresp::MPingresp;
+use self::puback::MPuback;
+use self::pubcomp::MPubcomp;
+use self::publish::MPublish;
+use self::pubrec::MPubrec;
+use self::pubrel::MPubrel;
+use self::suback::MSuback;
+use self::subscribe::MSubscribe;
+use self::unsuback::MUnsuback;
+use self::unsubscribe::MUnsubscribe;
 use super::fixed_header::PacketType;
+use crate::v5::fixed_header::MFixedHeader;
+use crate::v5::packets::connack::MConnack;
+use crate::v5::MResult;
 
 pub mod auth;
 pub mod connack;

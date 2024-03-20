@@ -51,7 +51,10 @@ impl std::fmt::Debug for Report {
 }
 
 pub fn print_report(report: &Report, mut writer: impl Write) -> Result<(), std::io::Error> {
-    use ansi_term::Colour::{Blue, Green, Red, Yellow};
+    use ansi_term::Colour::Blue;
+    use ansi_term::Colour::Green;
+    use ansi_term::Colour::Red;
+    use ansi_term::Colour::Yellow;
     write!(writer, "{} ... ", Blue.paint(&report.name))?;
 
     match report.result {

@@ -6,10 +6,10 @@
 
 use winnow::Bytes;
 
-use crate::v5::{
-    variable_header::{PacketIdentifier, ReasonString, UserProperties},
-    MResult,
-};
+use crate::v5::variable_header::PacketIdentifier;
+use crate::v5::variable_header::ReasonString;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum PubrecReasonCode {

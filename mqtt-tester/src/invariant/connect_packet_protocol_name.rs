@@ -4,15 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use mqtt_format::v3::{
-    packet::{MConnect, MPacket},
-    strings::MString,
-};
+use mqtt_format::v3::packet::MConnect;
+use mqtt_format::v3::packet::MPacket;
+use mqtt_format::v3::strings::MString;
 
-use crate::{
-    packet_invariant::PacketInvariant,
-    report::{Report, ReportResult},
-};
+use crate::packet_invariant::PacketInvariant;
+use crate::report::Report;
+use crate::report::ReportResult;
 
 pub struct ConnectPacketProtocolName;
 

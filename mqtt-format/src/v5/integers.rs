@@ -4,7 +4,10 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{combinator::trace, token::take_while, Bytes, Parser};
+use winnow::combinator::trace;
+use winnow::token::take_while;
+use winnow::Bytes;
+use winnow::Parser;
 
 use super::MResult;
 
@@ -47,7 +50,9 @@ pub fn parse_variable_u32(input: &mut &Bytes) -> MResult<u32> {
 mod tests {
     use winnow::Bytes;
 
-    use crate::v5::integers::{parse_u16, parse_u32, parse_variable_u32};
+    use crate::v5::integers::parse_u16;
+    use crate::v5::integers::parse_u32;
+    use crate::v5::integers::parse_variable_u32;
 
     #[test]
     fn check_integer_parsing() {

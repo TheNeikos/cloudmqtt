@@ -5,20 +5,18 @@
 //
 
 use miette::Context;
-use mqtt_format::v3::{
-    connect_return::MConnectReturnCode,
-    identifier::MPacketIdentifier,
-    packet::{MConnack, MPublish},
-    qos::MQualityOfService,
-    strings::MString,
-};
+use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::identifier::MPacketIdentifier;
+use mqtt_format::v3::packet::MConnack;
+use mqtt_format::v3::packet::MPublish;
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::strings::MString;
 
-use crate::{
-    behaviour_test::BehaviourTest,
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::behaviour_test::BehaviourTest;
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 pub struct PublishQos2IsAcked;
 

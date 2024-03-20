@@ -6,7 +6,8 @@
 
 use nom::error::FromExternalError;
 
-use super::{errors::MPacketHeaderError, MSResult};
+use super::errors::MPacketHeaderError;
+use super::MSResult;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]

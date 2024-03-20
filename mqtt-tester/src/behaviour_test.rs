@@ -4,11 +4,10 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use crate::{
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 #[async_trait::async_trait]
 pub trait BehaviourTest {

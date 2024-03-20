@@ -6,12 +6,11 @@
 
 use miette::Context;
 
-use crate::{
-    behaviour_test::BehaviourTest,
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::behaviour_test::BehaviourTest;
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 pub struct ConnackFlagsAreSetAsReserved;
 

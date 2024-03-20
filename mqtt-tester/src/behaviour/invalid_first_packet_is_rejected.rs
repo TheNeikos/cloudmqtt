@@ -5,14 +5,14 @@
 //
 
 use miette::Context;
-use mqtt_format::v3::{packet::MConnect, strings::MString};
+use mqtt_format::v3::packet::MConnect;
+use mqtt_format::v3::strings::MString;
 
-use crate::{
-    behaviour_test::BehaviourTest,
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::behaviour_test::BehaviourTest;
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 pub struct InvalidFirstPacketIsRejected;
 

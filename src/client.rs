@@ -4,30 +4,40 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::pin::Pin;
+use std::sync::Arc;
+use std::time::Duration;
 
 use dashmap::DashSet;
-use mqtt_format::v3::{
-    identifier::MPacketIdentifier,
-    packet::{
-        MConnack, MConnect, MPacket, MPingreq, MPuback, MPubcomp, MPublish, MPubrec, MPubrel,
-        MSubscribe,
-    },
-    qos::MQualityOfService,
-    strings::MString,
-    subscription_request::{MSubscriptionRequest, MSubscriptionRequests},
-    will::MLastWill,
-};
-use tokio::{
-    io::{DuplexStream, ReadHalf, WriteHalf},
-    net::{TcpStream, ToSocketAddrs},
-    sync::Mutex,
-};
+use mqtt_format::v3::identifier::MPacketIdentifier;
+use mqtt_format::v3::packet::MConnack;
+use mqtt_format::v3::packet::MConnect;
+use mqtt_format::v3::packet::MPacket;
+use mqtt_format::v3::packet::MPingreq;
+use mqtt_format::v3::packet::MPuback;
+use mqtt_format::v3::packet::MPubcomp;
+use mqtt_format::v3::packet::MPublish;
+use mqtt_format::v3::packet::MPubrec;
+use mqtt_format::v3::packet::MPubrel;
+use mqtt_format::v3::packet::MSubscribe;
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::strings::MString;
+use mqtt_format::v3::subscription_request::MSubscriptionRequest;
+use mqtt_format::v3::subscription_request::MSubscriptionRequests;
+use mqtt_format::v3::will::MLastWill;
+use tokio::io::DuplexStream;
+use tokio::io::ReadHalf;
+use tokio::io::WriteHalf;
+use tokio::net::TcpStream;
+use tokio::net::ToSocketAddrs;
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 use tracing::trace;
 
-use crate::packet_stream::{NoOPAck, PacketStreamBuilder};
-use crate::{error::MqttError, mqtt_stream::MqttStream};
+use crate::error::MqttError;
+use crate::mqtt_stream::MqttStream;
+use crate::packet_stream::NoOPAck;
+use crate::packet_stream::PacketStreamBuilder;
 
 pub struct MqttClient {
     session_present: bool,

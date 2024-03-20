@@ -4,7 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use super::{qos::MQualityOfService, strings::MString};
+use super::qos::MQualityOfService;
+use super::strings::MString;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MLastWill<'message> {

@@ -8,15 +8,18 @@
 use std::pin::Pin;
 use std::sync::Arc;
 
-use bytes::{BufMut, BytesMut};
+use bytes::BufMut;
+use bytes::BytesMut;
 use futures::io::BufWriter;
 use futures::AsyncWriteExt;
 use mqtt_format::v3::errors::MPacketWriteError;
-use mqtt_format::v3::{header::mfixedheader, packet::MPacket};
+use mqtt_format::v3::header::mfixedheader;
+use mqtt_format::v3::packet::MPacket;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncWrite;
 use tokio_util::compat::TokioAsyncWriteCompatExt;
-use tracing::{debug, trace};
+use tracing::debug;
+use tracing::trace;
 use yoke::Yoke;
 
 pub mod client;
@@ -26,7 +29,8 @@ pub mod mqtt_stream;
 pub mod packet_stream;
 pub mod server;
 
-pub use mqtt_packet::{MqttPacket, MqttSubPacket};
+pub use mqtt_packet::MqttPacket;
+pub use mqtt_packet::MqttSubPacket;
 
 fn parse_packet(input: &[u8]) -> Result<MPacket<'_>, PacketIOError> {
     match nom::combinator::all_consuming(mqtt_format::v3::packet::mpacket)(input) {

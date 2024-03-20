@@ -5,19 +5,17 @@
 //
 
 use miette::Context;
-use mqtt_format::v3::{
-    connect_return::MConnectReturnCode,
-    identifier::MPacketIdentifier,
-    packet::{MConnack, MSubscribe},
-    subscription_request::MSubscriptionRequests,
-};
+use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::identifier::MPacketIdentifier;
+use mqtt_format::v3::packet::MConnack;
+use mqtt_format::v3::packet::MSubscribe;
+use mqtt_format::v3::subscription_request::MSubscriptionRequests;
 
-use crate::{
-    behaviour_test::BehaviourTest,
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::behaviour_test::BehaviourTest;
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 pub struct ReceivingServerPacket;
 

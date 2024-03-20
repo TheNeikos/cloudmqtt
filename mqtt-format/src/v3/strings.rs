@@ -4,8 +4,12 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use futures::{AsyncWrite, AsyncWriteExt};
-use nom::{bytes::complete::take, number::complete::be_u16, IResult, Parser};
+use futures::AsyncWrite;
+use futures::AsyncWriteExt;
+use nom::bytes::complete::take;
+use nom::number::complete::be_u16;
+use nom::IResult;
+use nom::Parser;
 use nom_supreme::ParserExt;
 
 use super::errors::MPacketWriteError;
@@ -72,7 +76,8 @@ pub fn mstring(input: &[u8]) -> IResult<&[u8], MString<'_>> {
 mod tests {
     use std::pin::Pin;
 
-    use super::{mstring, MString};
+    use super::mstring;
+    use super::MString;
 
     // TODO(neikos): Unclear how MQTT-1.5.3-3 is to be tested. Since we don't touch the stream, I
     // think we are fulfilling that requirement

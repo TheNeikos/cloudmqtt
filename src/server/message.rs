@@ -5,7 +5,8 @@
 //
 use std::sync::Arc;
 
-use mqtt_format::v3::{qos::MQualityOfService, will::MLastWill};
+use mqtt_format::v3::qos::MQualityOfService;
+use mqtt_format::v3::will::MLastWill;
 
 use super::ClientId;
 

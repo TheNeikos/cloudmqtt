@@ -5,14 +5,13 @@
 //
 
 use clap::Parser;
-use cloudmqtt::{
-    client::{MqttClient, MqttConnectionParams},
-    packet_stream::Acknowledge,
-};
+use cloudmqtt::client::MqttClient;
+use cloudmqtt::client::MqttConnectionParams;
+use cloudmqtt::packet_stream::Acknowledge;
 use futures::StreamExt;
-use mqtt_format::v3::{
-    strings::MString, subscription_request::MSubscriptionRequest, will::MLastWill,
-};
+use mqtt_format::v3::strings::MString;
+use mqtt_format::v3::subscription_request::MSubscriptionRequest;
+use mqtt_format::v3::will::MLastWill;
 use tracing::error;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;

@@ -6,13 +6,18 @@
 
 use std::future::Ready;
 
-use crate::{client::MqttClient, error::MqttError, MqttPacket};
 use futures::Stream;
-use mqtt_format::v3::{
-    packet::{MPacket, MPublish, MPubrel},
-    qos::MQualityOfService,
-};
-use tracing::{debug, error, trace};
+use mqtt_format::v3::packet::MPacket;
+use mqtt_format::v3::packet::MPublish;
+use mqtt_format::v3::packet::MPubrel;
+use mqtt_format::v3::qos::MQualityOfService;
+use tracing::debug;
+use tracing::error;
+use tracing::trace;
+
+use crate::client::MqttClient;
+use crate::error::MqttError;
+use crate::MqttPacket;
 
 pub struct Acknowledge;
 
@@ -195,7 +200,9 @@ impl<'client, ACK: AckHandler> PacketStream<'client, ACK> {
 mod tests {
     use futures::StreamExt;
 
-    use crate::{client::MqttClient, packet_stream::Acknowledge, MqttPacket};
+    use crate::client::MqttClient;
+    use crate::packet_stream::Acknowledge;
+    use crate::MqttPacket;
 
     #[allow(unreachable_code, unused, clippy::diverging_sub_expression)]
     async fn check_making_stream_builder() {

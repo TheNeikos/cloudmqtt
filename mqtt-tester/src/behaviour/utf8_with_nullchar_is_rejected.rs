@@ -5,17 +5,16 @@
 //
 
 use miette::Context;
-use mqtt_format::v3::{
-    connect_return::MConnectReturnCode, header::MPacketKind, packet::MConnack,
-    qos::MQualityOfService,
-};
+use mqtt_format::v3::connect_return::MConnectReturnCode;
+use mqtt_format::v3::header::MPacketKind;
+use mqtt_format::v3::packet::MConnack;
+use mqtt_format::v3::qos::MQualityOfService;
 
-use crate::{
-    behaviour_test::BehaviourTest,
-    command::{Input, Output},
-    executable::ClientExecutableCommand,
-    report::ReportResult,
-};
+use crate::behaviour_test::BehaviourTest;
+use crate::command::Input;
+use crate::command::Output;
+use crate::executable::ClientExecutableCommand;
+use crate::report::ReportResult;
 
 pub struct Utf8WithNullcharIsRejected;
 

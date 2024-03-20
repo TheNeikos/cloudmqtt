@@ -6,10 +6,11 @@
 
 use winnow::Bytes;
 
-use crate::v5::{
-    variable_header::{AuthenticationData, AuthenticationMethod, ReasonString, UserProperties},
-    MResult,
-};
+use crate::v5::variable_header::AuthenticationData;
+use crate::v5::variable_header::AuthenticationMethod;
+use crate::v5::variable_header::ReasonString;
+use crate::v5::variable_header::UserProperties;
+use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum AuthReasonCode {

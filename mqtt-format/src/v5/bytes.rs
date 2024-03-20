@@ -4,7 +4,9 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::{binary::length_take, Bytes, Parser};
+use winnow::binary::length_take;
+use winnow::Bytes;
+use winnow::Parser;
 
 use super::MResult;
 

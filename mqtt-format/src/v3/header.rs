@@ -4,19 +4,19 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use nom::{
-    bits,
-    bytes::complete::take_while_m_n,
-    error::{Error, ErrorKind, FromExternalError},
-    sequence::tuple,
-    IResult, Parser,
-};
+use nom::bits;
+use nom::bytes::complete::take_while_m_n;
+use nom::error::Error;
+use nom::error::ErrorKind;
+use nom::error::FromExternalError;
+use nom::sequence::tuple;
+use nom::IResult;
+use nom::Parser;
 use nom_supreme::ParserExt;
 
-use super::{
-    errors::MPacketHeaderError,
-    qos::{mquality_of_service, MQualityOfService},
-};
+use super::errors::MPacketHeaderError;
+use super::qos::mquality_of_service;
+use super::qos::MQualityOfService;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MPacketHeader {
@@ -155,12 +155,12 @@ pub fn mfixedheader(input: &[u8]) -> IResult<&[u8], MPacketHeader> {
 
 #[cfg(test)]
 mod tests {
-    use crate::v3::{
-        header::{MPacketHeader, MPacketKind},
-        qos::MQualityOfService,
-    };
-
-    use super::{decode_variable_length, mfixedheader, mpacketkind};
+    use super::decode_variable_length;
+    use super::mfixedheader;
+    use super::mpacketkind;
+    use crate::v3::header::MPacketHeader;
+    use crate::v3::header::MPacketKind;
+    use crate::v3::qos::MQualityOfService;
 
     #[test]
     fn check_variable_length_decoding() {

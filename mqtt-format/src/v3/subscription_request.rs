@@ -4,16 +4,18 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use futures::{AsyncWrite, AsyncWriteExt};
-use nom::{multi::many1_count, Parser};
+use futures::AsyncWrite;
+use futures::AsyncWriteExt;
+use nom::multi::many1_count;
+use nom::Parser;
 use nom_supreme::ParserExt;
 
-use super::{
-    errors::MPacketWriteError,
-    qos::{mquality_of_service, MQualityOfService},
-    strings::{mstring, MString},
-    MSResult,
-};
+use super::errors::MPacketWriteError;
+use super::qos::mquality_of_service;
+use super::qos::MQualityOfService;
+use super::strings::mstring;
+use super::strings::MString;
+use super::MSResult;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MSubscriptionRequests<'message> {
@@ -110,9 +112,9 @@ pub fn msubscriptionrequest(input: &[u8]) -> MSResult<'_, MSubscriptionRequest<'
 
 #[cfg(test)]
 mod tests {
-    use crate::v3::{strings::MString, subscription_request::MSubscriptionRequest};
-
     use super::msubscriptionrequests;
+    use crate::v3::strings::MString;
+    use crate::v3::subscription_request::MSubscriptionRequest;
 
     #[test]
     fn test_subscription_iterator() {
