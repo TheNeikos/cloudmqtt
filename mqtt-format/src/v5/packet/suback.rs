@@ -1,3 +1,10 @@
+use winnow::{Bytes, Parser};
+
+use crate::v5::{
+    variable_header::{parse_packet_identifier, PacketIdentifier, ReasonString, UserProperties},
+    MResult,
+};
+
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum SubackReasonCode {
         GrantedQoS0 = crate::v5::reason_code::GrantedQoS0,
@@ -12,5 +19,44 @@ crate::v5::reason_code::make_combined_reason_code! {
         TopicFilterInvalid = crate::v5::reason_code::TopicFilterInvalid,
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
         WildcardSubscriptionsNotSupported = crate::v5::reason_code::WildcardSubscriptionsNotSupported,
+    }
+}
+
+crate::v5::properties::define_properties! {
+    pub struct SubackProperties<'i> {
+        reason_string: ReasonString<'i>,
+        user_properties: UserProperties<'i>,
+    }
+}
+
+pub struct MSuback<'i> {
+    packet_identifier: PacketIdentifier,
+    properties: SubackProperties<'i>,
+    reasons: &'i [SubackReasonCode],
+}
+
+impl<'i> MSuback<'i> {
+    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+        let packet_identifier = parse_packet_identifier(input)?;
+        let properties = SubackProperties::parse(input)?;
+
+        // Verify that the payload only contains valid reason codes
+        let payload: &[u8] = winnow::combinator::repeat_till::<_, _, (), _, _, _, _>(
+            0..,
+            SubackReasonCode::parse,
+            winnow::combinator::eof,
+        )
+        .recognize()
+        .parse_next(input)?;
+
+        // SAFETY: We verified above that the payload slice only contains valid SubackReasonCode
+        // bytes
+        let reasons: &[SubackReasonCode] = unsafe { std::mem::transmute(payload) };
+
+        Ok(Self {
+            packet_identifier,
+            properties,
+            reasons,
+        })
     }
 }
