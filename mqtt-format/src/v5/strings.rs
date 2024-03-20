@@ -3,6 +3,7 @@
 //   License, v. 2.0. If a copy of the MPL was not distributed with this
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
+//! Various ways to parse MQTT Strings
 
 use winnow::binary::length_take;
 use winnow::error::ErrMode;
@@ -13,6 +14,11 @@ use winnow::Parser;
 use super::integers::parse_u16;
 use super::MResult;
 
+/// Parse an UTF-8 String
+///
+/// MQTT expects that all Strings are UTF-8 encoded
+///
+#[doc = crate::v5::util::md_speclink!("_Toc3901010")]
 pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
     winnow::combinator::trace("mqtt_string", |input: &mut &'i Bytes| {
         let maybe_str = length_take(parse_u16).parse_next(input)?;
@@ -23,7 +29,12 @@ pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
     .parse_next(input)
 }
 
-pub fn string_pair<'i>(input: &mut &'i Bytes) -> MResult<(&'i str, &'i str)> {
+/// Parse a pair of UTF-8 Strings
+///
+/// MQTT expects that all Strings are UTF-8 encoded
+///
+#[doc = crate::v5::util::md_speclink!("_Toc3901013")]
+pub fn parse_string_pair<'i>(input: &mut &'i Bytes) -> MResult<(&'i str, &'i str)> {
     winnow::combinator::trace("mqtt_string_pair", |input: &mut &'i Bytes| {
         let first = parse_string(input)?;
         let second = parse_string(input)?;

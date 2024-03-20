@@ -3,6 +3,7 @@
 //   License, v. 2.0. If a copy of the MPL was not distributed with this
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
+//! Various components present in MQTT variable headers
 
 use winnow::Bytes;
 use winnow::Parser;
@@ -175,7 +176,7 @@ pub struct UserProperty<'i> {
 impl<'i> UserProperty<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<UserProperty<'i>> {
         winnow::combinator::trace("UserProperty", |input: &mut &'i Bytes| {
-            crate::v5::strings::string_pair
+            crate::v5::strings::parse_string_pair
                 .map(|(k, v)| UserProperty { key: k, value: v })
                 .parse_next(input)
         })

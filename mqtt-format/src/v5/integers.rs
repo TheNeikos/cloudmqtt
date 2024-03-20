@@ -3,6 +3,9 @@
 //   License, v. 2.0. If a copy of the MPL was not distributed with this
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
+//! Various ways to parse MQTT integers
+//!
+//! All integers in MQTT are big-endian
 
 use winnow::combinator::trace;
 use winnow::token::take_while;
@@ -11,6 +14,10 @@ use winnow::Parser;
 
 use super::MResult;
 
+/// Parse a u16
+///
+/// MQTT expects their numbers in big-endian
+#[doc = crate::v5::util::md_speclink!("_Toc3901008")]
 pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     trace(
         "mqtt_u16",
@@ -19,6 +26,10 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     .parse_next(input)
 }
 
+/// Parse a u32
+///
+/// MQTT expects their numbers in big-endian
+#[doc = crate::v5::util::md_speclink!("_Toc3901009")]
 pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
     trace(
         "mqtt_u32",
@@ -27,6 +38,12 @@ pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
     .parse_next(input)
 }
 
+/// Parse a variable sized integer
+///
+/// Value range: `0..268_435_455`
+/// The maximal value is smaller than a u32, so that type is used
+///
+#[doc = crate::v5::util::md_speclink!("_Toc3901011")]
 pub fn parse_variable_u32(input: &mut &Bytes) -> MResult<u32> {
     trace("mqtt_variable_u32", |input: &mut &Bytes| {
         let var_bytes = (

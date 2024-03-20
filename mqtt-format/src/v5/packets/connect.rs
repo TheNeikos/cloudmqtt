@@ -13,7 +13,6 @@ use winnow::Parser;
 use crate::v5::bytes::parse_binary_data;
 use crate::v5::fixed_header::QualityOfService;
 use crate::v5::integers::parse_u16;
-use crate::v5::level::ProtocolLevel;
 use crate::v5::strings::parse_string;
 use crate::v5::variable_header::AuthenticationData;
 use crate::v5::variable_header::AuthenticationMethod;
@@ -181,5 +180,24 @@ crate::v5::properties::define_properties! {
         content_type: ContentType<'i>,
         response_topic: ResponseTopic<'i>,
         correlation_data: CorrelationData<'i>,
+    }
+}
+
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum ProtocolLevel {
+    V3,
+    V5,
+}
+
+impl ProtocolLevel {
+    pub fn parse(input: &mut &Bytes) -> MResult<Self> {
+        match winnow::binary::u8(input)? {
+            3 => Ok(Self::V3),
+            5 => Ok(Self::V5),
+            _ => Err(ErrMode::from_error_kind(
+                input,
+                winnow::error::ErrorKind::Verify,
+            )),
+        }
     }
 }

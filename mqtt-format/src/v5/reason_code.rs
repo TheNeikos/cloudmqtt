@@ -3,6 +3,7 @@
 //   License, v. 2.0. If a copy of the MPL was not distributed with this
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
+//! Handling reason codes that are present in some packets
 
 macro_rules! make_combined_reason_code {
     (pub enum $name:ident {
