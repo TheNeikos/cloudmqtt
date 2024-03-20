@@ -10,8 +10,5 @@
 #[cfg(feature = "mqttv3")]
 pub mod v3;
 
-/// MQTTv5 binary format parsing
-///
-#[doc = util::md_speclink!("_Toc3901000")]
 #[cfg(feature = "mqttv5")]
 pub mod v5;
