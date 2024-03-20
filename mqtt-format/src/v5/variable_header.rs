@@ -124,8 +124,8 @@ define_properties! {[
 
 pub struct UserProperties<'i>(pub &'i [u8]);
 
-impl<'i> std::fmt::Debug for UserProperties<'i> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'i> core::fmt::Debug for UserProperties<'i> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("UserProperties").finish()
     }
 }

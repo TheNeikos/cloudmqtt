@@ -31,8 +31,8 @@ pub struct Unsubscriptions<'i> {
     start: &'i [u8],
 }
 
-impl<'i> std::fmt::Debug for Unsubscriptions<'i> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'i> core::fmt::Debug for Unsubscriptions<'i> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Unsubscriptions").finish()
     }
 }

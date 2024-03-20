@@ -56,7 +56,7 @@ impl<'i> MUnsuback<'i> {
 
             // SAFETY: We verified above that the payload slice only contains valid UnsubackReasonCode
             // bytes
-            let reasons: &[UnsubackReasonCode] = unsafe { std::mem::transmute(payload) };
+            let reasons: &[UnsubackReasonCode] = unsafe { core::mem::transmute(payload) };
 
             Ok(Self {
                 packet_identifier,
