@@ -26,6 +26,7 @@ pub struct MConnect<'i> {
     pub clean_start: bool,
     pub will: Option<Will<'i>>,
     pub properties: ConnectProperties<'i>,
+    pub keep_alive: u16,
 }
 
 crate::v5::properties::define_properties! {
@@ -122,6 +123,8 @@ impl<'i> MConnect<'i> {
                     properties,
                     topic,
                     payload,
+                    will_qos,
+                    will_retain,
                 })
             })
             .transpose()?;
@@ -138,6 +141,7 @@ impl<'i> MConnect<'i> {
             will,
             clean_start,
             properties,
+            keep_alive,
         })
     }
 }
@@ -147,6 +151,8 @@ pub struct Will<'i> {
     pub properties: ConnectWillProperties<'i>,
     pub topic: &'i str,
     pub payload: &'i [u8],
+    pub will_qos: QualityOfService,
+    pub will_retain: bool,
 }
 
 crate::v5::properties::define_properties! {
