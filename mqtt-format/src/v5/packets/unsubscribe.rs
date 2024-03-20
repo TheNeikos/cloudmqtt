@@ -8,8 +8,13 @@ use crate::v5::{
 };
 
 define_properties! {
+    packet_type: MUnsubscribe,
+    anker: "_Toc3901182",
     pub struct UnsubscribeProperties<'i> {
+        (anker: "_Toc3901183")
         subscription_identifier: SubscriptionIdentifier,
+
+        (anker: "_Toc3901183")
         user_properties: UserProperties<'i>,
     }
 }
