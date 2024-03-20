@@ -1,169 +1,77 @@
-use winnow::{
-    error::{ErrMode, ParserError},
-    Bytes,
-};
+macro_rules! make_combined_reason_code {
+    (pub enum $name:ident {
+        $($reason_code_name:ident = $reason_code_type:ty),* $(,)?
+    }) => {
+        #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
+        #[repr(u8)]
+        pub enum $name {
+            $( $reason_code_name = <$reason_code_type>::CODE ),*
+        }
 
-use super::{fixed_header::PacketType, MResult};
-
-#[derive(Debug, PartialEq)]
-pub enum MReasonCode {
-    Success,
-    NormalDisconnection,
-    GrantedQoS0,
-    GrantedQoS1,
-    GrantedQoS2,
-    DisconnectWithWillMessage,
-    NoMatchingSubscribers,
-    NoSubscriptionExisted,
-    ContinueAuthentication,
-    ReAuthenticate,
-    UnspecifiedError,
-    MalformedPacket,
-    ProtocolError,
-    ImplementationSpecificError,
-    UnsupportedProtocolVersion,
-    ClientIdentifierNotValid,
-    BadUsernameOrPassword,
-    NotAuthorized,
-    ServerUnavailable,
-    ServerBusy,
-    Banned,
-    ServerShuttingDown,
-    BadAuthenticationMethod,
-    KeepAliveTimeout,
-    SessionTakenOver,
-    TopicFilterInvalid,
-    TopicNameInvalid,
-    PacketIdentifierInUse,
-    PacketIdentifierNotFound,
-    ReceiveMaximumExceeded,
-    TopicAliasInvalid,
-    PacketTooLarge,
-    MessageRateTooHigh,
-    QuotaExceeded,
-    AdministrativeAction,
-    PayloadFormatInvalid,
-    RetainNotSupported,
-    QoSNotSupported,
-    UseAnotherServer,
-    ServerMoved,
-    SharedSubscriptionsNotSupported,
-    ConnectionRateExceeded,
-    MaximumConnectTime,
-    SubscriptionIdentifiersNotSupported,
-    WildcardSubscriptionsNotSupported,
-}
-
-impl MReasonCode {
-    pub fn parse_for_packet_type<'i>(
-        input: &mut &'i Bytes,
-        packet_type: &PacketType,
-    ) -> MResult<MReasonCode> {
-        let byte = winnow::binary::u8(input)?;
-
-        let code = match (byte, packet_type) {
-            (0x00, PacketType::Connack) => MReasonCode::Success,
-            (0x00, PacketType::Puback) => MReasonCode::Success,
-            (0x00, PacketType::Pubrec) => MReasonCode::Success,
-            (0x00, PacketType::Pubrel) => MReasonCode::Success,
-            (0x00, PacketType::Pubcomp) => MReasonCode::Success,
-            (0x00, PacketType::Unsuback) => MReasonCode::Success,
-            (0x00, PacketType::Auth) => MReasonCode::Success,
-            (0x00, PacketType::Disconnect) => MReasonCode::NormalDisconnection,
-            (0x00, PacketType::Suback) => MReasonCode::GrantedQoS0,
-            (0x01, PacketType::Suback) => MReasonCode::GrantedQoS1,
-            (0x02, PacketType::Suback) => MReasonCode::GrantedQoS2,
-            (0x04, PacketType::Disconnect) => MReasonCode::DisconnectWithWillMessage,
-            (0x10, PacketType::Puback) => MReasonCode::NoMatchingSubscribers,
-            (0x10, PacketType::Pubrec) => MReasonCode::NoMatchingSubscribers,
-            (0x11, PacketType::Unsuback) => MReasonCode::NoSubscriptionExisted,
-            (0x18, PacketType::Auth) => MReasonCode::ContinueAuthentication,
-            (0x19, PacketType::Auth) => MReasonCode::ReAuthenticate,
-            (0x80, PacketType::Connack) => MReasonCode::UnspecifiedError,
-            (0x80, PacketType::Puback) => MReasonCode::UnspecifiedError,
-            (0x80, PacketType::Pubrec) => MReasonCode::UnspecifiedError,
-            (0x80, PacketType::Suback) => MReasonCode::UnspecifiedError,
-            (0x80, PacketType::Unsuback) => MReasonCode::UnspecifiedError,
-            (0x80, PacketType::Disconnect) => MReasonCode::UnspecifiedError,
-            (0x81, PacketType::Connack) => MReasonCode::MalformedPacket,
-            (0x81, PacketType::Disconnect) => MReasonCode::MalformedPacket,
-            (0x82, PacketType::Connack) => MReasonCode::ProtocolError,
-            (0x82, PacketType::Disconnect) => MReasonCode::ProtocolError,
-            (0x83, PacketType::Connack) => MReasonCode::ImplementationSpecificError,
-            (0x83, PacketType::Puback) => MReasonCode::ImplementationSpecificError,
-            (0x83, PacketType::Pubrec) => MReasonCode::ImplementationSpecificError,
-            (0x83, PacketType::Suback) => MReasonCode::ImplementationSpecificError,
-            (0x83, PacketType::Unsuback) => MReasonCode::ImplementationSpecificError,
-            (0x83, PacketType::Disconnect) => MReasonCode::ImplementationSpecificError,
-            (0x84, PacketType::Connack) => MReasonCode::UnsupportedProtocolVersion,
-            (0x85, PacketType::Connack) => MReasonCode::ClientIdentifierNotValid,
-            (0x86, PacketType::Connack) => MReasonCode::BadUsernameOrPassword,
-            (0x87, PacketType::Connack) => MReasonCode::NotAuthorized,
-            (0x87, PacketType::Puback) => MReasonCode::NotAuthorized,
-            (0x87, PacketType::Pubrec) => MReasonCode::NotAuthorized,
-            (0x87, PacketType::Suback) => MReasonCode::NotAuthorized,
-            (0x87, PacketType::Unsuback) => MReasonCode::NotAuthorized,
-            (0x87, PacketType::Disconnect) => MReasonCode::NotAuthorized,
-            (0x88, PacketType::Connack) => MReasonCode::ServerUnavailable,
-            (0x89, PacketType::Connack) => MReasonCode::ServerBusy,
-            (0x89, PacketType::Disconnect) => MReasonCode::ServerBusy,
-            (0x8A, PacketType::Connack) => MReasonCode::Banned,
-            (0x8B, PacketType::Disconnect) => MReasonCode::ServerShuttingDown,
-            (0x8C, PacketType::Connack) => MReasonCode::BadAuthenticationMethod,
-            (0x8C, PacketType::Disconnect) => MReasonCode::BadAuthenticationMethod,
-            (0x8D, PacketType::Disconnect) => MReasonCode::KeepAliveTimeout,
-            (0x8E, PacketType::Disconnect) => MReasonCode::SessionTakenOver,
-            (0x8F, PacketType::Suback) => MReasonCode::TopicFilterInvalid,
-            (0x8F, PacketType::Unsuback) => MReasonCode::TopicFilterInvalid,
-            (0x8F, PacketType::Disconnect) => MReasonCode::TopicFilterInvalid,
-            (0x90, PacketType::Connack) => MReasonCode::TopicNameInvalid,
-            (0x90, PacketType::Puback) => MReasonCode::TopicNameInvalid,
-            (0x90, PacketType::Pubrec) => MReasonCode::TopicNameInvalid,
-            (0x90, PacketType::Disconnect) => MReasonCode::TopicNameInvalid,
-            (0x91, PacketType::Puback) => MReasonCode::PacketIdentifierInUse,
-            (0x91, PacketType::Pubrec) => MReasonCode::PacketIdentifierInUse,
-            (0x91, PacketType::Suback) => MReasonCode::PacketIdentifierInUse,
-            (0x91, PacketType::Unsuback) => MReasonCode::PacketIdentifierInUse,
-            (0x92, PacketType::Pubrel) => MReasonCode::PacketIdentifierNotFound,
-            (0x92, PacketType::Pubcomp) => MReasonCode::PacketIdentifierNotFound,
-            (0x93, PacketType::Disconnect) => MReasonCode::ReceiveMaximumExceeded,
-            (0x94, PacketType::Disconnect) => MReasonCode::TopicAliasInvalid,
-            (0x95, PacketType::Connack) => MReasonCode::PacketTooLarge,
-            (0x95, PacketType::Disconnect) => MReasonCode::PacketTooLarge,
-            (0x96, PacketType::Disconnect) => MReasonCode::MessageRateTooHigh,
-            (0x97, PacketType::Connack) => MReasonCode::QuotaExceeded,
-            (0x97, PacketType::Puback) => MReasonCode::QuotaExceeded,
-            (0x97, PacketType::Pubrec) => MReasonCode::QuotaExceeded,
-            (0x97, PacketType::Suback) => MReasonCode::QuotaExceeded,
-            (0x97, PacketType::Disconnect) => MReasonCode::QuotaExceeded,
-            (0x98, PacketType::Disconnect) => MReasonCode::AdministrativeAction,
-            (0x99, PacketType::Connack) => MReasonCode::PayloadFormatInvalid,
-            (0x99, PacketType::Puback) => MReasonCode::PayloadFormatInvalid,
-            (0x99, PacketType::Pubrec) => MReasonCode::PayloadFormatInvalid,
-            (0x99, PacketType::Disconnect) => MReasonCode::PayloadFormatInvalid,
-            (0x9A, PacketType::Connack) => MReasonCode::RetainNotSupported,
-            (0x9A, PacketType::Disconnect) => MReasonCode::RetainNotSupported,
-            (0x9B, PacketType::Connack) => MReasonCode::QoSNotSupported,
-            (0x9B, PacketType::Disconnect) => MReasonCode::QoSNotSupported,
-            (0x9C, PacketType::Connack) => MReasonCode::UseAnotherServer,
-            (0x9C, PacketType::Disconnect) => MReasonCode::UseAnotherServer,
-            (0x9D, PacketType::Connack) => MReasonCode::ServerMoved,
-            (0x9D, PacketType::Disconnect) => MReasonCode::ServerMoved,
-            (0x9E, PacketType::Suback) => MReasonCode::SharedSubscriptionsNotSupported,
-            (0x9E, PacketType::Disconnect) => MReasonCode::SharedSubscriptionsNotSupported,
-            (0x9F, PacketType::Connack) => MReasonCode::ConnectionRateExceeded,
-            (0x9F, PacketType::Disconnect) => MReasonCode::ConnectionRateExceeded,
-            (0xA0, PacketType::Disconnect) => MReasonCode::MaximumConnectTime,
-            (0xA1, PacketType::Suback) => MReasonCode::SubscriptionIdentifiersNotSupported,
-            (0xA1, PacketType::Disconnect) => MReasonCode::SubscriptionIdentifiersNotSupported,
-            (0xA2, PacketType::Suback) => MReasonCode::WildcardSubscriptionsNotSupported,
-            (0xA2, PacketType::Disconnect) => MReasonCode::WildcardSubscriptionsNotSupported,
-            (_, _) => return Err(ErrMode::from_error_kind(
-                input,
-                winnow::error::ErrorKind::Verify,
-            )),
-        };
-
-        Ok(code)
+        impl $name {
+            pub fn parse(input: &mut &winnow::Bytes) -> crate::v5::MResult<Self> {
+                use winnow::Parser;
+                winnow::binary::u8
+                    .try_map($name::try_from)
+                    .parse_next(input)
+            }
+        }
     }
 }
+pub(crate) use make_combined_reason_code;
+
+macro_rules! define_reason_code {
+    ($name:ident => $code:literal) => {
+        pub struct $name;
+        impl $name {
+            pub const CODE: u8 = $code;
+        }
+    }
+}
+
+define_reason_code!(GrantedQoS0 => 0x00);
+define_reason_code!(NormalDisconnection => 0x00);
+define_reason_code!(Success => 0x00);
+define_reason_code!(GrantedQoS1 => 0x01);
+define_reason_code!(GrantedQoS2 => 0x02);
+define_reason_code!(DisconnectWithWillMessage => 0x04);
+define_reason_code!(NoMatchingSubscribers => 0x10);
+define_reason_code!(NoSubscriptionExisted => 0x11);
+define_reason_code!(ContinueAuthentication => 0x18);
+define_reason_code!(ReAuthenticate => 0x19);
+define_reason_code!(UnspecifiedError => 0x80);
+define_reason_code!(MalformedPacket => 0x81);
+define_reason_code!(ProtocolError => 0x82);
+define_reason_code!(ImplementationSpecificError => 0x83);
+define_reason_code!(UnsupportedProtocolVersion => 0x84);
+define_reason_code!(ClientIdentifierNotValid => 0x85);
+define_reason_code!(BadUsernameOrPassword => 0x86);
+define_reason_code!(NotAuthorized => 0x87);
+define_reason_code!(ServerUnavailable => 0x88);
+define_reason_code!(ServerBusy => 0x89);
+define_reason_code!(Banned => 0x8A);
+define_reason_code!(ServerShuttingDown => 0x8B);
+define_reason_code!(BadAuthenticationMethod => 0x8C);
+define_reason_code!(KeepAliveTimeout => 0x8D);
+define_reason_code!(SessionTakenOver => 0x8E);
+define_reason_code!(TopicFilterInvalid => 0x8F);
+define_reason_code!(TopicNameInvalid => 0x90);
+define_reason_code!(PacketIdentifierInUse => 0x91);
+define_reason_code!(PacketIdentifierNotFound => 0x92);
+define_reason_code!(ReceiveMaximumExceeded => 0x93);
+define_reason_code!(TopicAliasInvalid => 0x94);
+define_reason_code!(PacketTooLarge => 0x95);
+define_reason_code!(MessageRateTooHigh => 0x96);
+define_reason_code!(QuotaExceeded => 0x97);
+define_reason_code!(AdministrativeAction => 0x98);
+define_reason_code!(PayloadFormatInvalid => 0x99);
+define_reason_code!(RetainNotSupported => 0x9A);
+define_reason_code!(QoSNotSupported => 0x9B);
+define_reason_code!(UseAnotherServer => 0x9C);
+define_reason_code!(ServerMoved => 0x9D);
+define_reason_code!(SharedSubscriptionsNotSupported => 0x9E);
+define_reason_code!(ConnectionRateExceeded => 0x9F);
+define_reason_code!(MaximumConnectTime => 0xA0);
+define_reason_code!(SubscriptionIdentifiersNotSupported => 0xA1);
+define_reason_code!(WildcardSubscriptionsNotSupported => 0xA2);
+
