@@ -30,6 +30,31 @@ impl<'i> Unsubscriptions<'i> {
 
         Ok(Unsubscriptions { start })
     }
+
+    pub fn iter(&self) -> UnsubscriptionsIter<'i> {
+        UnsubscriptionsIter {
+            current: Bytes::new(self.start),
+        }
+    }
+}
+
+pub struct UnsubscriptionsIter<'i> {
+    current: &'i Bytes,
+}
+
+impl<'i> Iterator for UnsubscriptionsIter<'i> {
+    type Item = Unsubscription<'i>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if !self.current.is_empty() {
+            let sub = Unsubscription::parse(&mut self.current)
+                .expect("Already parsed subscriptions should be valid");
+
+            return Some(sub);
+        }
+
+        None
+    }
 }
 
 pub struct Unsubscription<'i> {
