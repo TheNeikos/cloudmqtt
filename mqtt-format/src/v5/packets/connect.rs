@@ -128,9 +128,9 @@ impl<'i> MConnect<'i> {
 }
 
 pub struct Will<'i> {
-    properties: ConnectWillProperties<'i>,
-    topic: &'i str,
-    payload: &'i [u8],
+    pub properties: ConnectWillProperties<'i>,
+    pub topic: &'i str,
+    pub payload: &'i [u8],
 }
 
 crate::v5::properties::define_properties! {
