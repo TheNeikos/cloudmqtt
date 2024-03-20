@@ -64,8 +64,17 @@ crate::v5::properties::define_properties! {
 impl<'i> MConnect<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         // parse header
-        let protocol_name = crate::v5::strings::parse_string(input)?;
-        let protocol_level = ProtocolLevel::parse(input)?;
+
+        // verify the protocol name
+        let _ = crate::v5::strings::parse_string
+            .verify(|s: &str| s == "MQTT")
+            .parse_next(input)?;
+
+        // just for verification
+        let _ = ProtocolLevel::parse
+            .verify(|lvl: &ProtocolLevel| *lvl == ProtocolLevel::V5)
+            .parse_next(input)?;
+
         let (_, clean_start, will_flag, will_qos, will_retain, password_flag, user_name_flag) =
             winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
                 winnow::binary::bits::pattern(0x0, 1usize),
