@@ -5,37 +5,29 @@ use winnow::{
 
 use crate::v5::{fixed_header::PacketType, MResult};
 
-#[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
-#[repr(u8)]
-pub enum ConnectReasonCode {
-    Success = 0,
-    UnspecifiedError = 0x80,
-    MalformedPacket = 0x81,
-    ProtocolError = 0x82,
-    ImplementationSpecificError = 0x84,
-    ClientIdentifierNotValid = 0x85,
-    BadUsernameOrPassword = 0x86,
-    NotAuthorized = 0x87,
-    ServerUnavailable = 0x88,
-    ServerBusy = 0x89,
-    Banned = 0x8A,
-    BadAuthenticationMethod = 0x8C,
-    TopicNameInvalid = 0x90,
-    PacketTooLarge = 0x95,
-    QuotaExceeded = 0x97,
-    PayloadFormatInvalid = 0x99,
-    RetainNotSupported = 0x9A,
-    QoSNotSupported = 0x9B,
-    UseAnotherServer = 0x9C,
-    ServerMoved = 0x9D,
-    ConnectionRateExceeded = 0x9F,
-}
-
-impl ConnectReasonCode {
-    fn parse<'i>(input: &mut &'i Bytes) -> MResult<ConnectReasonCode> {
-        winnow::binary::u8
-            .try_map(ConnectReasonCode::try_from)
-            .parse_next(input)
+crate::v5::reason_code::make_combined_reason_code! {
+    pub enum ConnectReasonCode {
+        Success = crate::v5::reason_code::Success,
+        UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
+        MalformedPacket = crate::v5::reason_code::MalformedPacket,
+        ProtocolError = crate::v5::reason_code::ProtocolError,
+        ImplementationSpecificError = crate::v5::reason_code::ImplementationSpecificError,
+        ClientIdentifierNotValid = crate::v5::reason_code::ClientIdentifierNotValid,
+        BadUsernameOrPassword = crate::v5::reason_code::BadUsernameOrPassword,
+        NotAuthorized = crate::v5::reason_code::NotAuthorized,
+        ServerUnavailable = crate::v5::reason_code::ServerUnavailable,
+        ServerBusy = crate::v5::reason_code::ServerBusy,
+        Banned = crate::v5::reason_code::Banned,
+        BadAuthenticationMethod = crate::v5::reason_code::BadAuthenticationMethod,
+        TopicNameInvalid = crate::v5::reason_code::TopicNameInvalid,
+        PacketTooLarge = crate::v5::reason_code::PacketTooLarge,
+        QuotaExceeded = crate::v5::reason_code::QuotaExceeded,
+        PayloadFormatInvalid = crate::v5::reason_code::PayloadFormatInvalid,
+        RetainNotSupported = crate::v5::reason_code::RetainNotSupported,
+        QoSNotSupported = crate::v5::reason_code::QoSNotSupported,
+        UseAnotherServer = crate::v5::reason_code::UseAnotherServer,
+        ServerMoved = crate::v5::reason_code::ServerMoved,
+        ConnectionRateExceeded = crate::v5::reason_code::ConnectionRateExceeded,
     }
 }
 
