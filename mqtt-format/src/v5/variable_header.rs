@@ -5,7 +5,7 @@ use super::{integers::parse_u16, integers::parse_u32, MResult};
 pub struct PacketIdentifier(pub u16);
 
 impl PacketIdentifier {
-    pub fn parse<'i>(input: &mut &'i Bytes) -> MResult<Self> {
+    pub fn parse(input: &mut &Bytes) -> MResult<Self> {
         parse_u16(input).map(PacketIdentifier)
     }
 }

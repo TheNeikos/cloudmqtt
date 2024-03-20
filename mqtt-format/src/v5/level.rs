@@ -10,7 +10,7 @@ pub enum ProtocolLevel {
 }
 
 impl ProtocolLevel {
-    pub fn parse<'i>(input: &mut &'i Bytes) -> MResult<Self> {
+    pub fn parse(input: &mut &Bytes) -> MResult<Self> {
         match winnow::binary::u8(input)? {
             3 => Ok(Self::V3),
             5 => Ok(Self::V5),

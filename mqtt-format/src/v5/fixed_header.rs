@@ -44,7 +44,7 @@ pub struct MFixedHeader {
     remaining_length: u32,
 }
 
-pub fn parse_fixed_header<'i>(input: &mut &'i Bytes) -> MResult<MFixedHeader> {
+pub fn parse_fixed_header(input: &mut &Bytes) -> MResult<MFixedHeader> {
     let (packet_type, packet_flags): (u8, u8) = bits::<_, _, InputError<(_, usize)>, _, _>((
         winnow::binary::bits::take(4usize),
         winnow::binary::bits::take(4usize),

@@ -38,7 +38,7 @@ pub struct SubscriptionOptions {
 }
 
 impl SubscriptionOptions {
-    fn parse<'i>(input: &mut &'i Bytes) -> MResult<SubscriptionOptions> {
+    fn parse(input: &mut &Bytes) -> MResult<SubscriptionOptions> {
         let (quality_of_service, no_local, retain_as_published, retain_handling) =
             bits::<_, _, InputError<(_, usize)>, _, _>((
                 winnow::binary::bits::take(2usize)

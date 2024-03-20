@@ -77,7 +77,7 @@ impl<'i> MConnack<'i> {
         let (session_present, _) =
             winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
                 winnow::binary::bits::take(1usize).map(|b: u8| b == 1),
-                winnow::binary::bits::pattern(0b0000_000, 7usize),
+                winnow::binary::bits::pattern(0b000_0000, 7usize),
             ))
             .parse_next(input)
             .map_err(|_: ErrMode<InputError<_>>| {

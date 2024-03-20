@@ -2,7 +2,7 @@ use winnow::{combinator::trace, token::take_while, Bytes, Parser};
 
 use super::MResult;
 
-pub fn parse_u16<'i>(input: &mut &'i Bytes) -> MResult<u16> {
+pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     trace(
         "parse_u16",
         winnow::binary::u16(winnow::binary::Endianness::Big),
@@ -10,7 +10,7 @@ pub fn parse_u16<'i>(input: &mut &'i Bytes) -> MResult<u16> {
     .parse_next(input)
 }
 
-pub fn parse_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
+pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
     trace(
         "parse_u32",
         winnow::binary::u32(winnow::binary::Endianness::Big),
@@ -18,7 +18,7 @@ pub fn parse_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
     .parse_next(input)
 }
 
-pub fn parse_variable_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
+pub fn parse_variable_u32(input: &mut &Bytes) -> MResult<u32> {
     trace("parse_variable_u32", |input: &mut &Bytes| {
         let var_bytes = (
             take_while(0..=3, |b| b & 0b1000_0000 != 0),

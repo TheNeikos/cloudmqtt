@@ -1,12 +1,12 @@
 use winnow::{
-    error::{ErrMode, FromExternalError, InputError, ParserError},
+    error::{ErrMode, InputError, ParserError},
     Bytes, Parser,
 };
 
 use crate::v5::{
     bytes::parse_binary_data,
     fixed_header::{PacketType, QualityOfService},
-    integers::{parse_u16, parse_u32, parse_variable_u32},
+    integers::{parse_u16},
     level::ProtocolLevel,
     strings::parse_string,
     variable_header::{
@@ -72,7 +72,7 @@ impl<'i> MConnect<'i> {
 
         let client_identifier = {
             let client_identifier = parse_string(input)?;
-            if client_identifier.len() == 0 {
+            if client_identifier.is_empty() {
                 // Generate client ID?
             }
             client_identifier

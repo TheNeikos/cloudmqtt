@@ -35,7 +35,7 @@ crate::v5::properties::define_properties! {
 impl<'i> MPublish<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         let topic_name = crate::v5::strings::parse_string(input)?;
-        if !sanity_check_topic_name(&topic_name) {
+        if !sanity_check_topic_name(topic_name) {
             return Err(ErrMode::from_error_kind(
                 input,
                 winnow::error::ErrorKind::Verify,
