@@ -5,6 +5,7 @@ use winnow::{
 };
 
 use crate::v5::{
+    fixed_header::QualityOfService,
     variable_header::{
         ContentType, CorrelationData, MessageExpiryInterval, PayloadFormatIndicator, ResponseTopic,
         SubscriptionIdentifier, TopicAlias, UserProperties,
@@ -13,6 +14,9 @@ use crate::v5::{
 };
 
 pub struct MPublish<'i> {
+    pub duplicate: bool,
+    pub quality_of_service: QualityOfService,
+    pub retain: bool,
     pub topic_name: &'i str,
     pub packet_identifier: crate::v5::variable_header::PacketIdentifier,
     pub properties: PublishProperties<'i>,
@@ -33,7 +37,12 @@ crate::v5::properties::define_properties! {
 }
 
 impl<'i> MPublish<'i> {
-    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+    pub fn parse(
+        duplicate: bool,
+        quality_of_service: QualityOfService,
+        retain: bool,
+        input: &mut &'i Bytes,
+    ) -> MResult<Self> {
         let topic_name = crate::v5::strings::parse_string(input)?;
         if !sanity_check_topic_name(topic_name) {
             return Err(ErrMode::from_error_kind(
@@ -48,6 +57,9 @@ impl<'i> MPublish<'i> {
         let payload = input.finish();
 
         Ok(Self {
+            duplicate,
+            quality_of_service,
+            retain,
             topic_name,
             packet_identifier,
             properties,

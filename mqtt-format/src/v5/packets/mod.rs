@@ -53,11 +53,9 @@ impl<'i> MqttPacket<'i> {
         let parse_packet = |input: &mut &'i Bytes| match fixed_header.packet_type {
             PacketType::Connect => MConnect::parse(input).map(MqttPacket::from),
             PacketType::Connack => MConnack::parse(input).map(MqttPacket::from),
-            PacketType::Publish {
-                dup: _,
-                qos: _,
-                retain: _,
-            } => MPublish::parse(input).map(MqttPacket::from),
+            PacketType::Publish { dup, qos, retain } => {
+                MPublish::parse(dup, qos, retain, input).map(MqttPacket::from)
+            }
             PacketType::Puback => MPuback::parse(input).map(MqttPacket::from),
             PacketType::Pubrec => MPubrec::parse(input).map(MqttPacket::from),
             PacketType::Pubrel => MPubrel::parse(input).map(MqttPacket::from),
