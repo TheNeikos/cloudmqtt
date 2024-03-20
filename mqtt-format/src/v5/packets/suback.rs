@@ -23,8 +23,13 @@ crate::v5::reason_code::make_combined_reason_code! {
 }
 
 crate::v5::properties::define_properties! {
+    packet_type: MSuback,
+    anker: "_Toc3901174",
     pub struct SubackProperties<'i> {
+        (anker: "_Toc3901175")
         reason_string: ReasonString<'i>,
+
+        (anker: "_Toc3901176")
         user_properties: UserProperties<'i>,
     }
 }
