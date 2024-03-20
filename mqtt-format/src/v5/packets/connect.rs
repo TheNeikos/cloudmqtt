@@ -28,15 +28,34 @@ pub struct MConnect<'i> {
 }
 
 crate::v5::properties::define_properties! {
+    packet_type: MConnect,
+    anker: "_Toc3901046",
     pub struct ConnectProperties<'i> {
+        (anker: "_Toc3901048")
         session_expiry_interval: SessionExpiryInterval,
+
+        (anker: "_Toc3901049")
         receive_maximum: ReceiveMaximum,
+
+        (anker: "_Toc3901050")
         maximum_packet_size: MaximumPacketSize,
+
+        (anker: "_Toc3901051")
         topic_alias_maximum: TopicAliasMaximum,
+
+        (anker: "_Toc3901052")
         request_response_information: RequestResponseInformation,
+
+        (anker: "_Toc3901053")
         request_problem_information: RequestProblemInformation,
+
+        (anker: "_Toc3901054")
         user_properties: UserProperties<'i>,
+
+        (anker: "_Toc3901055")
         authentication_method: AuthenticationMethod<'i>,
+
+        (anker: "_Toc3901056")
         authentication_data: AuthenticationData<'i>,
     }
 }
