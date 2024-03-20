@@ -10,7 +10,7 @@ use crate::v5::{
     properties::define_properties,
     strings::parse_string,
     variable_header::{
-        parse_packet_identifier, PacketIdentifier, SubscriptionIdentifier, UserProperties,
+        PacketIdentifier, SubscriptionIdentifier, UserProperties,
     },
     MResult,
 };
@@ -103,7 +103,7 @@ pub struct MSubscribe<'i> {
 impl<'i> MSubscribe<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<MSubscribe<'i>> {
         let (packet_identifier, properties) =
-            (parse_packet_identifier, SubscribeProperties::parse).parse_next(input)?;
+            (PacketIdentifier::parse, SubscribeProperties::parse).parse_next(input)?;
 
         let subscriptions = Subscriptions::parse(input)?;
 

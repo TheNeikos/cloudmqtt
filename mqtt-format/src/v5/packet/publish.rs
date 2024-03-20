@@ -42,7 +42,7 @@ impl<'i> MPublish<'i> {
             ));
         }
 
-        let packet_identifier = crate::v5::variable_header::parse_packet_identifier(input)?;
+        let packet_identifier = crate::v5::variable_header::PacketIdentifier::parse(input)?;
         let properties = PublishProperties::parse(input)?;
 
         let payload = input.finish();

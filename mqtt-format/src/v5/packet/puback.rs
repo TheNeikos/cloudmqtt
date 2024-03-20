@@ -3,7 +3,7 @@ use winnow::Bytes;
 use crate::v5::{
     fixed_header::PacketType,
     properties::define_properties,
-    variable_header::{parse_packet_identifier, PacketIdentifier, ReasonString, UserProperties},
+    variable_header::{PacketIdentifier, ReasonString, UserProperties},
     MResult,
 };
 
@@ -38,7 +38,7 @@ impl<'i> MPuback<'i> {
     pub const PACKET_TYPE: PacketType = PacketType::Puback;
 
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = parse_packet_identifier(input)?;
+        let packet_identifier = PacketIdentifier::parse(input)?;
 
         if input.is_empty() {
             Ok(Self {

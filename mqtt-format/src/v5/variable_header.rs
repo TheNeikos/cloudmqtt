@@ -4,8 +4,10 @@ use super::{integers::parse_u16, integers::parse_u32, MResult};
 
 pub struct PacketIdentifier(pub u16);
 
-pub fn parse_packet_identifier<'i>(input: &mut &'i Bytes) -> MResult<PacketIdentifier> {
-    parse_u16(input).map(PacketIdentifier)
+impl PacketIdentifier {
+    pub fn parse<'i>(input: &mut &'i Bytes) -> MResult<Self> {
+        parse_u16(input).map(PacketIdentifier)
+    }
 }
 
 pub trait MqttProperties<'lt>: Sized {

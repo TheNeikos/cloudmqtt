@@ -3,9 +3,7 @@ use winnow::{combinator::repeat_till, Bytes, Parser};
 use crate::v5::{
     properties::define_properties,
     strings::parse_string,
-    variable_header::{
-        parse_packet_identifier, PacketIdentifier, SubscriptionIdentifier, UserProperties,
-    },
+    variable_header::{PacketIdentifier, SubscriptionIdentifier, UserProperties},
     MResult,
 };
 
@@ -55,7 +53,7 @@ pub struct MUnsubscribe<'i> {
 impl<'i> MUnsubscribe<'i> {
     fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         let (packet_identifier, properties, unsubscriptions) = (
-            parse_packet_identifier,
+            PacketIdentifier::parse,
             UnsubscribeProperties::parse,
             Unsubscriptions::parse,
         )

@@ -2,7 +2,7 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use crate::v5::{
-    variable_header::{parse_packet_identifier, PacketIdentifier, ReasonString, UserProperties},
+    variable_header::{PacketIdentifier, ReasonString, UserProperties},
     MResult,
 };
 
@@ -33,7 +33,7 @@ pub struct MUnsuback<'i> {
 
 impl<'i> MUnsuback<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
-        let packet_identifier = parse_packet_identifier(input)?;
+        let packet_identifier = PacketIdentifier::parse(input)?;
         let properties = UnsubackProperties::parse(input)?;
 
         // Verify that the payload only contains valid reason codes
