@@ -101,7 +101,7 @@ pub struct MSubscribe<'i> {
 }
 
 impl<'i> MSubscribe<'i> {
-    fn parse(input: &mut &'i Bytes) -> MResult<MSubscribe<'i>> {
+    pub fn parse(input: &mut &'i Bytes) -> MResult<MSubscribe<'i>> {
         let (packet_identifier, properties) =
             (PacketIdentifier::parse, SubscribeProperties::parse).parse_next(input)?;
 

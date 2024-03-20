@@ -51,7 +51,7 @@ pub struct MUnsubscribe<'i> {
 }
 
 impl<'i> MUnsubscribe<'i> {
-    fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         let (packet_identifier, properties, unsubscriptions) = (
             PacketIdentifier::parse,
             UnsubscribeProperties::parse,
