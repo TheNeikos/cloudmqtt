@@ -1,29 +1,40 @@
-use winnow::{token::take_while, Bytes, Parser};
+use winnow::{combinator::trace, token::take_while, Bytes, Parser};
 
 use super::MResult;
 
 pub fn parse_u16<'i>(input: &mut &'i Bytes) -> MResult<u16> {
-    winnow::binary::u16(winnow::binary::Endianness::Big).parse_next(input)
+    trace(
+        "parse_u16",
+        winnow::binary::u16(winnow::binary::Endianness::Big),
+    )
+    .parse_next(input)
 }
 
 pub fn parse_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
-    winnow::binary::u32(winnow::binary::Endianness::Big).parse_next(input)
+    trace(
+        "parse_u32",
+        winnow::binary::u32(winnow::binary::Endianness::Big),
+    )
+    .parse_next(input)
 }
 
 pub fn parse_variable_u32<'i>(input: &mut &'i Bytes) -> MResult<u32> {
-    let var_bytes = (
-        take_while(0..=3, |b| b & 0b1000_0000 != 0),
-        winnow::binary::u8.verify(|b: &u8| b & 0b1000_0000 == 0),
-    );
-    let bytes = var_bytes.recognize().parse_next(input)?;
+    trace("parse_variable_u32", |input: &mut &Bytes| {
+        let var_bytes = (
+            take_while(0..=3, |b| b & 0b1000_0000 != 0),
+            winnow::binary::u8.verify(|b: &u8| b & 0b1000_0000 == 0),
+        );
+        let bytes: &[u8] = var_bytes.recognize().parse_next(input)?;
 
-    let mut output: u32 = 0;
+        let mut output: u32 = 0;
 
-    for (exp, val) in bytes.iter().enumerate() {
-        output += (*val as u32 & 0b0111_1111) * 128u32.pow(exp as u32);
-    }
+        for (exp, val) in bytes.iter().enumerate() {
+            output += (*val as u32 & 0b0111_1111) * 128u32.pow(exp as u32);
+        }
 
-    Ok(output)
+        Ok(output)
+    })
+    .parse_next(input)
 }
 
 #[cfg(test)]
