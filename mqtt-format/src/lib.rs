@@ -7,6 +7,7 @@
 #![deny(clippy::disallowed_methods)]
 #![deny(clippy::disallowed_types)]
 
-#[cfg(mqttv3)]
+#[cfg(feature = "mqttv3")]
 pub mod v3;
+#[cfg(feature = "mqttv5")]
 pub mod v5;
