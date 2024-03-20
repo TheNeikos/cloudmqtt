@@ -4,7 +4,6 @@ use winnow::{
 };
 
 use crate::v5::{
-    fixed_header::PacketType,
     properties::define_properties,
     variable_header::{
         AssignedClientIdentifier, AuthenticationData, AuthenticationMethod, MaximumPacketSize,
@@ -106,8 +105,6 @@ pub struct MConnack<'i> {
 }
 
 impl<'i> MConnack<'i> {
-    pub const PACKET_TYPE: PacketType = PacketType::Connack;
-
     pub fn parse(input: &mut &'i Bytes) -> MResult<MConnack<'i>> {
         let (session_present, _) =
             winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((

@@ -5,7 +5,7 @@ use winnow::{
 
 use crate::v5::{
     bytes::parse_binary_data,
-    fixed_header::{PacketType, QualityOfService},
+    fixed_header::QualityOfService,
     integers::parse_u16,
     level::ProtocolLevel,
     strings::parse_string,
@@ -61,8 +61,6 @@ crate::v5::properties::define_properties! {
 }
 
 impl<'i> MConnect<'i> {
-    const PACKET_TYPE: PacketType = PacketType::Connect;
-
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         // parse header
         let protocol_name = crate::v5::strings::parse_string(input)?;

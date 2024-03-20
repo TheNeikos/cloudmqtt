@@ -1,7 +1,6 @@
 use winnow::Bytes;
 
 use crate::v5::{
-    fixed_header::PacketType,
     variable_header::{PacketIdentifier, ReasonString, UserProperties},
     MResult,
 };
@@ -40,8 +39,6 @@ pub struct MPubrec<'i> {
 }
 
 impl<'i> MPubrec<'i> {
-    pub const PACKET_TYPE: PacketType = PacketType::Pubrec;
-
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         let packet_identifier = PacketIdentifier::parse(input)?;
         let reason = PubrecReasonCode::parse(input)?;
