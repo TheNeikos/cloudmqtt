@@ -42,10 +42,19 @@ crate::v5::reason_code::make_combined_reason_code! {
 }
 
 define_properties! {
+    packet_type: MDisconnect,
+    anker: "_Toc3901209",
     pub struct DisconnectProperties<'i> {
+        (anker: "_Toc3901211")
         session_expiry_interval: SessionExpiryInterval,
+
+        (anker: "_Toc3901212")
         reason_string: ReasonString<'i>,
+
+        (anker: "_Toc3901213")
         user_properties: UserProperties<'i>,
+
+        (anker: "_Toc3901214")
         server_reference: ServerReference<'i>
     }
 }
