@@ -8,14 +8,14 @@ use super::MResult;
 
 #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
 #[repr(u8)]
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum QualityOfService {
     AtMostOnce = 0,
     AtLeastOnce = 1,
     ExactlyOnce = 2,
 }
 
-#[derive(Debug, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PacketType {
     Connect,
     Connack,
