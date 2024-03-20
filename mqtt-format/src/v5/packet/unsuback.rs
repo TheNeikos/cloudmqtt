@@ -1,3 +1,11 @@
+use winnow::Bytes;
+use winnow::Parser;
+
+use crate::v5::{
+    variable_header::{parse_packet_identifier, PacketIdentifier, ReasonString, UserProperties},
+    MResult,
+};
+
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum UnsubackReasonCode {
         ImplementationSpecificError = crate::v5::reason_code::ImplementationSpecificError,
@@ -7,5 +15,44 @@ crate::v5::reason_code::make_combined_reason_code! {
         Success = crate::v5::reason_code::Success,
         TopicFilterInvalid = crate::v5::reason_code::TopicFilterInvalid,
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
+    }
+}
+
+crate::v5::properties::define_properties! {
+    pub struct UnsubackProperties<'i> {
+        reason_string: ReasonString<'i>,
+        user_properties: UserProperties<'i>,
+    }
+}
+
+pub struct MUnsuback<'i> {
+    packet_identifier: PacketIdentifier,
+    properties: UnsubackProperties<'i>,
+    reasons: &'i [UnsubackReasonCode],
+}
+
+impl<'i> MUnsuback<'i> {
+    pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
+        let packet_identifier = parse_packet_identifier(input)?;
+        let properties = UnsubackProperties::parse(input)?;
+
+        // Verify that the payload only contains valid reason codes
+        let payload: &[u8] = winnow::combinator::repeat_till::<_, _, (), _, _, _, _>(
+            0..,
+            UnsubackReasonCode::parse,
+            winnow::combinator::eof,
+        )
+        .recognize()
+        .parse_next(input)?;
+
+        // SAFETY: We verified above that the payload slice only contains valid UnsubackReasonCode
+        // bytes
+        let reasons: &[UnsubackReasonCode] = unsafe { std::mem::transmute(payload) };
+
+        Ok(Self {
+            packet_identifier,
+            properties,
+            reasons,
+        })
     }
 }
