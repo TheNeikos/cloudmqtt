@@ -76,21 +76,27 @@ impl<'i> MConnect<'i> {
             .verify(|lvl: &ProtocolLevel| *lvl == ProtocolLevel::V5)
             .parse_next(input)?;
 
-        let (_, clean_start, will_flag, will_qos, will_retain, password_flag, user_name_flag) =
-            winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
-                winnow::binary::bits::pattern(0x0, 1usize),
-                winnow::binary::bits::bool,
-                winnow::binary::bits::bool,
-                winnow::binary::bits::take(2usize)
-                    .try_map(<QualityOfService as TryFrom<u8>>::try_from),
-                winnow::binary::bits::bool,
-                winnow::binary::bits::bool,
-                winnow::binary::bits::bool,
-            ))
-            .parse_next(input)
-            .map_err(|_: ErrMode<InputError<_>>| {
-                ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-            })?;
+        let (
+            _reserved,
+            clean_start,
+            will_flag,
+            will_qos,
+            will_retain,
+            password_flag,
+            user_name_flag,
+        ) = winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
+            winnow::binary::bits::pattern(0x0, 1usize),
+            winnow::binary::bits::bool,
+            winnow::binary::bits::bool,
+            winnow::binary::bits::take(2usize).try_map(<QualityOfService as TryFrom<u8>>::try_from),
+            winnow::binary::bits::bool,
+            winnow::binary::bits::bool,
+            winnow::binary::bits::bool,
+        ))
+        .parse_next(input)
+        .map_err(|_: ErrMode<InputError<_>>| {
+            ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
+        })?;
 
         let keep_alive = parse_u16(input)?;
 
