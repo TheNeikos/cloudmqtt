@@ -170,22 +170,22 @@ impl<'i> MConnect<'i> {
 
         let flags = {
             let reserved = 0;
-            let clean_start = (self.clean_start as u8) << 6;
+            let clean_start = (self.clean_start as u8) << 1;
             let will = {
                 if let Some(will) = self.will.as_ref() {
-                    let will_flag = 1 << 5;
+                    let will_flag = 1 << 2;
                     let will_qos = {
                         let qos: u8 = will.will_qos.into();
                         qos << 3
                     };
-                    let will_retain = (will.will_retain as u8) << 2;
+                    let will_retain = (will.will_retain as u8) << 5;
                     will_flag & will_qos & will_retain
                 } else {
                     0
                 }
             };
-            let password = (self.password.is_some() as u8) << 1;
-            let username = (self.username.is_some() as u8) << 0;
+            let username = (self.username.is_some() as u8) << 6;
+            let password = (self.password.is_some() as u8) << 7;
 
             reserved & clean_start & will & password & username
         };
