@@ -56,6 +56,10 @@ impl<'i> Unsubscriptions<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        self.start.len() as u32
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         for unsub in self.iter() {
             unsub.write(buffer).await?;
@@ -136,6 +140,12 @@ impl<'i> MUnsubscribe<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub fn binary_size(&self) -> u32 {
+        self.packet_identifier.binary_size()
+            + self.properties.binary_size()
+            + self.unsubscriptions.binary_size()
     }
 
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
