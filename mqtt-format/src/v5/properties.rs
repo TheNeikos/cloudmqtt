@@ -148,6 +148,7 @@ macro_rules! define_properties {
 
                 $(
                     if let Some(prop) = self.$prop_name.as_ref() {
+                        $crate::v5::integers::write_variable_u32(buffer, <$prop>::IDENTIFIER).await?;
                         prop.write(buffer).await?;
                     }
                 )*

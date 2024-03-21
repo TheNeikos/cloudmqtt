@@ -10,6 +10,7 @@ use winnow::Parser;
 
 use super::integers::parse_u16;
 use super::integers::parse_u32;
+use super::integers::write_variable_u32;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
 use super::MResult;
@@ -90,7 +91,6 @@ macro_rules! define_properties {
                 async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
                     -> $crate::v5::write::WResult<W>
                 {
-                    $crate::v5::integers::write_variable_u32(buffer, $id).await?;
                     $writer(buffer, self.0).await?;
                     Ok(())
                 }
@@ -104,7 +104,7 @@ macro_rules! define_properties {
         )*
 
         #[derive(Debug, PartialEq)]
-        pub enum Property<'i> {
+        enum Property<'i> {
             $(
                 $name ( $name $(< $tylt >)? ),
             )*
@@ -122,20 +122,6 @@ macro_rules! define_properties {
                 };
 
                 winnow::combinator::trace("Property", disp).parse_next(input)
-            }
-
-            pub async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
-                -> $crate::v5::write::WResult<W>
-            {
-                match self {
-                    $(
-                        Self::$name (inner) => inner.write(buffer).await?,
-                    )*
-
-                    Self::UserProperties(inner) => inner.write(buffer).await?,
-                }
-
-                Ok(())
             }
         }
     }
@@ -320,8 +306,15 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
     }
 
     async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        for up in self.iter() {
-            crate::v5::integers::write_variable_u32(buffer, Self::IDENTIFIER).await?;
+        let mut iter = self.iter();
+        let first = iter
+            .next()
+            .expect("There is always at least one UserProperty available");
+
+        first.write(buffer).await?;
+
+        for up in iter {
+            write_variable_u32(buffer, UserProperties::IDENTIFIER).await?;
             up.write(buffer).await?;
         }
 
@@ -414,6 +407,7 @@ mod tests {
     use winnow::Bytes;
 
     use super::UserProperties;
+    use crate::v5::integers::write_variable_u32;
     use crate::v5::test::TestWriter;
     use crate::v5::variable_header::MqttProperties;
     use crate::v5::variable_header::Property;
@@ -476,10 +470,10 @@ mod tests {
         let prop = UserProperties(input);
 
         let mut writer = TestWriter { buffer: Vec::new() };
-        Property::UserProperties(prop)
-            .write(&mut writer)
+        write_variable_u32(&mut writer, UserProperties::IDENTIFIER)
             .await
             .unwrap();
+        prop.write(&mut writer).await.unwrap();
 
         let out = Property::parse(&mut Bytes::new(&writer.buffer)).unwrap();
 
