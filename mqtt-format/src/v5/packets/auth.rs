@@ -59,6 +59,10 @@ impl<'i> MAuth<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        self.reason.binary_size() + self.properties.binary_size()
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         self.reason.write(buffer).await?;
         self.properties.write(buffer).await
