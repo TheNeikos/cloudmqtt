@@ -14,7 +14,6 @@ categories = ["embedded", "parsing"]
 [features]
 default = ["mqttv5"]
 yoke = ["dep:yoke"]
-debug = ["winnow/debug"]
 mqttv3 = ["dep:futures", "dep:nom", "dep:nom-supreme"]
 mqttv5 = ["dep:winnow"]
 
