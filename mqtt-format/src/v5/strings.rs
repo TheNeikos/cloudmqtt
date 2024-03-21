@@ -32,11 +32,21 @@ pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
     .parse_next(input)
 }
 
+#[inline]
+pub fn string_binary_size(s: &str) -> u32 {
+    (2 + s.len()) as u32
+}
+
 pub async fn write_string<W: WriteMqttPacket>(buffer: &mut W, s: &str) -> WResult<W> {
     let len = s.len().try_into().map_err(|_| MqttWriteError::Invariant)?;
 
     buffer.write_u16(len).await?;
     buffer.write_slice(s.as_bytes()).await
+}
+
+#[inline]
+pub fn string_pair_binary_size(key: &str, value: &str) -> u32 {
+    string_binary_size(key) + string_binary_size(value)
 }
 
 /// Parse a pair of UTF-8 Strings
