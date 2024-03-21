@@ -12,6 +12,8 @@ use winnow::token::take_while;
 use winnow::Bytes;
 use winnow::Parser;
 
+use super::write::WResult;
+use super::write::WriteMqttPacket;
 use super::MResult;
 
 /// Parse a u16
@@ -26,6 +28,11 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     .parse_next(input)
 }
 
+pub async fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> WResult<W> {
+    buffer.write_u16(u.to_be()).await?;
+    Ok(())
+}
+
 /// Parse a u32
 ///
 /// MQTT expects their numbers in big-endian
@@ -36,6 +43,11 @@ pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
         winnow::binary::u32(winnow::binary::Endianness::Big),
     )
     .parse_next(input)
+}
+
+pub async fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
+    buffer.write_u32(u.to_be()).await?;
+    Ok(())
 }
 
 /// Parse a variable sized integer
@@ -70,6 +82,8 @@ mod tests {
     use crate::v5::integers::parse_u16;
     use crate::v5::integers::parse_u32;
     use crate::v5::integers::parse_variable_u32;
+    use crate::v5::test::TestWriter;
+    use crate::v5::write::WriteMqttPacket;
 
     #[test]
     fn check_integer_parsing() {
@@ -117,5 +131,32 @@ mod tests {
 
         let input = [0xFF, 0xFF, 0xFF, 0x8F];
         parse_variable_u32(&mut Bytes::new(&input)).unwrap_err();
+    }
+
+    #[tokio::test]
+    async fn test_write_byte() {
+        let mut writer = TestWriter { buffer: Vec::new() };
+
+        writer.write_byte(1).await.unwrap();
+
+        assert_eq!(writer.buffer, &[1]);
+    }
+
+    #[tokio::test]
+    async fn test_write_two_bytes() {
+        let mut writer = TestWriter { buffer: Vec::new() };
+
+        writer.write_u16(1).await.unwrap();
+
+        assert_eq!(writer.buffer, &[0x00, 0x01]);
+    }
+
+    #[tokio::test]
+    async fn test_write_four_bytes() {
+        let mut writer = TestWriter { buffer: Vec::new() };
+
+        writer.write_u32(1).await.unwrap();
+
+        assert_eq!(writer.buffer, &[0x00, 0x00, 0x00, 0x01]);
     }
 }
