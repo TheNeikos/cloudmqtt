@@ -7,6 +7,8 @@
 use winnow::Bytes;
 use winnow::Parser;
 
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 #[derive(Debug)]
