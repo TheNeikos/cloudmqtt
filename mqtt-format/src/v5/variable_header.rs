@@ -146,10 +146,12 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
         'input: 'i,
     {
         winnow::combinator::trace("UserProperties", |input: &mut &'input Bytes| {
-            // We only need to verify there is a correct string pair
-            let prop = UserProperty::parse.recognize().parse_next(input)?;
+            let slice = *input;
 
-            Ok(Self(prop))
+            // We only need to verify there is a correct string pair
+            let _prop = UserProperty::parse.recognize().parse_next(input)?;
+
+            Ok(Self(slice))
         })
         .parse_next(input)
     }
