@@ -74,7 +74,7 @@ impl<'i> MPuback<'i> {
     }
 
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.packet_identifer.write(buffer).await?;
+        self.packet_identifier.write(buffer).await?;
         self.reason.write(buffer).await?;
         self.properties.write(buffer).await
     }
