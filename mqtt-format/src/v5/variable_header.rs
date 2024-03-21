@@ -38,6 +38,8 @@ pub trait MqttProperties<'lt>: Sized {
     where
         'input: 'lt;
 
+    fn binary_size(&self) -> u32;
+
     fn write<W: WriteMqttPacket>(
         &self,
         buffer: &mut W,
@@ -49,7 +51,8 @@ macro_rules! define_properties {
         $(
             $name:ident $(< $tylt:lifetime >)? as $id:expr =>
                 parse with $parser:path as $($lt:lifetime)? $kind:ty;
-                write with $writer:path
+                write with $writer:path;
+                with size $size_closure:expr
         ),*
         $(,)?
     ]) => {
@@ -73,6 +76,11 @@ macro_rules! define_properties {
                             winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
                         ))
                     }).parse_next(input)
+                }
+
+                fn binary_size(&self) -> u32 {
+                    let fun = $size_closure;
+                    fun(&self.0)
                 }
 
                 async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
@@ -137,108 +145,133 @@ async fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
 define_properties! {[
     PayloadFormatIndicator as 0x01 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     MessageExpiryInterval as 0x02 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     ContentType<'i> as 0x03 =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     ResponseTopic<'i> as 0x08 =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     CorrelationData<'i> as 0x09 =>
         parse with super::bytes::parse_binary_data as &'i [u8];
-        write with super::bytes::write_binary_data,
+        write with super::bytes::write_binary_data;
+        with size super::bytes::binary_data_binary_size,
 
     SubscriptionIdentifier as 0x0B =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     SessionExpiryInterval as 0x11 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     AssignedClientIdentifier<'i> as 0x12 =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     ServerKeepAlive as 0x13 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     AuthenticationMethod<'i> as 0x15 =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     AuthenticationData<'i> as 0x16 =>
         parse with super::bytes::parse_binary_data as &'i [u8];
-        write with super::bytes::write_binary_data,
+        write with super::bytes::write_binary_data;
+        with size super::bytes::binary_data_binary_size,
 
     RequestProblemInformation as 0x17 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     WillDelayInterval as 0x18 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     RequestResponseInformation as 0x19 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     ResponseInformation<'i> as 0x1A =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     ServerReference<'i> as 0x1C =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     ReasonString<'i> as 0x1F =>
         parse with super::strings::parse_string as &'i str;
-        write with super::strings::write_string,
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
 
     ReceiveMaximum as 0x21 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     TopicAliasMaximum as 0x22 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     TopicAlias as 0x23 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     MaximumQoS as 0x24 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     RetainAvailable as 0x25 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     MaximumPacketSize as 0x27 =>
         parse with parse_u32 as u32;
-        write with super::integers::write_u32,
+        write with super::integers::write_u32;
+        with size |_| 4,
 
     WildcardSubscriptionAvailable as 0x28 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     SubscriptionIdentifiersAvailable as 0x29 =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
+        write with write_u8;
+        with size |_| 1,
 
     SharedSubscriptionAvailable as 0x2A =>
         parse with winnow::binary::u8 as u8;
-        write with write_u8,
-
+        write with write_u8;
+        with size |_| 1,
 ]}
 
 pub struct UserProperties<'i>(pub &'i [u8]);
@@ -266,6 +299,14 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
             Ok(Self(slice))
         })
         .parse_next(input)
+    }
+
+    fn binary_size(&self) -> u32 {
+        self.iter()
+            .map(|up| {
+                crate::v5::integers::variable_u32_binary_size(Self::IDENTIFIER) + up.binary_size()
+            })
+            .sum()
     }
 
     async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
@@ -310,6 +351,10 @@ impl<'i> UserProperty<'i> {
                 .parse_next(input)
         })
         .parse_next(input)
+    }
+
+    pub fn binary_size(&self) -> u32 {
+        crate::v5::strings::string_pair_binary_size(self.key, self.value)
     }
 
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {

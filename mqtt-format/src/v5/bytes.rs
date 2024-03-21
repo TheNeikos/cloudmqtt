@@ -30,6 +30,11 @@ pub async fn write_binary_data<W: WriteMqttPacket>(buffer: &mut W, slice: &[u8])
     buffer.write_slice(slice).await
 }
 
+#[inline]
+pub fn binary_data_binary_size(data: &[u8]) -> u32 {
+    (2 + data.len()) as u32
+}
+
 #[cfg(test)]
 mod tests {
     use winnow::Bytes;

@@ -75,6 +75,17 @@ pub fn parse_variable_u32(input: &mut &Bytes) -> MResult<u32> {
     .parse_next(input)
 }
 
+#[inline]
+pub const fn variable_u32_binary_size(u: u32) -> u32 {
+    match u {
+        0..=127 => 1,
+        128..=16383 => 2,
+        16384..=2_097_151 => 3,
+        2_097_152..=268_435_455 => 4,
+        _size => unreachable!(),
+    }
+}
+
 pub async fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
     match u {
         0..=127 => {
