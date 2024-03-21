@@ -11,6 +11,7 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use crate::v5::fixed_header::QualityOfService;
+use crate::v5::strings::write_string;
 use crate::v5::variable_header::ContentType;
 use crate::v5::variable_header::CorrelationData;
 use crate::v5::variable_header::MessageExpiryInterval;
@@ -19,6 +20,8 @@ use crate::v5::variable_header::ResponseTopic;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::TopicAlias;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 #[derive(Debug)]
@@ -95,6 +98,14 @@ impl<'i> MPublish<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        write_string(buffer, self.topic_name).await?;
+        self.packet_identifier.write(buffer).await?;
+        self.properties.write(buffer).await?;
+
+        buffer.write_slice(self.payload).await
     }
 }
 
