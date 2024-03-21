@@ -18,4 +18,8 @@ impl MPingresp {
         winnow::combinator::trace("MPingresp", winnow::combinator::eof.map(|_| Self))
             .parse_next(input)
     }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        Ok(())
+    }
 }
