@@ -69,7 +69,7 @@ define_properties! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901205")]
 pub struct MDisconnect<'i> {
     pub reason_code: DisconnectReasonCode,

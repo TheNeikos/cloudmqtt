@@ -14,7 +14,7 @@ use super::write::WResult;
 use super::write::WriteMqttPacket;
 use super::MResult;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PacketIdentifier(pub u16);
 
 impl PacketIdentifier {
@@ -57,7 +57,7 @@ macro_rules! define_properties {
         $(,)?
     ]) => {
         $(
-            #[derive(Debug)]
+            #[derive(Debug, PartialEq)]
             pub struct $name < $($tylt)? >(pub $(& $lt)? $kind);
 
             impl<'lt $(, $tylt)?> MqttProperties<'lt> for $name < $($tylt)? >
@@ -99,7 +99,7 @@ macro_rules! define_properties {
             }
         )*
 
-        #[derive(Debug)]
+        #[derive(Debug, PartialEq)]
         pub enum Property<'i> {
             $(
                 $name ( $name $(< $tylt >)? ),
@@ -275,6 +275,12 @@ define_properties! {[
 ]}
 
 pub struct UserProperties<'i>(pub &'i [u8]);
+
+impl<'i> core::cmp::PartialEq for UserProperties<'i> {
+    fn eq(&self, other: &Self) -> bool {
+        self.iter().eq(other.iter())
+    }
+}
 
 impl<'i> core::fmt::Debug for UserProperties<'i> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

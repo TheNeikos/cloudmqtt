@@ -11,7 +11,7 @@ macro_rules! make_combined_reason_code {
     }) => {
         #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
         #[repr(u8)]
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Debug, Copy, Clone, PartialEq)]
         pub enum $name {
             $( $reason_code_name = <$reason_code_type>::CODE ),*
         }
@@ -42,7 +42,7 @@ pub(crate) use make_combined_reason_code;
 
 macro_rules! define_reason_code {
     ($name:ident => $code:literal) => {
-        #[derive(Debug, Copy, Clone)]
+        #[derive(Debug, Copy, Clone, PartialEq)]
         pub struct $name;
         impl $name {
             pub const CODE: u8 = $code;
