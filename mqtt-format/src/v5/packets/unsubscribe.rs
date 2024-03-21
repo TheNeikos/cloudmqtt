@@ -105,6 +105,7 @@ impl<'i> Unsubscription<'i> {
         })
         .parse_next(input)
     }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         write_string(buffer, self.topic_filter).await
     }
@@ -135,5 +136,11 @@ impl<'i> MUnsubscribe<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer).await?;
+        self.properties.write(buffer).await?;
+        self.unsubscriptions.write(buffer).await
     }
 }
