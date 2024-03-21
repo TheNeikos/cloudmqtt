@@ -10,6 +10,8 @@ use winnow::Parser;
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::ReasonString;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
@@ -52,5 +54,11 @@ impl<'i> MPubcomp<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer).await?;
+        self.reason.write(buffer).await?;
+        self.properties.write(buffer).await
     }
 }
