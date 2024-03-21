@@ -123,6 +123,27 @@ macro_rules! define_properties {
                     })
                 }).parse_next(input)
             }
+
+            pub async fn write<W: crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> crate::v5::write::WResult<W> {
+                use crate::v5::variable_header::MqttProperties;
+
+                let binary_size = {
+                    0
+                    $(
+                        + self.$prop_name.as_ref().map(|p| p.binary_size()).unwrap_or(0)
+                    )*
+                };
+
+                $crate::v5::integers::write_variable_u32(buffer, binary_size).await?;
+
+                $(
+                    if let Some(prop) = self.$prop_name.as_ref() {
+                        prop.write(buffer).await?;
+                    }
+                )*
+
+                Ok(())
+            }
         }
     };
 }
