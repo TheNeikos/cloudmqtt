@@ -30,7 +30,7 @@ define_properties! {
     }
 }
 
-#[derive(Debug, num_enum::TryFromPrimitive, num_enum::IntoPrimitive, Clone, Copy)]
+#[derive(Debug, num_enum::TryFromPrimitive, num_enum::IntoPrimitive, Clone, Copy, PartialEq)]
 #[repr(u8)]
 pub enum RetainHandling {
     SendRetainedMessagesAlways = 0,
@@ -38,7 +38,7 @@ pub enum RetainHandling {
     DoNotSendRetainedMessages = 2,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct SubscriptionOptions {
     pub quality_of_service: QualityOfService,
     pub no_local: bool,
@@ -85,7 +85,7 @@ impl SubscriptionOptions {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901161")]
 pub struct Subscription<'i> {
     pub topic_filter: &'i str,
@@ -114,6 +114,12 @@ impl<'i> Subscription<'i> {
 
 pub struct Subscriptions<'i> {
     start: &'i [u8],
+}
+
+impl<'i> core::cmp::PartialEq for Subscriptions<'i> {
+    fn eq(&self, other: &Self) -> bool {
+        self.iter().eq(other.iter())
+    }
 }
 
 impl<'i> core::fmt::Debug for Subscriptions<'i> {

@@ -24,7 +24,7 @@ use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901100")]
 pub struct MPublish<'i> {
     pub duplicate: bool,

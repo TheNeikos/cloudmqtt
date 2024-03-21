@@ -33,7 +33,7 @@ use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct MConnect<'i> {
     pub client_identifier: &'i str,
     pub username: Option<&'i str>,
@@ -220,7 +220,7 @@ impl<'i> MConnect<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Will<'i> {
     pub properties: ConnectWillProperties<'i>,
     pub topic: &'i str,

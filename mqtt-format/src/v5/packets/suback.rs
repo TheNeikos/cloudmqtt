@@ -43,7 +43,7 @@ crate::v5::properties::define_properties! {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901171")]
 pub struct MSuback<'i> {
     pub packet_identifier: PacketIdentifier,
