@@ -184,8 +184,8 @@ impl<'i> MConnect<'i> {
                     0
                 }
             };
-            let username = (self.username.is_some() as u8) << 6;
-            let password = (self.password.is_some() as u8) << 7;
+            let password = (self.password.is_some() as u8) << 6;
+            let username = (self.username.is_some() as u8) << 7;
 
             reserved & clean_start & will & password & username
         };
