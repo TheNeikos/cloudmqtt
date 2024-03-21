@@ -26,6 +26,10 @@ macro_rules! make_combined_reason_code {
                 }).parse_next(input)
             }
 
+            pub fn binary_size(&self) -> u32 {
+                1
+            }
+
             pub async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> $crate::v5::write::WResult<W> {
                 match self {
                     $(
