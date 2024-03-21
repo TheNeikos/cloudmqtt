@@ -91,7 +91,7 @@ macro_rules! define_properties {
                         $id => $name::parse.map(Property::from),
                     )*
                     0x26 => UserProperties::parse.map(Property::from),
-                    _ => winnow::combinator::fail
+                    _ => winnow::combinator::trace("Unknown property id", winnow::combinator::fail),
                 };
 
                 winnow::combinator::trace("Property", disp).parse_next(input)
