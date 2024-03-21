@@ -12,6 +12,8 @@ use crate::v5::variable_header::ReasonString;
 use crate::v5::variable_header::ServerReference;
 use crate::v5::variable_header::SessionExpiryInterval;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
@@ -86,5 +88,10 @@ impl<'i> MDisconnect<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.reason_code.write(buffer).await?;
+        self.properties.write(buffer).await
     }
 }
