@@ -12,6 +12,9 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use super::integers::parse_u16;
+use super::write::MqttWriteError;
+use super::write::WResult;
+use super::write::WriteMqttPacket;
 use super::MResult;
 
 /// Parse an UTF-8 String
@@ -27,6 +30,23 @@ pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
             .map_err(|e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e))
     })
     .parse_next(input)
+}
+
+#[inline]
+pub fn string_binary_size(s: &str) -> u32 {
+    (2 + s.len()) as u32
+}
+
+pub async fn write_string<W: WriteMqttPacket>(buffer: &mut W, s: &str) -> WResult<W> {
+    let len = s.len().try_into().map_err(|_| MqttWriteError::Invariant)?;
+
+    buffer.write_u16(len).await?;
+    buffer.write_slice(s.as_bytes()).await
+}
+
+#[inline]
+pub fn string_pair_binary_size(key: &str, value: &str) -> u32 {
+    string_binary_size(key) + string_binary_size(value)
 }
 
 /// Parse a pair of UTF-8 Strings
@@ -49,11 +69,24 @@ mod tests {
     use winnow::Bytes;
 
     use crate::v5::strings::parse_string;
+    use crate::v5::strings::write_string;
+    use crate::v5::test::TestWriter;
 
     #[test]
     fn check_simple_string() {
         let input = [0x0, 0x5, 0x41, 0xF0, 0xAA, 0x9B, 0x94];
 
         assert_eq!(parse_string(&mut Bytes::new(&input)).unwrap(), "A𪛔");
+    }
+
+    #[tokio::test]
+    async fn test_write_string() {
+        let mut writer = TestWriter { buffer: Vec::new() };
+
+        let s = "foo bar baz";
+
+        write_string(&mut writer, s).await.unwrap();
+        let out = parse_string(&mut Bytes::new(&writer.buffer)).unwrap();
+        assert_eq!(out, s)
     }
 }

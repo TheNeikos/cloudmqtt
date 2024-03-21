@@ -13,6 +13,8 @@ use winnow::error::ParserError;
 use winnow::Bytes;
 use winnow::Parser;
 
+use super::write::WResult;
+use super::write::WriteMqttPacket;
 use super::MResult;
 
 #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
@@ -100,6 +102,40 @@ impl MFixedHeader {
         };
 
         Ok(MFixedHeader { packet_type })
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        #[allow(clippy::identity_op)]
+        let byte = match self.packet_type {
+            PacketType::Connect => (1 << 4) | 0,
+            PacketType::Connack => (2 << 4) | 0,
+            PacketType::Publish { dup, qos, retain } => {
+                let upper = 3 << 4;
+                let lower = {
+                    let dup = (dup as u8) << 3;
+                    let qos = (qos as u8) << 1;
+                    let retain = retain as u8;
+
+                    dup | qos | retain
+                };
+
+                upper | lower
+            }
+            PacketType::Puback => (4 << 4) | 0,
+            PacketType::Pubrec => (5 << 4) | 0,
+            PacketType::Pubrel => (6 << 4) | 0b0010,
+            PacketType::Pubcomp => (7 << 4) | 0,
+            PacketType::Subscribe => (8 << 4) | 0b0010,
+            PacketType::Suback => (9 << 4) | 0,
+            PacketType::Unsubscribe => (10 << 4) | 0b0010,
+            PacketType::Unsuback => (11 << 4) | 0,
+            PacketType::Pingreq => (12 << 4) | 0,
+            PacketType::Pingresp => (13 << 4) | 0,
+            PacketType::Disconnect => (14 << 4) | 0,
+            PacketType::Auth => (15 << 4) | 0,
+        };
+
+        buffer.write_byte(byte).await
     }
 }
 

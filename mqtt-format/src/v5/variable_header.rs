@@ -10,6 +10,8 @@ use winnow::Parser;
 
 use super::integers::parse_u16;
 use super::integers::parse_u32;
+use super::write::WResult;
+use super::write::WriteMqttPacket;
 use super::MResult;
 
 #[derive(Debug, Clone, Copy)]
@@ -22,6 +24,10 @@ impl PacketIdentifier {
         })
         .parse_next(input)
     }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        buffer.write_u16(self.0).await
+    }
 }
 
 pub trait MqttProperties<'lt>: Sized {
@@ -31,12 +37,22 @@ pub trait MqttProperties<'lt>: Sized {
     fn parse<'input>(input: &mut &'input Bytes) -> MResult<Self>
     where
         'input: 'lt;
+
+    fn binary_size(&self) -> u32;
+
+    fn write<W: WriteMqttPacket>(
+        &self,
+        buffer: &mut W,
+    ) -> impl core::future::Future<Output = WResult<W>> + Send;
 }
 
 macro_rules! define_properties {
     ([
         $(
-            $name:ident $(< $tylt:lifetime >)? as $id:expr => parse with $parser:path as $($lt:lifetime)? $kind:ty
+            $name:ident $(< $tylt:lifetime >)? as $id:expr =>
+                parse with $parser:path as $($lt:lifetime)? $kind:ty;
+                write with $writer:path;
+                with size $size_closure:expr
         ),*
         $(,)?
     ]) => {
@@ -60,6 +76,19 @@ macro_rules! define_properties {
                             winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
                         ))
                     }).parse_next(input)
+                }
+
+                fn binary_size(&self) -> u32 {
+                    let fun = $size_closure;
+                    fun(&self.0)
+                }
+
+                async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
+                    -> $crate::v5::write::WResult<W>
+                {
+                    $crate::v5::integers::write_variable_u32(buffer, $id).await?;
+                    $writer(buffer, self.0).await?;
+                    Ok(())
                 }
             }
 
@@ -85,42 +114,164 @@ macro_rules! define_properties {
                         $id => $name::parse.map(Property::from),
                     )*
                     0x26 => UserProperties::parse.map(Property::from),
-                    _ => winnow::combinator::fail
+                    _ => winnow::combinator::trace("Unknown property id", winnow::combinator::fail),
                 };
 
                 winnow::combinator::trace("Property", disp).parse_next(input)
+            }
+
+            pub async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
+                -> $crate::v5::write::WResult<W>
+            {
+                match self {
+                    $(
+                        Self::$name (inner) => inner.write(buffer).await?,
+                    )*
+
+                    Self::UserProperties(inner) => inner.write(buffer).await?,
+                }
+
+                Ok(())
             }
         }
     }
 }
 
+#[inline]
+async fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
+    buffer.write_byte(u).await
+}
+
 define_properties! {[
-    PayloadFormatIndicator as 0x01 => parse with winnow::binary::u8 as u8,
-    MessageExpiryInterval as 0x02 => parse with parse_u32 as u32,
-    ContentType<'i> as 0x03 => parse with super::strings::parse_string as &'i str,
-    ResponseTopic<'i> as 0x08 => parse with super::strings::parse_string as &'i str,
-    CorrelationData<'i> as 0x09 => parse with super::bytes::parse_binary_data as &'i [u8],
-    SubscriptionIdentifier as 0x0B => parse with parse_u32 as u32,
-    SessionExpiryInterval as 0x11 => parse with parse_u32 as u32,
-    AssignedClientIdentifier<'i> as 0x12 => parse with super::strings::parse_string as &'i str,
-    ServerKeepAlive as 0x13 => parse with parse_u32 as u32,
-    AuthenticationMethod<'i> as 0x15 => parse with super::strings::parse_string as &'i str,
-    AuthenticationData<'i> as 0x16 => parse with super::bytes::parse_binary_data as &'i [u8],
-    RequestProblemInformation as 0x17 => parse with winnow::binary::u8 as u8,
-    WillDelayInterval as 0x18 => parse with parse_u32 as u32,
-    RequestResponseInformation as 0x19 => parse with winnow::binary::u8 as u8,
-    ResponseInformation<'i> as 0x1A => parse with super::strings::parse_string as &'i str,
-    ServerReference<'i> as 0x1C => parse with super::strings::parse_string as &'i str,
-    ReasonString<'i> as 0x1F => parse with super::strings::parse_string as &'i str,
-    ReceiveMaximum as 0x21 => parse with parse_u32 as u32,
-    TopicAliasMaximum as 0x22 => parse with parse_u32 as u32,
-    TopicAlias as 0x23 => parse with parse_u32 as u32,
-    MaximumQoS as 0x24 => parse with winnow::binary::u8 as u8,
-    RetainAvailable as 0x25 => parse with winnow::binary::u8 as u8,
-    MaximumPacketSize as 0x27 => parse with parse_u32 as u32,
-    WildcardSubscriptionAvailable as 0x28 => parse with winnow::binary::u8 as u8,
-    SubscriptionIdentifiersAvailable as 0x29 => parse with winnow::binary::u8 as u8,
-    SharedSubscriptionAvailable as 0x2A => parse with winnow::binary::u8 as u8,
+    PayloadFormatIndicator as 0x01 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    MessageExpiryInterval as 0x02 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    ContentType<'i> as 0x03 =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    ResponseTopic<'i> as 0x08 =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    CorrelationData<'i> as 0x09 =>
+        parse with super::bytes::parse_binary_data as &'i [u8];
+        write with super::bytes::write_binary_data;
+        with size super::bytes::binary_data_binary_size,
+
+    SubscriptionIdentifier as 0x0B =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    SessionExpiryInterval as 0x11 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    AssignedClientIdentifier<'i> as 0x12 =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    ServerKeepAlive as 0x13 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    AuthenticationMethod<'i> as 0x15 =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    AuthenticationData<'i> as 0x16 =>
+        parse with super::bytes::parse_binary_data as &'i [u8];
+        write with super::bytes::write_binary_data;
+        with size super::bytes::binary_data_binary_size,
+
+    RequestProblemInformation as 0x17 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    WillDelayInterval as 0x18 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    RequestResponseInformation as 0x19 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    ResponseInformation<'i> as 0x1A =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    ServerReference<'i> as 0x1C =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    ReasonString<'i> as 0x1F =>
+        parse with super::strings::parse_string as &'i str;
+        write with super::strings::write_string;
+        with size super::strings::string_binary_size,
+
+    ReceiveMaximum as 0x21 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    TopicAliasMaximum as 0x22 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    TopicAlias as 0x23 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    MaximumQoS as 0x24 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    RetainAvailable as 0x25 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    MaximumPacketSize as 0x27 =>
+        parse with parse_u32 as u32;
+        write with super::integers::write_u32;
+        with size |_| 4,
+
+    WildcardSubscriptionAvailable as 0x28 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    SubscriptionIdentifiersAvailable as 0x29 =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
+
+    SharedSubscriptionAvailable as 0x2A =>
+        parse with winnow::binary::u8 as u8;
+        write with write_u8;
+        with size |_| 1,
 ]}
 
 pub struct UserProperties<'i>(pub &'i [u8]);
@@ -140,12 +291,31 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
         'input: 'i,
     {
         winnow::combinator::trace("UserProperties", |input: &mut &'input Bytes| {
-            // We only need to verify there is a correct string pair
-            let prop = UserProperty::parse.recognize().parse_next(input)?;
+            let slice = *input;
 
-            Ok(Self(prop))
+            // We only need to verify there is a correct string pair
+            let _prop = UserProperty::parse.recognize().parse_next(input)?;
+
+            Ok(Self(slice))
         })
         .parse_next(input)
+    }
+
+    fn binary_size(&self) -> u32 {
+        self.iter()
+            .map(|up| {
+                crate::v5::integers::variable_u32_binary_size(Self::IDENTIFIER) + up.binary_size()
+            })
+            .sum()
+    }
+
+    async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        for up in self.iter() {
+            crate::v5::integers::write_variable_u32(buffer, Self::IDENTIFIER).await?;
+            up.write(buffer).await?;
+        }
+
+        Ok(())
     }
 }
 
@@ -181,6 +351,15 @@ impl<'i> UserProperty<'i> {
                 .parse_next(input)
         })
         .parse_next(input)
+    }
+
+    pub fn binary_size(&self) -> u32 {
+        crate::v5::strings::string_pair_binary_size(self.key, self.value)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        crate::v5::strings::write_string(buffer, self.key).await?;
+        crate::v5::strings::write_string(buffer, self.value).await
     }
 }
 
@@ -222,8 +401,12 @@ impl<'i> Iterator for UserPropertyIterator<'i> {
 
 #[cfg(test)]
 mod tests {
+    use winnow::Bytes;
+
     use super::UserProperties;
+    use crate::v5::test::TestWriter;
     use crate::v5::variable_header::MqttProperties;
+    use crate::v5::variable_header::Property;
     use crate::v5::variable_header::RetainAvailable;
     use crate::v5::variable_header::UserProperty;
 
@@ -261,5 +444,44 @@ mod tests {
                 value: "hj"
             }
         );
+    }
+
+    #[tokio::test]
+    async fn test_write_properties() {
+        #[rustfmt::skip]
+        let input = &[
+            // First the string pair of the UserProp
+            0x0, 0x1, b'a',
+            0x0, 0x2, b'b', b'c',
+            // Retain Available
+            RetainAvailable::IDENTIFIER as u8,
+            0x1,
+            // User Property
+            UserProperties::IDENTIFIER as u8,
+            // Now a string pair
+            0x0, 0x1, b'f',
+            0x0, 0x2, b'h', b'j',
+        ];
+
+        let prop = UserProperties(input);
+
+        let mut writer = TestWriter { buffer: Vec::new() };
+        Property::UserProperties(prop)
+            .write(&mut writer)
+            .await
+            .unwrap();
+
+        let out = Property::parse(&mut Bytes::new(&writer.buffer)).unwrap();
+
+        match out {
+            Property::UserProperties(up) => {
+                assert_eq!(
+                    up.iter().collect::<Vec<_>>(),
+                    UserProperties(input).iter().collect::<Vec<_>>()
+                );
+            }
+
+            _ => panic!("Wrong type"),
+        }
     }
 }

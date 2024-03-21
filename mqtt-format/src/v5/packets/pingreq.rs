@@ -7,6 +7,8 @@
 use winnow::Bytes;
 use winnow::Parser;
 
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 #[derive(Debug)]
@@ -17,5 +19,9 @@ impl MPingreq {
     pub fn parse(input: &mut &Bytes) -> MResult<MPingreq> {
         winnow::combinator::trace("MPingreq", winnow::combinator::eof.map(|_| Self))
             .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
+        Ok(())
     }
 }

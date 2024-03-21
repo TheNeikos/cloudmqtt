@@ -10,9 +10,12 @@ use winnow::Parser;
 
 use crate::v5::properties::define_properties;
 use crate::v5::strings::parse_string;
+use crate::v5::strings::write_string;
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 define_properties! {
@@ -51,6 +54,14 @@ impl<'i> Unsubscriptions<'i> {
             Ok(Unsubscriptions { start })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        for unsub in self.iter() {
+            unsub.write(buffer).await?;
+        }
+
+        Ok(())
     }
 
     pub fn iter(&self) -> UnsubscriptionsIter<'i> {
@@ -94,6 +105,10 @@ impl<'i> Unsubscription<'i> {
         })
         .parse_next(input)
     }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        write_string(buffer, self.topic_filter).await
+    }
 }
 
 #[derive(Debug)]
@@ -121,5 +136,11 @@ impl<'i> MUnsubscribe<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer).await?;
+        self.properties.write(buffer).await?;
+        self.unsubscriptions.write(buffer).await
     }
 }

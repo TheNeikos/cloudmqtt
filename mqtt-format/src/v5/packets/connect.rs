@@ -29,6 +29,8 @@ use crate::v5::variable_header::SessionExpiryInterval;
 use crate::v5::variable_header::TopicAliasMaximum;
 use crate::v5::variable_header::UserProperties;
 use crate::v5::variable_header::WillDelayInterval;
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 #[derive(Debug)]
@@ -161,6 +163,49 @@ impl<'i> MConnect<'i> {
         })
         .parse_next(input)
     }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        crate::v5::strings::write_string(buffer, "MQTT").await?;
+        ProtocolLevel::V5.write(buffer).await?;
+
+        let flags = {
+            let reserved = 0;
+            let clean_start = (self.clean_start as u8) << 1;
+            let will = {
+                if let Some(will) = self.will.as_ref() {
+                    let will_flag = 1 << 2;
+                    let will_qos = {
+                        let qos: u8 = will.will_qos.into();
+                        qos << 3
+                    };
+                    let will_retain = (will.will_retain as u8) << 5;
+                    will_flag | will_qos | will_retain
+                } else {
+                    0
+                }
+            };
+            let password = (self.password.is_some() as u8) << 6;
+            let username = (self.username.is_some() as u8) << 7;
+
+            reserved | clean_start | will | password | username
+        };
+
+        buffer.write_byte(flags).await?;
+        buffer.write_u16(self.keep_alive).await?;
+        self.properties.write(buffer).await?;
+        crate::v5::strings::write_string(buffer, self.client_identifier).await?;
+        if let Some(will) = self.will.as_ref() {
+            will.write(buffer).await?;
+        }
+        if let Some(username) = self.username.as_ref() {
+            crate::v5::strings::write_string(buffer, username).await?;
+        }
+        if let Some(password) = self.password.as_ref() {
+            crate::v5::bytes::write_binary_data(buffer, password).await?;
+        }
+
+        Ok(())
+    }
 }
 
 #[derive(Debug)]
@@ -170,6 +215,15 @@ pub struct Will<'i> {
     pub payload: &'i [u8],
     pub will_qos: QualityOfService,
     pub will_retain: bool,
+}
+
+impl<'i> Will<'i> {
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.properties.write(buffer).await?;
+        crate::v5::strings::write_string(buffer, self.topic).await?;
+        crate::v5::bytes::write_binary_data(buffer, self.payload).await?;
+        Ok(())
+    }
 }
 
 crate::v5::properties::define_properties! {
@@ -198,6 +252,13 @@ impl ProtocolLevel {
                 input,
                 winnow::error::ErrorKind::Verify,
             )),
+        }
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        match self {
+            ProtocolLevel::V3 => buffer.write_byte(3).await,
+            ProtocolLevel::V5 => buffer.write_byte(5).await,
         }
     }
 }

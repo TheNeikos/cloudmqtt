@@ -44,5 +44,9 @@ pub mod reason_code;
 pub mod strings;
 mod util;
 pub mod variable_header;
+pub mod write;
+
+#[cfg(test)]
+pub mod test;
 
 pub type MResult<O> = winnow::PResult<O>;
