@@ -100,6 +100,13 @@ impl<'i> MPublish<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        crate::v5::strings::string_binary_size(self.topic_name)
+            + self.packet_identifier.binary_size()
+            + self.properties.binary_size()
+            + crate::v5::bytes::binary_data_binary_size(self.payload)
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         write_string(buffer, self.topic_name).await?;
         self.packet_identifier.write(buffer).await?;
