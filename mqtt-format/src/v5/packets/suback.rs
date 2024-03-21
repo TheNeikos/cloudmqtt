@@ -79,6 +79,12 @@ impl<'i> MSuback<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        self.packet_identifier.binary_size()
+            + self.reasons.len() as u32
+            + self.properties.binary_size()
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         self.packet_identifier.write(buffer).await?;
         self.properties.write(buffer).await?;
