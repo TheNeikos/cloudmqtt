@@ -21,7 +21,7 @@ impl MPingreq {
             .parse_next(input)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub async fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
         Ok(())
     }
 }
