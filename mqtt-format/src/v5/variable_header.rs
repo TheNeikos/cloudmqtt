@@ -25,6 +25,10 @@ impl PacketIdentifier {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        2
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         buffer.write_u16(self.0).await
     }

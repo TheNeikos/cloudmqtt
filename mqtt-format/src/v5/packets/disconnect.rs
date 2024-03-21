@@ -90,6 +90,10 @@ impl<'i> MDisconnect<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        self.reason_code.binary_size() + self.properties.binary_size()
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         self.reason_code.write(buffer).await?;
         self.properties.write(buffer).await

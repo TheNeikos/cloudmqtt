@@ -73,6 +73,12 @@ impl<'i> MPuback<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        self.packet_identifier.binary_size()
+            + self.reason.binary_size()
+            + self.properties.binary_size()
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         self.packet_identifier.write(buffer).await?;
         self.reason.write(buffer).await?;

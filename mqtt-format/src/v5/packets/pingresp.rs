@@ -21,6 +21,10 @@ impl MPingresp {
             .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        0
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
         Ok(())
     }

@@ -164,6 +164,18 @@ impl<'i> MConnect<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        6 // protocol name 2 + 4
+        + 1 // protocol level
+        + 1 // flags
+        + 2 // keep alive
+        + self.properties.binary_size()
+        + crate::v5::strings::string_binary_size(self.client_identifier)
+        + self.will.as_ref().map(|w| w.binary_size()).unwrap_or(0)
+        + self.username.as_ref().map(|s| crate::v5::strings::string_binary_size(s)).unwrap_or(0)
+        + self.password.as_ref().map(|p| crate::v5::bytes::binary_data_binary_size(p)).unwrap_or(0)
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         crate::v5::strings::write_string(buffer, "MQTT").await?;
         ProtocolLevel::V5.write(buffer).await?;
@@ -223,6 +235,12 @@ impl<'i> Will<'i> {
         crate::v5::strings::write_string(buffer, self.topic).await?;
         crate::v5::bytes::write_binary_data(buffer, self.payload).await?;
         Ok(())
+    }
+
+    pub fn binary_size(&self) -> u32 {
+        self.properties.binary_size()
+            + crate::v5::strings::string_binary_size(self.topic)
+            + crate::v5::bytes::binary_data_binary_size(self.payload)
     }
 }
 

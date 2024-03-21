@@ -148,6 +148,12 @@ impl<'i> MConnack<'i> {
         .parse_next(input)
     }
 
+    pub fn binary_size(&self) -> u32 {
+        1 // flags
+        + self.reason_code.binary_size()
+        + self.properties.binary_size()
+    }
+
     pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         let byte = (self.session_present as u8) << 7;
         buffer.write_byte(byte).await?;
