@@ -10,6 +10,8 @@ use winnow::Parser;
 
 use super::integers::parse_u16;
 use super::integers::parse_u32;
+use super::write::WResult;
+use super::write::WriteMqttPacket;
 use super::MResult;
 
 #[derive(Debug, Clone, Copy)]
@@ -21,6 +23,10 @@ impl PacketIdentifier {
             parse_u16(input).map(PacketIdentifier)
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        buffer.write_u16(self.0).await
     }
 }
 
