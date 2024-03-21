@@ -15,9 +15,12 @@ use winnow::Parser;
 use crate::v5::fixed_header::QualityOfService;
 use crate::v5::properties::define_properties;
 use crate::v5::strings::parse_string;
+use crate::v5::strings::write_string;
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::WResult;
+use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 define_properties! {
@@ -27,7 +30,7 @@ define_properties! {
     }
 }
 
-#[derive(Debug, num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
+#[derive(Debug, num_enum::TryFromPrimitive, num_enum::IntoPrimitive, Clone, Copy)]
 #[repr(u8)]
 pub enum RetainHandling {
     SendRetainedMessagesAlways = 0,
@@ -69,6 +72,17 @@ impl SubscriptionOptions {
         })
         .parse_next(input)
     }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        let qos = self.quality_of_service as u8;
+        let no_local = (self.no_local as u8) << 2;
+        let retain_as_published = (self.retain_as_published as u8) << 3;
+        let retain_handling = (self.retain_handling as u8) << 4;
+
+        let sub_opts = qos | no_local | retain_as_published | retain_handling;
+
+        buffer.write_byte(sub_opts).await
+    }
 }
 
 #[derive(Debug)]
@@ -90,6 +104,11 @@ impl<'i> Subscription<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        write_string(buffer, self.topic_filter).await?;
+        self.options.write(buffer).await
     }
 }
 
@@ -117,6 +136,14 @@ impl<'i> Subscriptions<'i> {
             Ok(Subscriptions { start })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        for sub in self.iter() {
+            sub.write(buffer).await?;
+        }
+
+        Ok(())
     }
 
     pub fn iter(&self) -> SubscriptionsIter<'i> {
@@ -168,5 +195,11 @@ impl<'i> MSubscribe<'i> {
             })
         })
         .parse_next(input)
+    }
+
+    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer).await?;
+        self.properties.write(buffer).await?;
+        self.subscriptions.write(buffer).await
     }
 }
