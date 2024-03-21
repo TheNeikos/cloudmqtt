@@ -113,56 +113,64 @@ impl<'i> MqttPacket<'i> {
                     packet_type: PacketType::Auth,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Connack(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Connack,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Connect(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Connect,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Disconnect(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Disconnect,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Pingreq(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Pingreq,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Pingresp(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Pingresp,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Puback(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Puback,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Pubcomp(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Pubcomp,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Publish(p) => {
                 let fixed_header = MFixedHeader {
@@ -173,51 +181,60 @@ impl<'i> MqttPacket<'i> {
                     },
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Pubrec(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Pubrec,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Pubrel(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Pubrel,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Suback(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Suback,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Subscribe(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Subscribe,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Unsuback(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Unsuback,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
             MqttPacket::Unsubscribe(p) => {
                 let fixed_header = MFixedHeader {
                     packet_type: PacketType::Unsubscribe,
                 };
                 fixed_header.write(buffer).await?;
-                p.write(buffer).await
+                crate::v5::integers::write_variable_u32(buffer, p.binary_size()).await?;
+                p.write(buffer).await?;
             }
         }
+
+        Ok(())
     }
 }
 
