@@ -211,6 +211,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_write_u32() {
+        // step by some prime number
+        for i in (0..268_435_455).step_by(271) {
+            let mut writer = TestWriter { buffer: Vec::new() };
+
+            writer.write_u32(i).await.unwrap();
+
+            let out = parse_u32(&mut Bytes::new(&writer.buffer)).unwrap();
+            assert_eq!(out, i);
+        }
+    }
+
+    #[tokio::test]
     async fn test_write_variable_u32() {
         // step by some prime number
         for i in (0..268_435_455).step_by(271) {
