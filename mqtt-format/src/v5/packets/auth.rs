@@ -94,4 +94,25 @@ mod test {
             },
         });
     }
+
+    #[tokio::test]
+    async fn test_roundtrip_mauth_props() {
+        let mut writer = TestWriter { buffer: Vec::new() };
+
+        let instance = MAuth {
+            reason: AuthReasonCode::ContinueAuthentication,
+            properties: AuthProperties {
+                authentication_method: Some(AuthenticationMethod("foo")),
+                authentication_data: Some(AuthenticationData(&[0, 1])),
+                reason_string: Some(ReasonString("foo")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            },
+        };
+
+        instance.write(&mut writer).await.unwrap();
+
+        let output = MAuth::parse(&mut Bytes::new(&writer.buffer)).unwrap();
+
+        assert_eq!(instance, output);
+    }
 }
