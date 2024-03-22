@@ -57,7 +57,9 @@ macro_rules! define_properties {
             $name:ident $(< $tylt:lifetime >)? as $id:expr =>
                 parse with $parser:path as $($lt:lifetime)? $kind:ty;
                 write with $writer:path;
-                with size $size_closure:expr
+                with size $size_closure:expr;
+                testfnname: $testfnname:ident;
+                testvalues: [ $($testvalue:expr),* $(,)? ]
         ),*
         $(,)?
     ]) => {
@@ -101,6 +103,7 @@ macro_rules! define_properties {
                     Property::$name(value)
                 }
             }
+
         )*
 
         #[derive(Debug, PartialEq)]
@@ -124,6 +127,26 @@ macro_rules! define_properties {
                 winnow::combinator::trace("Property", disp).parse_next(input)
             }
         }
+
+        #[cfg(test)]
+        mod property_tests {
+            $(
+                #[tokio::test]
+                async fn $testfnname () {
+                    use super::MqttProperties;
+                    use super::$name;
+                    $(
+                        let mut writer = $crate::v5::test::TestWriter { buffer: Vec::new() };
+                        let instance = $name ($testvalue);
+                        instance.write(&mut writer).await.unwrap();
+                        let output = $name::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
+
+                        let expected = $name ( $testvalue );
+                        assert_eq!(output, expected, "Expected {expected:?}, but got: {:?}", &writer.buffer);
+                    )*
+                }
+            )*
+        }
     }
 }
 
@@ -136,132 +159,194 @@ define_properties! {[
     PayloadFormatIndicator as 0x01 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_payloadformatindicator;
+        testvalues: [0x00, 0x01],
 
     MessageExpiryInterval as 0x02 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_messageexpiryinterval;
+        testvalues: [12u32],
 
     ContentType<'i> as 0x03 =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_contenttype;
+        testvalues: ["foo bar"],
 
     ResponseTopic<'i> as 0x08 =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_responsetopic;
+        testvalues: ["some topic name"],
 
     CorrelationData<'i> as 0x09 =>
         parse with super::bytes::parse_binary_data as &'i [u8];
         write with super::bytes::write_binary_data;
-        with size super::bytes::binary_data_binary_size,
+        with size super::bytes::binary_data_binary_size;
+        testfnname: test_roundtrip_correlationdata;
+        testvalues: [
+            &[0x00, 0xFF],
+            &[0x00, 0xFF, 0xAB],
+            &[0x00, 0xFF, 0xAB, 0xFF],
+            &[0x00, 0xFF, 0xFF, 0xFF, 0xFA],
+        ],
 
     SubscriptionIdentifier as 0x0B =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_subscriptionidentifier;
+        testvalues: [12, 14, 42, 1337],
 
     SessionExpiryInterval as 0x11 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_sessionexpiryinterval;
+        testvalues: [12, 14, 42, 1337],
 
     AssignedClientIdentifier<'i> as 0x12 =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_assignedclientidentifier;
+        testvalues: ["fooobarbar"],
 
     ServerKeepAlive as 0x13 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_serverkeepalive;
+        testvalues: [12, 14, 42, 1337],
 
     AuthenticationMethod<'i> as 0x15 =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_authenticationmethod;
+        testvalues: ["fooobarbar"],
 
     AuthenticationData<'i> as 0x16 =>
         parse with super::bytes::parse_binary_data as &'i [u8];
         write with super::bytes::write_binary_data;
-        with size super::bytes::binary_data_binary_size,
+        with size super::bytes::binary_data_binary_size;
+        testfnname: test_roundtrip_authenticationdata;
+        testvalues: [
+            &[0x00, 0xFF],
+            &[0x00, 0xFF, 0xAB],
+            &[0x00, 0xFF, 0xAB, 0xFF],
+            &[0x00, 0xFF, 0xFF, 0xFF, 0xFA],
+        ],
 
     RequestProblemInformation as 0x17 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_requestprobleminformation;
+        testvalues: [12, 14, 42, 137],
 
     WillDelayInterval as 0x18 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_willdelayinterval;
+        testvalues: [12, 14, 42, 1337],
 
     RequestResponseInformation as 0x19 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_requestresponseinformation;
+        testvalues: [12, 14, 42, 137],
 
     ResponseInformation<'i> as 0x1A =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_responseinformation;
+        testvalues: ["fooobarbar"],
 
     ServerReference<'i> as 0x1C =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_serverreference;
+        testvalues: ["fooobarbar"],
 
     ReasonString<'i> as 0x1F =>
         parse with super::strings::parse_string as &'i str;
         write with super::strings::write_string;
-        with size super::strings::string_binary_size,
+        with size super::strings::string_binary_size;
+        testfnname: test_roundtrip_reasonstring;
+        testvalues: ["fooobarbar"],
 
     ReceiveMaximum as 0x21 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_receivemaximum;
+        testvalues: [12, 14, 42, 1337],
 
     TopicAliasMaximum as 0x22 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_topicaliasmaximum;
+        testvalues: [12, 14, 42, 1337],
 
     TopicAlias as 0x23 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_topicalias;
+        testvalues: [12, 14, 42, 1337],
 
     MaximumQoS as 0x24 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_maximumqos;
+        testvalues: [12, 14, 42, 137],
 
     RetainAvailable as 0x25 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_retainavailable;
+        testvalues: [12, 14, 42, 137],
 
     MaximumPacketSize as 0x27 =>
         parse with parse_u32 as u32;
         write with super::integers::write_u32;
-        with size |_| 4,
+        with size |_| 4;
+        testfnname: test_roundtrip_maximumpacketsize;
+        testvalues: [12, 14, 42, 1337],
 
     WildcardSubscriptionAvailable as 0x28 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_wildcardsubscriptionavailable;
+        testvalues: [12, 14, 42, 137],
 
     SubscriptionIdentifiersAvailable as 0x29 =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_subscriptionidentifiersavailable;
+        testvalues: [12, 14, 42, 137],
 
     SharedSubscriptionAvailable as 0x2A =>
         parse with winnow::binary::u8 as u8;
         write with write_u8;
-        with size |_| 1,
+        with size |_| 1;
+        testfnname: test_roundtrip_sharedsubscriptionavailable;
+        testvalues: [12, 14, 42, 137],
 ]}
 
 pub struct UserProperties<'i>(pub &'i [u8]);
