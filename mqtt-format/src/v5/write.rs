@@ -29,10 +29,11 @@ pub trait WriteMqttPacket: Send {
     #[inline]
     fn write_u32(&mut self, u: u32) -> impl core::future::Future<Output = WResult<Self>> + Send {
         async move {
-            self.write_byte((u >> 24) as u8).await?;
-            self.write_byte((u >> 16) as u8).await?;
-            self.write_byte((u >> 8) as u8).await?;
-            self.write_byte(u as u8).await
+            let bytes = u.to_be_bytes();
+            self.write_byte(bytes[0]).await?;
+            self.write_byte(bytes[1]).await?;
+            self.write_byte(bytes[2]).await?;
+            self.write_byte(bytes[3]).await
         }
     }
 }
