@@ -90,7 +90,7 @@ macro_rules! define_properties {
                 async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
                     -> $crate::v5::write::WResult<W>
                 {
-                    $crate::v5::integers::write_variable_u32(buffer, $id).await?;
+                    $crate::v5::integers::write_u16(buffer, $id).await?;
                     $writer(buffer, self.0).await?;
                     Ok(())
                 }
