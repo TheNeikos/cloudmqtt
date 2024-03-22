@@ -46,7 +46,7 @@ pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
 }
 
 pub async fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
-    buffer.write_u32(u.to_be()).await?;
+    buffer.write_u32(u).await?;
     Ok(())
 }
 
