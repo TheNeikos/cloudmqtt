@@ -68,3 +68,30 @@ impl<'i> MAuth<'i> {
         self.properties.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use winnow::Bytes;
+
+    use crate::v5::packets::auth::AuthProperties;
+    use crate::v5::packets::auth::AuthReasonCode;
+    use crate::v5::packets::auth::MAuth;
+    use crate::v5::test::TestWriter;
+    use crate::v5::variable_header::AuthenticationData;
+    use crate::v5::variable_header::AuthenticationMethod;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_mauth_no_props() {
+        crate::v5::test::make_roundtrip_test!(MAuth {
+            reason: AuthReasonCode::ContinueAuthentication,
+            properties: AuthProperties {
+                authentication_method: None,
+                authentication_data: None,
+                reason_string: None,
+                user_properties: None,
+            },
+        });
+    }
+}
