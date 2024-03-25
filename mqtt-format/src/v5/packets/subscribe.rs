@@ -49,14 +49,15 @@ pub struct SubscriptionOptions {
 impl SubscriptionOptions {
     fn parse(input: &mut &Bytes) -> MResult<SubscriptionOptions> {
         winnow::combinator::trace("SubscriptionOptions", |input: &mut &Bytes| {
-            let (quality_of_service, no_local, retain_as_published, retain_handling) =
+            let (_reserved, retain_handling, retain_as_published, no_local, quality_of_service) =
                 bits::<_, _, InputError<(_, usize)>, _, _>((
-                    winnow::binary::bits::take(2usize)
-                        .try_map(<QualityOfService as TryFrom<u8>>::try_from),
-                    winnow::binary::bits::bool,
-                    winnow::binary::bits::bool,
+                    winnow::binary::bits::pattern(0x0, 2usize),
                     winnow::binary::bits::take(2usize)
                         .try_map(<RetainHandling as TryFrom<u8>>::try_from),
+                    winnow::binary::bits::bool,
+                    winnow::binary::bits::bool,
+                    winnow::binary::bits::take(2usize)
+                        .try_map(<QualityOfService as TryFrom<u8>>::try_from),
                 ))
                 .parse_next(input)
                 .map_err(|_: ErrMode<InputError<_>>| {
