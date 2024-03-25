@@ -29,3 +29,17 @@ impl MPingreq {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::pingreq::MPingreq;
+
+    #[tokio::test]
+    async fn test_roundtrip_pingreq() {
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+        let instance = MPingreq;
+        instance.write(&mut writer).await.unwrap();
+        let output = MPingreq::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
+        assert_eq!(instance, output);
+    }
+}
