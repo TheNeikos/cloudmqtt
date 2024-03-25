@@ -47,6 +47,7 @@ pub mod subscribe;
 pub mod unsuback;
 pub mod unsubscribe;
 
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug)]
 pub enum MqttPacket<'i> {
     Auth(MAuth<'i>),
