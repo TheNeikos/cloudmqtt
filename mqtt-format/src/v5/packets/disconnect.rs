@@ -99,3 +99,40 @@ impl<'i> MDisconnect<'i> {
         self.properties.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::DisconnectProperties;
+    use super::MDisconnect;
+    use crate::v5::packets::disconnect::DisconnectReasonCode;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::ServerReference;
+    use crate::v5::variable_header::SessionExpiryInterval;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_disconnect_no_props() {
+        crate::v5::test::make_roundtrip_test!(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties {
+                session_expiry_interval: None,
+                reason_string: None,
+                user_properties: None,
+                server_reference: None,
+            },
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_disconnect_with_props() {
+        crate::v5::test::make_roundtrip_test!(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties {
+                session_expiry_interval: Some(SessionExpiryInterval(123)),
+                reason_string: Some(ReasonString("foo")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+                server_reference: Some(ServerReference("barbarbar")),
+            },
+        });
+    }
+}
