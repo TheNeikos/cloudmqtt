@@ -129,7 +129,7 @@ macro_rules! define_properties {
 
                 let prop_size = 0
                     $(
-                        + self.$prop_name.as_ref().map(|p| p.binary_size()).unwrap_or(0)
+                        + self.$prop_name.as_ref().map(|p| $crate::v5::integers::variable_u32_binary_size(<$prop>::IDENTIFIER) + p.binary_size()).unwrap_or(0)
                      )*
                     ;
 
@@ -141,7 +141,7 @@ macro_rules! define_properties {
 
                 let size = 0
                     $(
-                        + self.$prop_name.as_ref().map(|p| p.binary_size()).unwrap_or(0)
+                        + self.$prop_name.as_ref().map(|p| $crate::v5::integers::variable_u32_binary_size(<$prop>::IDENTIFIER) + p.binary_size()).unwrap_or(0)
                      )*
                     ;
                 $crate::v5::integers::write_variable_u32(buffer, size).await?;
