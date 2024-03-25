@@ -96,3 +96,37 @@ impl<'i> MSuback<'i> {
         buffer.write_slice(reasons).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::suback::MSuback;
+    use crate::v5::packets::suback::SubackProperties;
+    use crate::v5::packets::suback::SubackReasonCode;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_suback_no_props() {
+        crate::v5::test::make_roundtrip_test!(MSuback {
+            packet_identifier: PacketIdentifier(17),
+            reasons: &[SubackReasonCode::GrantedQoS0],
+            properties: SubackProperties {
+                reason_string: None,
+                user_properties: None,
+            },
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_suback_props() {
+        crate::v5::test::make_roundtrip_test!(MSuback {
+            packet_identifier: PacketIdentifier(17),
+            reasons: &[SubackReasonCode::GrantedQoS0],
+            properties: SubackProperties {
+                reason_string: Some(ReasonString("sgjdhsbgjsghb")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            },
+        });
+    }
+}
