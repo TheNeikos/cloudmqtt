@@ -36,6 +36,9 @@ pub trait WriteMqttPacket: Send {
             self.write_byte(bytes[3]).await
         }
     }
+
+    #[cfg(test)]
+    fn len(&self) -> usize;
 }
 
 #[cfg(test)]

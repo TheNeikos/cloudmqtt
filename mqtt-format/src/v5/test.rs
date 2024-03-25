@@ -25,8 +25,11 @@ impl WriteMqttPacket for TestWriter {
         self.buffer.extend(u);
         Ok(())
     }
-}
 
+    fn len(&self) -> usize {
+        self.buffer.len()
+    }
+}
 
 macro_rules! make_roundtrip_test {
     ($name:ident $def:tt) => {
