@@ -76,3 +76,37 @@ impl<'i> MPubrec<'i> {
         self.properties.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::pubrec::MPubrec;
+    use crate::v5::packets::pubrec::PubrecProperties;
+    use crate::v5::packets::pubrec::PubrecReasonCode;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_mauth_no_props() {
+        crate::v5::test::make_roundtrip_test!(MPubrec {
+            packet_identifier: PacketIdentifier(123),
+            reason: PubrecReasonCode::Success,
+            properties: PubrecProperties {
+                reason_string: None,
+                user_properties: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_mauth_props() {
+        crate::v5::test::make_roundtrip_test!(MPubrec {
+            packet_identifier: PacketIdentifier(123),
+            reason: PubrecReasonCode::Success,
+            properties: PubrecProperties {
+                reason_string: Some(ReasonString("fooobasrbbarbabwer")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            }
+        });
+    }
+}
