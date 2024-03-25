@@ -160,3 +160,66 @@ impl<'i> MUnsubscribe<'i> {
         self.unsubscriptions.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::unsubscribe::MUnsubscribe;
+    use crate::v5::packets::unsubscribe::UnsubscribeProperties;
+    use crate::v5::packets::unsubscribe::Unsubscription;
+    use crate::v5::packets::unsubscribe::Unsubscriptions;
+    use crate::v5::test::TestWriter;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::SubscriptionIdentifier;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_unsubscription() {
+        crate::v5::test::make_roundtrip_test!(Unsubscription {
+            topic_filter: "foo",
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_unsubscribe_no_props() {
+        let mut sub_writer = TestWriter { buffer: Vec::new() };
+
+        let subscription = Unsubscription {
+            topic_filter: "foo",
+        };
+
+        subscription.write(&mut sub_writer).await.unwrap();
+
+        crate::v5::test::make_roundtrip_test!(MUnsubscribe {
+            packet_identifier: PacketIdentifier(88),
+            unsubscriptions: Unsubscriptions {
+                start: &sub_writer.buffer
+            },
+            properties: UnsubscribeProperties {
+                subscription_identifier: None,
+                user_properties: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_unsubscribe_with_props() {
+        let mut sub_writer = TestWriter { buffer: Vec::new() };
+
+        let subscription = Unsubscription {
+            topic_filter: "foo",
+        };
+
+        subscription.write(&mut sub_writer).await.unwrap();
+
+        crate::v5::test::make_roundtrip_test!(MUnsubscribe {
+            packet_identifier: PacketIdentifier(88),
+            unsubscriptions: Unsubscriptions {
+                start: &sub_writer.buffer
+            },
+            properties: UnsubscribeProperties {
+                subscription_identifier: Some(SubscriptionIdentifier(125)),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            }
+        });
+    }
+}
