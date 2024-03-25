@@ -184,7 +184,7 @@ impl<'i> Iterator for SubscriptionsIter<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct MSubscribe<'i> {
     pub packet_identifier: PacketIdentifier,
     pub properties: SubscribeProperties<'i>,
