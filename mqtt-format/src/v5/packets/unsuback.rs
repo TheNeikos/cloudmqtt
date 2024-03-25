@@ -87,3 +87,37 @@ impl<'i> MUnsuback<'i> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::unsuback::MUnsuback;
+    use crate::v5::packets::unsuback::UnsubackProperties;
+    use crate::v5::packets::unsuback::UnsubackReasonCode;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_unsuback_no_props() {
+        crate::v5::test::make_roundtrip_test!(MUnsuback {
+            packet_identifier: PacketIdentifier(89),
+            properties: UnsubackProperties {
+                reason_string: None,
+                user_properties: None
+            },
+            reasons: &[UnsubackReasonCode::Success],
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_unsuback_props() {
+        crate::v5::test::make_roundtrip_test!(MUnsuback {
+            packet_identifier: PacketIdentifier(89),
+            properties: UnsubackProperties {
+                reason_string: Some(ReasonString("2345678")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            },
+            reasons: &[UnsubackReasonCode::Success],
+        });
+    }
+}
