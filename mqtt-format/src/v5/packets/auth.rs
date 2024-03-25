@@ -71,12 +71,9 @@ impl<'i> MAuth<'i> {
 
 #[cfg(test)]
 mod test {
-    use winnow::Bytes;
-
     use crate::v5::packets::auth::AuthProperties;
     use crate::v5::packets::auth::AuthReasonCode;
     use crate::v5::packets::auth::MAuth;
-    use crate::v5::test::TestWriter;
     use crate::v5::variable_header::AuthenticationData;
     use crate::v5::variable_header::AuthenticationMethod;
     use crate::v5::variable_header::ReasonString;
@@ -97,9 +94,7 @@ mod test {
 
     #[tokio::test]
     async fn test_roundtrip_mauth_props() {
-        let mut writer = TestWriter { buffer: Vec::new() };
-
-        let instance = MAuth {
+        crate::v5::test::make_roundtrip_test!(MAuth {
             reason: AuthReasonCode::ContinueAuthentication,
             properties: AuthProperties {
                 authentication_method: Some(AuthenticationMethod("foo")),
@@ -107,12 +102,6 @@ mod test {
                 reason_string: Some(ReasonString("foo")),
                 user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
             },
-        };
-
-        instance.write(&mut writer).await.unwrap();
-
-        let output = MAuth::parse(&mut Bytes::new(&writer.buffer)).unwrap();
-
-        assert_eq!(instance, output);
+        });
     }
 }
