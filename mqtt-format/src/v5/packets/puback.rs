@@ -41,6 +41,7 @@ define_properties!(
     }
 );
 
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901121")]
 pub struct MPuback<'i> {

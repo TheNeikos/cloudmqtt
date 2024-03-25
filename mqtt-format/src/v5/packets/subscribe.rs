@@ -184,6 +184,7 @@ impl<'i> Iterator for SubscriptionsIter<'i> {
     }
 }
 
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, PartialEq)]
 pub struct MSubscribe<'i> {
     pub packet_identifier: PacketIdentifier,

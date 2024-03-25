@@ -33,6 +33,7 @@ use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
+#[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, PartialEq)]
 pub struct MConnect<'i> {
     pub client_identifier: &'i str,
