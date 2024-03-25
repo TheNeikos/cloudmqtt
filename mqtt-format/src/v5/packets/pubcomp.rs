@@ -68,3 +68,37 @@ impl<'i> MPubcomp<'i> {
         self.properties.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::pubcomp::MPubcomp;
+    use crate::v5::packets::pubcomp::PubcompProperties;
+    use crate::v5::packets::pubcomp::PubcompReasonCode;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_pubcomp_no_props() {
+        crate::v5::test::make_roundtrip_test!(MPubcomp {
+            packet_identifier: PacketIdentifier(123),
+            reason: PubcompReasonCode::Success,
+            properties: PubcompProperties {
+                reason_string: None,
+                user_properties: None,
+            },
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_puback_with_props() {
+        crate::v5::test::make_roundtrip_test!(MPubcomp {
+            packet_identifier: PacketIdentifier(123),
+            reason: PubcompReasonCode::Success,
+            properties: PubcompProperties {
+                reason_string: Some(ReasonString("fooooo")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            }
+        });
+    }
+}
