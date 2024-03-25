@@ -94,22 +94,22 @@ impl<'i> MConnect<'i> {
                 .parse_next(input)?;
 
             let (
-                _reserved,
-                clean_start,
-                will_flag,
-                will_qos,
-                will_retain,
-                password_flag,
                 user_name_flag,
+                password_flag,
+                will_retain,
+                will_qos,
+                will_flag,
+                clean_start,
+                _reserved,
             ) = winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
-                winnow::binary::bits::pattern(0x0, 1usize),
+                winnow::binary::bits::bool,
                 winnow::binary::bits::bool,
                 winnow::binary::bits::bool,
                 winnow::binary::bits::take(2usize)
                     .try_map(<QualityOfService as TryFrom<u8>>::try_from),
                 winnow::binary::bits::bool,
                 winnow::binary::bits::bool,
-                winnow::binary::bits::bool,
+                winnow::binary::bits::pattern(0x0, 1usize),
             ))
             .parse_next(input)
             .map_err(|_: ErrMode<InputError<_>>| {
