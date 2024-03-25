@@ -139,6 +139,9 @@ macro_rules! define_properties {
             pub async fn write<W: crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> crate::v5::write::WResult<W> {
                 use crate::v5::variable_header::MqttProperties;
 
+                #[cfg(test)]
+                let start_len = buffer.len();
+
                 let size = 0
                     $(
                         + self.$prop_name.as_ref().map(|p| $crate::v5::integers::variable_u32_binary_size(<$prop>::IDENTIFIER) + p.binary_size()).unwrap_or(0)
@@ -152,6 +155,13 @@ macro_rules! define_properties {
                         prop.write(buffer).await?;
                     }
                 )*
+
+                #[cfg(test)]
+                {
+                    let total_len = buffer.len() - start_len;
+
+                    debug_assert_eq!(total_len, self.binary_size() as usize, "We must write as much as we calculate in advance");
+                }
 
                 Ok(())
             }
