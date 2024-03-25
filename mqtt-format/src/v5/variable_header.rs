@@ -78,11 +78,7 @@ macro_rules! define_properties {
                         'input: 'lt
                 {
                     use winnow::Parser;
-                    winnow::combinator::trace("PacketIdentifier", |input: &mut &'input Bytes| {
-                        Ok(Self(
-                            winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
-                        ))
-                    }).parse_next(input)
+                    winnow::combinator::trace(stringify!($name), $parser).parse_next(input).map(Self)
                 }
 
                 fn binary_size(&self) -> u32 {
