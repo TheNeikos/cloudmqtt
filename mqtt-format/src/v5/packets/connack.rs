@@ -33,7 +33,7 @@ use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
-    pub enum ConnectReasonCode {
+    pub enum ConnackReasonCode {
         Success = crate::v5::reason_code::Success,
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
         MalformedPacket = crate::v5::reason_code::MalformedPacket,
@@ -119,7 +119,7 @@ define_properties![
 #[doc = crate::v5::util::md_speclink!("_Toc3901074")]
 pub struct MConnack<'i> {
     pub session_present: bool,
-    pub reason_code: ConnectReasonCode,
+    pub reason_code: ConnackReasonCode,
     pub properties: ConnackProperties<'i>,
 }
 
@@ -136,7 +136,7 @@ impl<'i> MConnack<'i> {
                     ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
                 })?;
 
-            let reason_code = ConnectReasonCode::parse(input)?;
+            let reason_code = ConnackReasonCode::parse(input)?;
             let properties = ConnackProperties::parse(input)?;
 
             Ok(MConnack {
