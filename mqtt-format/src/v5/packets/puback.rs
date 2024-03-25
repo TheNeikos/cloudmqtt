@@ -85,3 +85,37 @@ impl<'i> MPuback<'i> {
         self.properties.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::puback::MPuback;
+    use crate::v5::packets::puback::PubackProperties;
+    use crate::v5::packets::puback::PubackReasonCode;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_puback_no_props() {
+        crate::v5::test::make_roundtrip_test!(MPuback {
+            packet_identifier: PacketIdentifier(123),
+            reason: PubackReasonCode::Success,
+            properties: PubackProperties {
+                reason_string: None,
+                user_properties: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_puback_with_props() {
+        crate::v5::test::make_roundtrip_test!(MPuback {
+            packet_identifier: PacketIdentifier(123),
+            reason: PubackReasonCode::Success,
+            properties: PubackProperties {
+                reason_string: Some(ReasonString("fooooo")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            }
+        });
+    }
+}

@@ -78,11 +78,7 @@ macro_rules! define_properties {
                         'input: 'lt
                 {
                     use winnow::Parser;
-                    winnow::combinator::trace("PacketIdentifier", |input: &mut &'input Bytes| {
-                        Ok(Self(
-                            winnow::combinator::trace(stringify!($name), $parser).parse_next(input)?
-                        ))
-                    }).parse_next(input)
+                    winnow::combinator::trace(stringify!($name), $parser).parse_next(input).map(Self)
                 }
 
                 fn binary_size(&self) -> u32 {
@@ -384,8 +380,15 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
 
     fn binary_size(&self) -> u32 {
         self.iter()
-            .map(|up| {
-                crate::v5::integers::variable_u32_binary_size(Self::IDENTIFIER) + up.binary_size()
+            .enumerate()
+            .map(|(idx, up)| {
+                up.binary_size()
+                    // Skip the first id length as we do not write it!
+                    + if idx == 0 {
+                        0
+                    } else {
+                        crate::v5::integers::variable_u32_binary_size(Self::IDENTIFIER)
+                    }
             })
             .sum()
     }

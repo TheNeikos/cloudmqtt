@@ -49,14 +49,15 @@ pub struct SubscriptionOptions {
 impl SubscriptionOptions {
     fn parse(input: &mut &Bytes) -> MResult<SubscriptionOptions> {
         winnow::combinator::trace("SubscriptionOptions", |input: &mut &Bytes| {
-            let (quality_of_service, no_local, retain_as_published, retain_handling) =
+            let (_reserved, retain_handling, retain_as_published, no_local, quality_of_service) =
                 bits::<_, _, InputError<(_, usize)>, _, _>((
-                    winnow::binary::bits::take(2usize)
-                        .try_map(<QualityOfService as TryFrom<u8>>::try_from),
-                    winnow::binary::bits::bool,
-                    winnow::binary::bits::bool,
+                    winnow::binary::bits::pattern(0x0, 2usize),
                     winnow::binary::bits::take(2usize)
                         .try_map(<RetainHandling as TryFrom<u8>>::try_from),
+                    winnow::binary::bits::bool,
+                    winnow::binary::bits::bool,
+                    winnow::binary::bits::take(2usize)
+                        .try_map(<QualityOfService as TryFrom<u8>>::try_from),
                 ))
                 .parse_next(input)
                 .map_err(|_: ErrMode<InputError<_>>| {
@@ -183,7 +184,7 @@ impl<'i> Iterator for SubscriptionsIter<'i> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct MSubscribe<'i> {
     pub packet_identifier: PacketIdentifier,
     pub properties: SubscribeProperties<'i>,
@@ -217,5 +218,89 @@ impl<'i> MSubscribe<'i> {
         self.packet_identifier.write(buffer).await?;
         self.properties.write(buffer).await?;
         self.subscriptions.write(buffer).await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::v5::fixed_header::QualityOfService;
+    use crate::v5::packets::subscribe::MSubscribe;
+    use crate::v5::packets::subscribe::RetainHandling;
+    use crate::v5::packets::subscribe::SubscribeProperties;
+    use crate::v5::packets::subscribe::Subscription;
+    use crate::v5::packets::subscribe::SubscriptionOptions;
+    use crate::v5::packets::subscribe::Subscriptions;
+    use crate::v5::test::TestWriter;
+    use crate::v5::variable_header::PacketIdentifier;
+    use crate::v5::variable_header::SubscriptionIdentifier;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_subscription() {
+        crate::v5::test::make_roundtrip_test!(Subscription {
+            topic_filter: "foo",
+            options: SubscriptionOptions {
+                quality_of_service: QualityOfService::AtMostOnce,
+                no_local: true,
+                retain_as_published: true,
+                retain_handling: RetainHandling::SendRetainedMessagesAlways,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_subscribe_no_props() {
+        let mut sub_writer = TestWriter { buffer: Vec::new() };
+
+        let subscription = Subscription {
+            topic_filter: "foo",
+            options: SubscriptionOptions {
+                quality_of_service: QualityOfService::AtMostOnce,
+                no_local: true,
+                retain_as_published: true,
+                retain_handling: RetainHandling::SendRetainedMessagesAlways,
+            },
+        };
+
+        subscription.write(&mut sub_writer).await.unwrap();
+
+        crate::v5::test::make_roundtrip_test!(MSubscribe {
+            packet_identifier: PacketIdentifier(88),
+            subscriptions: Subscriptions {
+                start: &sub_writer.buffer
+            },
+            properties: SubscribeProperties {
+                subscription_identifier: None,
+                user_properties: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_subscribe_with_props() {
+        let mut sub_writer = TestWriter { buffer: Vec::new() };
+
+        let subscription = Subscription {
+            topic_filter: "foo",
+            options: SubscriptionOptions {
+                quality_of_service: QualityOfService::AtMostOnce,
+                no_local: true,
+                retain_as_published: true,
+                retain_handling: RetainHandling::SendRetainedMessagesAlways,
+            },
+        };
+
+        subscription.write(&mut sub_writer).await.unwrap();
+
+        crate::v5::test::make_roundtrip_test!(MSubscribe {
+            packet_identifier: PacketIdentifier(88),
+            subscriptions: Subscriptions {
+                start: &sub_writer.buffer
+            },
+            properties: SubscribeProperties {
+                subscription_identifier: Some(SubscriptionIdentifier(125)),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            }
+        });
     }
 }

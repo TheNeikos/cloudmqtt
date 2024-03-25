@@ -25,4 +25,19 @@ impl WriteMqttPacket for TestWriter {
         self.buffer.extend(u);
         Ok(())
     }
+
+    fn len(&self) -> usize {
+        self.buffer.len()
+    }
 }
+
+macro_rules! make_roundtrip_test {
+    ($name:ident $def:tt) => {
+        let mut writer = $crate::v5::test::TestWriter { buffer: Vec::new() };
+        let instance = $name $def;
+        instance.write(&mut writer).await.unwrap();
+        let output = $name::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
+        assert_eq!(instance, output);
+    }
+}
+pub(crate) use make_roundtrip_test;

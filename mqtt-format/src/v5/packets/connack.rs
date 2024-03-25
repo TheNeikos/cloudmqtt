@@ -33,7 +33,7 @@ use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
-    pub enum ConnectReasonCode {
+    pub enum ConnackReasonCode {
         Success = crate::v5::reason_code::Success,
         UnspecifiedError = crate::v5::reason_code::UnspecifiedError,
         MalformedPacket = crate::v5::reason_code::MalformedPacket,
@@ -119,7 +119,7 @@ define_properties![
 #[doc = crate::v5::util::md_speclink!("_Toc3901074")]
 pub struct MConnack<'i> {
     pub session_present: bool,
-    pub reason_code: ConnectReasonCode,
+    pub reason_code: ConnackReasonCode,
     pub properties: ConnackProperties<'i>,
 }
 
@@ -136,7 +136,7 @@ impl<'i> MConnack<'i> {
                     ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
                 })?;
 
-            let reason_code = ConnectReasonCode::parse(input)?;
+            let reason_code = ConnackReasonCode::parse(input)?;
             let properties = ConnackProperties::parse(input)?;
 
             Ok(MConnack {
@@ -159,5 +159,83 @@ impl<'i> MConnack<'i> {
         buffer.write_byte(byte).await?;
         self.reason_code.write(buffer).await?;
         self.properties.write(buffer).await
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::ConnackProperties;
+    use super::ConnackReasonCode;
+    use super::MConnack;
+    use crate::v5::variable_header::AssignedClientIdentifier;
+    use crate::v5::variable_header::AuthenticationData;
+    use crate::v5::variable_header::AuthenticationMethod;
+    use crate::v5::variable_header::MaximumPacketSize;
+    use crate::v5::variable_header::MaximumQoS;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::ReceiveMaximum;
+    use crate::v5::variable_header::ResponseInformation;
+    use crate::v5::variable_header::RetainAvailable;
+    use crate::v5::variable_header::ServerKeepAlive;
+    use crate::v5::variable_header::ServerReference;
+    use crate::v5::variable_header::SessionExpiryInterval;
+    use crate::v5::variable_header::SharedSubscriptionAvailable;
+    use crate::v5::variable_header::SubscriptionIdentifiersAvailable;
+    use crate::v5::variable_header::TopicAliasMaximum;
+    use crate::v5::variable_header::UserProperties;
+    use crate::v5::variable_header::WildcardSubscriptionAvailable;
+
+    #[tokio::test]
+    async fn test_roundtrip_connack_no_props() {
+        crate::v5::test::make_roundtrip_test!(MConnack {
+            session_present: true,
+            reason_code: ConnackReasonCode::Success,
+            properties: ConnackProperties {
+                session_expiry_interval: None,
+                receive_maximum: None,
+                maximum_qos: None,
+                retain_available: None,
+                maximum_packet_size: None,
+                assigned_client_identifier: None,
+                topic_alias_maximum: None,
+                reason_string: None,
+                user_properties: None,
+                wildcard_subscription_available: None,
+                subscription_identifiers_available: None,
+                shared_scubscription_available: None,
+                server_keep_alive: None,
+                response_information: None,
+                server_reference: None,
+                authentication_method: None,
+                authentication_data: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_connack_with_props() {
+        crate::v5::test::make_roundtrip_test!(MConnack {
+            session_present: true,
+            reason_code: ConnackReasonCode::Success,
+            properties: ConnackProperties {
+                session_expiry_interval: Some(SessionExpiryInterval(120)),
+                receive_maximum: Some(ReceiveMaximum(123)),
+                maximum_qos: Some(MaximumQoS(8)),
+                retain_available: Some(RetainAvailable(1)),
+                maximum_packet_size: Some(MaximumPacketSize(1024)),
+                assigned_client_identifier: Some(AssignedClientIdentifier("foobar")),
+                topic_alias_maximum: Some(TopicAliasMaximum(1234)),
+                reason_string: Some(ReasonString("reason")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+                wildcard_subscription_available: Some(WildcardSubscriptionAvailable(123)),
+                subscription_identifiers_available: Some(SubscriptionIdentifiersAvailable(123)),
+                shared_scubscription_available: Some(SharedSubscriptionAvailable(123)),
+                server_keep_alive: Some(ServerKeepAlive(123)),
+                response_information: Some(ResponseInformation("fofofo")),
+                server_reference: Some(ServerReference("barbarbar")),
+                authentication_method: Some(AuthenticationMethod("bazbazbaz")),
+                authentication_data: Some(AuthenticationData(&[0xFF, 0xFF])),
+            }
+        });
     }
 }

@@ -68,3 +68,40 @@ impl<'i> MAuth<'i> {
         self.properties.write(buffer).await
     }
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::packets::auth::AuthProperties;
+    use crate::v5::packets::auth::AuthReasonCode;
+    use crate::v5::packets::auth::MAuth;
+    use crate::v5::variable_header::AuthenticationData;
+    use crate::v5::variable_header::AuthenticationMethod;
+    use crate::v5::variable_header::ReasonString;
+    use crate::v5::variable_header::UserProperties;
+
+    #[tokio::test]
+    async fn test_roundtrip_mauth_no_props() {
+        crate::v5::test::make_roundtrip_test!(MAuth {
+            reason: AuthReasonCode::ContinueAuthentication,
+            properties: AuthProperties {
+                authentication_method: None,
+                authentication_data: None,
+                reason_string: None,
+                user_properties: None,
+            },
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_mauth_props() {
+        crate::v5::test::make_roundtrip_test!(MAuth {
+            reason: AuthReasonCode::ContinueAuthentication,
+            properties: AuthProperties {
+                authentication_method: Some(AuthenticationMethod("foo")),
+                authentication_data: Some(AuthenticationData(&[0, 1])),
+                reason_string: Some(ReasonString("foo")),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+            },
+        });
+    }
+}
