@@ -280,3 +280,121 @@ impl ProtocolLevel {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::ConnectProperties;
+    use super::MConnect;
+    use crate::v5::packets::connect::ConnectWillProperties;
+    use crate::v5::packets::connect::Will;
+    use crate::v5::variable_header::AuthenticationData;
+    use crate::v5::variable_header::AuthenticationMethod;
+    use crate::v5::variable_header::ContentType;
+    use crate::v5::variable_header::CorrelationData;
+    use crate::v5::variable_header::MaximumPacketSize;
+    use crate::v5::variable_header::MessageExpiryInterval;
+    use crate::v5::variable_header::PayloadFormatIndicator;
+    use crate::v5::variable_header::ReceiveMaximum;
+    use crate::v5::variable_header::RequestProblemInformation;
+    use crate::v5::variable_header::RequestResponseInformation;
+    use crate::v5::variable_header::ResponseTopic;
+    use crate::v5::variable_header::SessionExpiryInterval;
+    use crate::v5::variable_header::TopicAliasMaximum;
+    use crate::v5::variable_header::UserProperties;
+    use crate::v5::variable_header::WillDelayInterval;
+
+    #[tokio::test]
+    async fn test_roundtrip_connect_empty() {
+        crate::v5::test::make_roundtrip_test!(MConnect {
+            client_identifier: "i am so cool",
+            username: None,
+            password: None,
+            clean_start: true,
+            will: None,
+            keep_alive: 321,
+            properties: ConnectProperties {
+                session_expiry_interval: None,
+                receive_maximum: None,
+                maximum_packet_size: None,
+                topic_alias_maximum: None,
+                request_response_information: None,
+                request_problem_information: None,
+                user_properties: None,
+                authentication_method: None,
+                authentication_data: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_connect_no_props() {
+        crate::v5::test::make_roundtrip_test!(MConnect {
+            client_identifier: "i am so cool",
+            username: Some("user"),
+            password: Some(&[0x2A, 0x55]),
+            clean_start: true,
+            will: Some(Will {
+                properties: ConnectWillProperties {
+                    will_delay_interval: None,
+                    payload_format_indicator: None,
+                    message_expiry_interval: None,
+                    content_type: None,
+                    response_topic: None,
+                    correlation_data: None,
+                },
+                topic: "crazy topic",
+                payload: &[0xAB, 0xCD, 0xEF],
+                will_qos: crate::v5::fixed_header::QualityOfService::ExactlyOnce,
+                will_retain: true,
+            }),
+            keep_alive: 321,
+            properties: ConnectProperties {
+                session_expiry_interval: None,
+                receive_maximum: None,
+                maximum_packet_size: None,
+                topic_alias_maximum: None,
+                request_response_information: None,
+                request_problem_information: None,
+                user_properties: None,
+                authentication_method: None,
+                authentication_data: None,
+            }
+        });
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_connect_with_props() {
+        crate::v5::test::make_roundtrip_test!(MConnect {
+            client_identifier: "i am so cool",
+            username: Some("user"),
+            password: Some(&[0x2A, 0x55]),
+            clean_start: true,
+            will: Some(Will {
+                properties: ConnectWillProperties {
+                    will_delay_interval: Some(WillDelayInterval(123)),
+                    payload_format_indicator: Some(PayloadFormatIndicator(123)),
+                    message_expiry_interval: Some(MessageExpiryInterval(123)),
+                    content_type: Some(ContentType("json")),
+                    response_topic: Some(ResponseTopic("resp")),
+                    correlation_data: Some(CorrelationData(&[0xFF])),
+                },
+                topic: "crazy topic",
+                payload: &[0xAB, 0xCD, 0xEF],
+                will_qos: crate::v5::fixed_header::QualityOfService::ExactlyOnce,
+                will_retain: true,
+            }),
+            keep_alive: 321,
+            properties: ConnectProperties {
+                session_expiry_interval: Some(SessionExpiryInterval(123)),
+                receive_maximum: Some(ReceiveMaximum(1024)),
+                maximum_packet_size: Some(MaximumPacketSize(1024)),
+                topic_alias_maximum: Some(TopicAliasMaximum(1203)),
+                request_response_information: Some(RequestResponseInformation(90)),
+                request_problem_information: Some(RequestProblemInformation(88)),
+                user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),
+                authentication_method: Some(AuthenticationMethod("foo")),
+                authentication_data: Some(AuthenticationData(&[0xAA])),
+            }
+        });
+    }
+}
