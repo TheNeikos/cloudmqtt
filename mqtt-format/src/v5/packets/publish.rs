@@ -119,3 +119,84 @@ impl<'i> MPublish<'i> {
 fn sanity_check_topic_name(topic_name: &str) -> bool {
     topic_name.chars().all(|c| c != '#' && c != '*')
 }
+
+#[cfg(test)]
+mod test {
+    use crate::v5::fixed_header::QualityOfService;
+    use crate::v5::packets::publish::MPublish;
+    use crate::v5::packets::publish::PublishProperties;
+    use crate::v5::variable_header::PacketIdentifier;
+
+    #[tokio::test]
+    async fn test_roundtrip_pubcomp_no_props() {
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+
+        let duplicate = true;
+        let quality_of_service = QualityOfService::ExactlyOnce;
+        let retain = false;
+
+        let instance = MPublish {
+            duplicate,
+            quality_of_service,
+            retain,
+            topic_name: "top/ic",
+            packet_identifier: PacketIdentifier(1),
+            properties: PublishProperties {
+                payload_format_indicator: None,
+                message_expiry_interval: None,
+                topic_alias: None,
+                response_topic: None,
+                correlation_data: None,
+                user_properties: None,
+                subscription_identifier: None,
+                content_type: None,
+            },
+            payload: &[0x12, 0x34],
+        };
+        instance.write(&mut writer).await.unwrap();
+        let output = MPublish::parse(
+            duplicate,
+            quality_of_service,
+            retain,
+            &mut winnow::Bytes::new(&writer.buffer),
+        )
+        .unwrap();
+        assert_eq!(instance, output);
+    }
+
+    #[tokio::test]
+    async fn test_roundtrip_puback_with_props() {
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+        let duplicate = true;
+        let quality_of_service = QualityOfService::ExactlyOnce;
+        let retain = false;
+
+        let instance = MPublish {
+            duplicate,
+            quality_of_service,
+            retain,
+            topic_name: "top/ic",
+            packet_identifier: PacketIdentifier(1),
+            properties: PublishProperties {
+                payload_format_indicator: None,
+                message_expiry_interval: None,
+                topic_alias: None,
+                response_topic: None,
+                correlation_data: None,
+                user_properties: None,
+                subscription_identifier: None,
+                content_type: None,
+            },
+            payload: &[0x12, 0x34],
+        };
+        instance.write(&mut writer).await.unwrap();
+        let output = MPublish::parse(
+            duplicate,
+            quality_of_service,
+            retain,
+            &mut winnow::Bytes::new(&writer.buffer),
+        )
+        .unwrap();
+        assert_eq!(instance, output);
+    }
+}
