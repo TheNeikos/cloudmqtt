@@ -4,10 +4,11 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-mod codecs;
-mod packet;
 mod client;
 mod client_identifier;
+mod codecs;
 mod error;
 mod keep_alive;
+mod packet;
+mod properties;
 mod string;
