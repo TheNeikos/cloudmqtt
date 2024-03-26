@@ -20,9 +20,26 @@ impl KeepAlive {
         }
     }
 }
+
 impl TryFrom<Duration> for KeepAlive {
-    type Error = ();
+    type Error = KeepAliveError;
+
     fn try_from(value: Duration) -> Result<Self, Self::Error> {
-        todo!()
+        let secs = value.as_secs();
+        if secs > u16::MAX.into() {
+            return Err(KeepAliveError::OutOfBounds)
+        }
+        let secs = secs as u16;
+
+        Ok(KeepAlive::Seconds(NonZeroU16::try_from(secs)?))
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum KeepAliveError {
+    #[error("KeepAlive cannot be of zero duration")]
+    KeepAliveZero(#[from] std::num::TryFromIntError),
+
+    #[error("KeepAlive out of bounds, maximum is {} seconds", u16::MAX)]
+    OutOfBounds,
 }
