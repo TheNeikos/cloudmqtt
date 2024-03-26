@@ -8,11 +8,11 @@ use std::ops::Deref;
 
 use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
 use mqtt_format::v5::write::WriteMqttPacket;
-use stable_deref_trait::CloneStableDeref;
 use stable_deref_trait::StableDeref;
 use tokio_util::bytes::BufMut;
 use tokio_util::bytes::Bytes;
 use tokio_util::bytes::BytesMut;
+use yoke::CloneableCart;
 use yoke::Yoke;
 
 #[derive(Debug, Clone)]
@@ -30,8 +30,9 @@ impl Deref for StableBytes {
 unsafe impl StableDeref for StableBytes {}
 
 // SAFETY: StableBytes clones the pointer to the inner slice, and as such is stable as well
-unsafe impl CloneStableDeref for StableBytes {}
+unsafe impl CloneableCart for StableBytes {}
 
+#[derive(Clone)]
 pub struct MqttPacket {
     pub(crate) packet: Yoke<FormatMqttPacket<'static>, StableBytes>,
 }
