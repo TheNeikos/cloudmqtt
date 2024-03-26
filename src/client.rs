@@ -93,27 +93,36 @@ impl CleanStart {
     }
 }
 
-pub struct ConnectProperties {
-    session_expiry_interval: Option<u32>,
-}
+crate::properties::define_properties! {
+    properties_type: mqtt_format::v5::packets::connect::ConnectProperties,
+    anker: "_Toc3901046",
+    pub struct ConnectProperties {
+        (anker: "_Toc3901048")
+        session_expiry_interval: SessionExpiryInterval,
 
-impl ConnectProperties {
-    fn new() -> Self {
-        ConnectProperties {
-            session_expiry_interval: None,
-        }
-    }
-}
+        (anker: "_Toc3901049")
+        receive_maximum: ReceiveMaximum,
 
-impl ConnectProperties {
-    pub fn as_ref(&self) -> mqtt_format::v5::packets::connect::ConnectProperties<'_> {
-        mqtt_format::v5::packets::connect::ConnectProperties {
-            session_expiry_interval: self
-                .session_expiry_interval
-                .clone()
-                .map(mqtt_format::v5::variable_header::SessionExpiryInterval),
-            ..mqtt_format::v5::packets::connect::ConnectProperties::new()
-        }
+        (anker: "_Toc3901050")
+        maximum_packet_size: MaximumPacketSize,
+
+        (anker: "_Toc3901051")
+        topic_alias_maximum: TopicAliasMaximum,
+
+        (anker: "_Toc3901052")
+        request_response_information: RequestResponseInformation,
+
+        (anker: "_Toc3901053")
+        request_problem_information: RequestProblemInformation,
+
+        (anker: "_Toc3901054")
+        user_properties: UserProperties<'a>,
+
+        (anker: "_Toc3901055")
+        authentication_method: AuthenticationMethod<'a>,
+
+        (anker: "_Toc3901056")
+        authentication_data: AuthenticationData<'a>,
     }
 }
 
@@ -126,8 +135,8 @@ pub struct MqttClientConnector {
 }
 
 impl MqttClientConnector {
-    pub fn set_session_expiry_inteveral(&mut self, interval: u32) {
-        self.properties.session_expiry_interval = Some(interval);
+    pub fn properties_mut(&mut self) -> &mut ConnectProperties {
+        &mut self.properties
     }
 }
 
