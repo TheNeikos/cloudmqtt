@@ -5,13 +5,13 @@
 //
 
 use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
+use tokio_util::bytes::Bytes;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::Encoder;
 use winnow::Partial;
 use yoke::Yoke;
 
 use crate::packet::MqttPacket;
-use crate::packet::MqttWriter;
 use crate::packet::MqttWriterError;
 
 #[derive(Debug, thiserror::Error)]
@@ -81,17 +81,15 @@ impl Decoder for MqttPacketCodec {
     }
 }
 
-impl Encoder<MqttPacket> for MqttPacketCodec {
+impl Encoder<Bytes> for MqttPacketCodec {
     type Error = MqttPacketCodecError;
 
     fn encode(
         &mut self,
-        packet: MqttPacket,
+        packet: Bytes,
         dst: &mut tokio_util::bytes::BytesMut,
     ) -> Result<(), Self::Error> {
-        dst.reserve(packet.get().binary_size() as usize);
-
-        packet.get().write(&mut MqttWriter(dst))?;
+        dst.extend_from_slice(&packet);
 
         Ok(())
     }
@@ -105,11 +103,8 @@ mod tests {
     use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
     use tokio_util::bytes::BytesMut;
     use tokio_util::codec::Framed;
-    use yoke::Yoke;
 
     use super::MqttPacketCodec;
-    use crate::codecs::MqttPacketCodecError;
-    use crate::packet::MqttPacket;
     use crate::packet::MqttWriter;
 
     #[tokio::test]
@@ -124,23 +119,13 @@ mod tests {
 
         packet.write(&mut MqttWriter(&mut data)).unwrap();
 
-        let yoke = Yoke::try_attach_to_cart(
-            crate::packet::StableBytes(data.freeze()),
-            |data| -> Result<_, MqttPacketCodecError> {
-                FormatMqttPacket::parse_complete(data).map_err(|_| MqttPacketCodecError::Protocol)
-            },
-        )
-        .unwrap();
-
-        let packet = MqttPacket { packet: yoke };
-
-        let packet2 = packet.clone();
+        let send_data = data.clone().freeze();
         tokio::spawn(async move {
-            framed_client.send(packet2).await.unwrap();
+            framed_client.send(send_data).await.unwrap();
         });
 
         let recv_packet = framed_server.next().await.unwrap().unwrap();
 
-        assert_eq!(packet, recv_packet);
+        assert_eq!(packet, *recv_packet.get());
     }
 }
