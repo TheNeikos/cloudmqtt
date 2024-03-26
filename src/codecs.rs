@@ -96,3 +96,51 @@ impl Encoder<MqttPacket> for MqttPacketCodec {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use futures::SinkExt;
+    use futures::StreamExt;
+    use mqtt_format::v5::packets::pingreq::MPingreq;
+    use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
+    use tokio_util::bytes::BytesMut;
+    use tokio_util::codec::Framed;
+    use yoke::Yoke;
+
+    use super::MqttPacketCodec;
+    use crate::codecs::MqttPacketCodecError;
+    use crate::packet::MqttPacket;
+    use crate::packet::MqttWriter;
+
+    #[tokio::test]
+    async fn simple_test_codec() {
+        let (client, server) = tokio::io::duplex(100);
+        let mut framed_client = Framed::new(client, MqttPacketCodec);
+        let mut framed_server = Framed::new(server, MqttPacketCodec);
+
+        let mut data = BytesMut::new();
+
+        let packet = FormatMqttPacket::Pingreq(MPingreq);
+
+        packet.write(&mut MqttWriter(&mut data)).unwrap();
+
+        let yoke = Yoke::try_attach_to_cart(
+            crate::packet::StableBytes(data.freeze()),
+            |data| -> Result<_, MqttPacketCodecError> {
+                FormatMqttPacket::parse_complete(data).map_err(|_| MqttPacketCodecError::Protocol)
+            },
+        )
+        .unwrap();
+
+        let packet = MqttPacket { packet: yoke };
+
+        let packet2 = packet.clone();
+        tokio::spawn(async move {
+            framed_client.send(packet2).await.unwrap();
+        });
+
+        let recv_packet = framed_server.next().await.unwrap().unwrap();
+
+        assert_eq!(packet, recv_packet);
+    }
+}
