@@ -10,3 +10,4 @@ mod client;
 mod client_identifier;
 mod error;
 mod keep_alive;
+mod string;
