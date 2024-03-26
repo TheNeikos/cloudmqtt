@@ -38,6 +38,10 @@ impl ClientIdentifier {
         ))
     }
 
+    pub fn new_potentially_server_provided() -> ClientIdentifier {
+        ClientIdentifier::PotentiallyServerProvided
+    }
+
     pub fn as_str(&self) -> &str {
         todo!()
     }
