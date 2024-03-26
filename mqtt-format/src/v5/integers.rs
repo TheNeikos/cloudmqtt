@@ -28,8 +28,8 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     .parse_next(input)
 }
 
-pub async fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> WResult<W> {
-    buffer.write_u16(u.to_be()).await?;
+pub fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> WResult<W> {
+    buffer.write_u16(u.to_be())?;
     Ok(())
 }
 
@@ -45,8 +45,8 @@ pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
     .parse_next(input)
 }
 
-pub async fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
-    buffer.write_u32(u).await?;
+pub fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
+    buffer.write_u32(u)?;
     Ok(())
 }
 
@@ -86,25 +86,25 @@ pub const fn variable_u32_binary_size(u: u32) -> u32 {
     }
 }
 
-pub async fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
+pub fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
     match u {
         0..=127 => {
-            buffer.write_byte(u as u8).await?;
+            buffer.write_byte(u as u8)?;
         }
         len @ 128..=16383 => {
             let first = (len % 128) | 0b1000_0000;
             let second = len / 128;
-            buffer.write_byte(first as u8).await?;
-            buffer.write_byte(second as u8).await?;
+            buffer.write_byte(first as u8)?;
+            buffer.write_byte(second as u8)?;
         }
         len @ 16384..=2_097_151 => {
             let first = (len % 128) | 0b1000_0000;
             let second = ((len / 128) % 128) | 0b1000_0000;
             let third = len / (128 * 128);
 
-            buffer.write_byte(first as u8).await?;
-            buffer.write_byte(second as u8).await?;
-            buffer.write_byte(third as u8).await?;
+            buffer.write_byte(first as u8)?;
+            buffer.write_byte(second as u8)?;
+            buffer.write_byte(third as u8)?;
         }
         len @ 2_097_152..=268_435_455 => {
             let first = (len % 128) | 0b1000_0000;
@@ -112,10 +112,10 @@ pub async fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> W
             let third = ((len / (128 * 128)) % 128) | 0b1000_0000;
             let fourth = len / (128 * 128 * 128);
 
-            buffer.write_byte(first as u8).await?;
-            buffer.write_byte(second as u8).await?;
-            buffer.write_byte(third as u8).await?;
-            buffer.write_byte(fourth as u8).await?;
+            buffer.write_byte(first as u8)?;
+            buffer.write_byte(second as u8)?;
+            buffer.write_byte(third as u8)?;
+            buffer.write_byte(fourth as u8)?;
         }
         _size => {
             return Err(super::write::MqttWriteError::Invariant.into());
@@ -183,53 +183,53 @@ mod tests {
         parse_variable_u32(&mut Bytes::new(&input)).unwrap_err();
     }
 
-    #[tokio::test]
-    async fn test_write_byte() {
+    #[test]
+    fn test_write_byte() {
         let mut writer = TestWriter { buffer: Vec::new() };
 
-        writer.write_byte(1).await.unwrap();
+        writer.write_byte(1).unwrap();
 
         assert_eq!(writer.buffer, &[1]);
     }
 
-    #[tokio::test]
-    async fn test_write_two_bytes() {
+    #[test]
+    fn test_write_two_bytes() {
         let mut writer = TestWriter { buffer: Vec::new() };
 
-        writer.write_u16(1).await.unwrap();
+        writer.write_u16(1).unwrap();
 
         assert_eq!(writer.buffer, &[0x00, 0x01]);
     }
 
-    #[tokio::test]
-    async fn test_write_four_bytes() {
+    #[test]
+    fn test_write_four_bytes() {
         let mut writer = TestWriter { buffer: Vec::new() };
 
-        writer.write_u32(1).await.unwrap();
+        writer.write_u32(1).unwrap();
 
         assert_eq!(writer.buffer, &[0x00, 0x00, 0x00, 0x01]);
     }
 
-    #[tokio::test]
-    async fn test_write_u32() {
+    #[test]
+    fn test_write_u32() {
         // step by some prime number
         for i in (0..268_435_455).step_by(271) {
             let mut writer = TestWriter { buffer: Vec::new() };
 
-            writer.write_u32(i).await.unwrap();
+            writer.write_u32(i).unwrap();
 
             let out = parse_u32(&mut Bytes::new(&writer.buffer)).unwrap();
             assert_eq!(out, i);
         }
     }
 
-    #[tokio::test]
-    async fn test_write_variable_u32() {
+    #[test]
+    fn test_write_variable_u32() {
         // step by some prime number
         for i in (0..268_435_455).step_by(271) {
             let mut writer = TestWriter { buffer: Vec::new() };
 
-            write_variable_u32(&mut writer, i).await.unwrap();
+            write_variable_u32(&mut writer, i).unwrap();
 
             let out = parse_variable_u32(&mut Bytes::new(&writer.buffer)).unwrap();
             assert_eq!(out, i);

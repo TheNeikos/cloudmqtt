@@ -177,9 +177,9 @@ impl<'i> MConnect<'i> {
         + self.password.as_ref().map(|p| crate::v5::bytes::binary_data_binary_size(p)).unwrap_or(0)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        crate::v5::strings::write_string(buffer, "MQTT").await?;
-        ProtocolLevel::V5.write(buffer).await?;
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        crate::v5::strings::write_string(buffer, "MQTT")?;
+        ProtocolLevel::V5.write(buffer)?;
 
         let flags = {
             let reserved = 0;
@@ -203,18 +203,18 @@ impl<'i> MConnect<'i> {
             reserved | clean_start | will | password | username
         };
 
-        buffer.write_byte(flags).await?;
-        buffer.write_u16(self.keep_alive).await?;
-        self.properties.write(buffer).await?;
-        crate::v5::strings::write_string(buffer, self.client_identifier).await?;
+        buffer.write_byte(flags)?;
+        buffer.write_u16(self.keep_alive)?;
+        self.properties.write(buffer)?;
+        crate::v5::strings::write_string(buffer, self.client_identifier)?;
         if let Some(will) = self.will.as_ref() {
-            will.write(buffer).await?;
+            will.write(buffer)?;
         }
         if let Some(username) = self.username.as_ref() {
-            crate::v5::strings::write_string(buffer, username).await?;
+            crate::v5::strings::write_string(buffer, username)?;
         }
         if let Some(password) = self.password.as_ref() {
-            crate::v5::bytes::write_binary_data(buffer, password).await?;
+            crate::v5::bytes::write_binary_data(buffer, password)?;
         }
 
         Ok(())
@@ -231,10 +231,10 @@ pub struct Will<'i> {
 }
 
 impl<'i> Will<'i> {
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.properties.write(buffer).await?;
-        crate::v5::strings::write_string(buffer, self.topic).await?;
-        crate::v5::bytes::write_binary_data(buffer, self.payload).await?;
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.properties.write(buffer)?;
+        crate::v5::strings::write_string(buffer, self.topic)?;
+        crate::v5::bytes::write_binary_data(buffer, self.payload)?;
         Ok(())
     }
 
@@ -274,10 +274,10 @@ impl ProtocolLevel {
         }
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         match self {
-            ProtocolLevel::V3 => buffer.write_byte(3).await,
-            ProtocolLevel::V5 => buffer.write_byte(5).await,
+            ProtocolLevel::V3 => buffer.write_byte(3),
+            ProtocolLevel::V5 => buffer.write_byte(5),
         }
     }
 }
@@ -304,8 +304,8 @@ mod test {
     use crate::v5::variable_header::UserProperties;
     use crate::v5::variable_header::WillDelayInterval;
 
-    #[tokio::test]
-    async fn test_roundtrip_connect_empty() {
+    #[test]
+    fn test_roundtrip_connect_empty() {
         crate::v5::test::make_roundtrip_test!(MConnect {
             client_identifier: "i am so cool",
             username: None,
@@ -327,8 +327,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_connect_no_props() {
+    #[test]
+    fn test_roundtrip_connect_no_props() {
         crate::v5::test::make_roundtrip_test!(MConnect {
             client_identifier: "i am so cool",
             username: Some("user"),
@@ -363,8 +363,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_connect_with_props() {
+    #[test]
+    fn test_roundtrip_connect_with_props() {
         crate::v5::test::make_roundtrip_test!(MConnect {
             client_identifier: "i am so cool",
             username: Some("user"),

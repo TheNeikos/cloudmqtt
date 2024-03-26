@@ -16,12 +16,12 @@ pub struct TestWriter {
 impl WriteMqttPacket for TestWriter {
     type Error = MqttWriteError;
 
-    async fn write_byte(&mut self, u: u8) -> WResult<Self> {
+    fn write_byte(&mut self, u: u8) -> WResult<Self> {
         self.buffer.push(u);
         Ok(())
     }
 
-    async fn write_slice(&mut self, u: &[u8]) -> WResult<Self> {
+    fn write_slice(&mut self, u: &[u8]) -> WResult<Self> {
         self.buffer.extend(u);
         Ok(())
     }
@@ -35,7 +35,7 @@ macro_rules! make_roundtrip_test {
     ($name:ident $def:tt) => {
         let mut writer = $crate::v5::test::TestWriter { buffer: Vec::new() };
         let instance = $name $def;
-        instance.write(&mut writer).await.unwrap();
+        instance.write(&mut writer).unwrap();
         let output = $name::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
         assert_eq!(instance, output);
     }

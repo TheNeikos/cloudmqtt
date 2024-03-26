@@ -104,7 +104,7 @@ impl MFixedHeader {
         Ok(MFixedHeader { packet_type })
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         #[allow(clippy::identity_op)]
         let byte = match self.packet_type {
             PacketType::Connect => (1 << 4) | 0,
@@ -135,7 +135,7 @@ impl MFixedHeader {
             PacketType::Auth => (15 << 4) | 0,
         };
 
-        buffer.write_byte(byte).await
+        buffer.write_byte(byte)
     }
 }
 

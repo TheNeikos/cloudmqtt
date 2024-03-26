@@ -74,7 +74,7 @@ impl SubscriptionOptions {
         .parse_next(input)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         let qos = self.quality_of_service as u8;
         let no_local = (self.no_local as u8) << 2;
         let retain_as_published = (self.retain_as_published as u8) << 3;
@@ -82,7 +82,7 @@ impl SubscriptionOptions {
 
         let sub_opts = qos | no_local | retain_as_published | retain_handling;
 
-        buffer.write_byte(sub_opts).await
+        buffer.write_byte(sub_opts)
     }
 }
 
@@ -107,9 +107,9 @@ impl<'i> Subscription<'i> {
         .parse_next(input)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        write_string(buffer, self.topic_filter).await?;
-        self.options.write(buffer).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        write_string(buffer, self.topic_filter)?;
+        self.options.write(buffer)
     }
 }
 
@@ -149,9 +149,9 @@ impl<'i> Subscriptions<'i> {
         self.start.len() as u32
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         for sub in self.iter() {
-            sub.write(buffer).await?;
+            sub.write(buffer)?;
         }
 
         Ok(())
@@ -215,10 +215,10 @@ impl<'i> MSubscribe<'i> {
             + self.subscriptions.binary_size()
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.packet_identifier.write(buffer).await?;
-        self.properties.write(buffer).await?;
-        self.subscriptions.write(buffer).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer)?;
+        self.properties.write(buffer)?;
+        self.subscriptions.write(buffer)
     }
 }
 
@@ -236,8 +236,8 @@ mod test {
     use crate::v5::variable_header::SubscriptionIdentifier;
     use crate::v5::variable_header::UserProperties;
 
-    #[tokio::test]
-    async fn test_roundtrip_subscription() {
+    #[test]
+    fn test_roundtrip_subscription() {
         crate::v5::test::make_roundtrip_test!(Subscription {
             topic_filter: "foo",
             options: SubscriptionOptions {
@@ -249,8 +249,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_subscribe_no_props() {
+    #[test]
+    fn test_roundtrip_subscribe_no_props() {
         let mut sub_writer = TestWriter { buffer: Vec::new() };
 
         let subscription = Subscription {
@@ -263,7 +263,7 @@ mod test {
             },
         };
 
-        subscription.write(&mut sub_writer).await.unwrap();
+        subscription.write(&mut sub_writer).unwrap();
 
         crate::v5::test::make_roundtrip_test!(MSubscribe {
             packet_identifier: PacketIdentifier(88),
@@ -277,8 +277,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_subscribe_with_props() {
+    #[test]
+    fn test_roundtrip_subscribe_with_props() {
         let mut sub_writer = TestWriter { buffer: Vec::new() };
 
         let subscription = Subscription {
@@ -291,7 +291,7 @@ mod test {
             },
         };
 
-        subscription.write(&mut sub_writer).await.unwrap();
+        subscription.write(&mut sub_writer).unwrap();
 
         crate::v5::test::make_roundtrip_test!(MSubscribe {
             packet_identifier: PacketIdentifier(88),

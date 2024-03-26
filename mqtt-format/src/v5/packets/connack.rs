@@ -155,11 +155,11 @@ impl<'i> MConnack<'i> {
         + self.properties.binary_size()
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         let byte = (self.session_present as u8) << 7;
-        buffer.write_byte(byte).await?;
-        self.reason_code.write(buffer).await?;
-        self.properties.write(buffer).await
+        buffer.write_byte(byte)?;
+        self.reason_code.write(buffer)?;
+        self.properties.write(buffer)
     }
 }
 
@@ -186,8 +186,8 @@ mod test {
     use crate::v5::variable_header::UserProperties;
     use crate::v5::variable_header::WildcardSubscriptionAvailable;
 
-    #[tokio::test]
-    async fn test_roundtrip_connack_no_props() {
+    #[test]
+    fn test_roundtrip_connack_no_props() {
         crate::v5::test::make_roundtrip_test!(MConnack {
             session_present: true,
             reason_code: ConnackReasonCode::Success,
@@ -213,8 +213,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_connack_with_props() {
+    #[test]
+    fn test_roundtrip_connack_with_props() {
         crate::v5::test::make_roundtrip_test!(MConnack {
             session_present: true,
             reason_code: ConnackReasonCode::Success,

@@ -108,12 +108,12 @@ impl<'i> MPublish<'i> {
             + crate::v5::bytes::binary_data_binary_size(self.payload)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        write_string(buffer, self.topic_name).await?;
-        self.packet_identifier.write(buffer).await?;
-        self.properties.write(buffer).await?;
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        write_string(buffer, self.topic_name)?;
+        self.packet_identifier.write(buffer)?;
+        self.properties.write(buffer)?;
 
-        buffer.write_slice(self.payload).await
+        buffer.write_slice(self.payload)
     }
 }
 
@@ -128,8 +128,8 @@ mod test {
     use crate::v5::packets::publish::PublishProperties;
     use crate::v5::variable_header::PacketIdentifier;
 
-    #[tokio::test]
-    async fn test_roundtrip_pubcomp_no_props() {
+    #[test]
+    fn test_roundtrip_pubcomp_no_props() {
         let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
 
         let duplicate = true;
@@ -154,7 +154,7 @@ mod test {
             },
             payload: &[0x12, 0x34],
         };
-        instance.write(&mut writer).await.unwrap();
+        instance.write(&mut writer).unwrap();
         let output = MPublish::parse(
             duplicate,
             quality_of_service,
@@ -165,8 +165,8 @@ mod test {
         assert_eq!(instance, output);
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_puback_with_props() {
+    #[test]
+    fn test_roundtrip_puback_with_props() {
         let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
         let duplicate = true;
         let quality_of_service = QualityOfService::ExactlyOnce;
@@ -190,7 +190,7 @@ mod test {
             },
             payload: &[0x12, 0x34],
         };
-        instance.write(&mut writer).await.unwrap();
+        instance.write(&mut writer).unwrap();
         let output = MPublish::parse(
             duplicate,
             quality_of_service,

@@ -30,8 +30,8 @@ impl PacketIdentifier {
         2
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        buffer.write_u16(self.0).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        buffer.write_u16(self.0)
     }
 }
 
@@ -45,10 +45,7 @@ pub trait MqttProperties<'lt>: Sized {
 
     fn binary_size(&self) -> u32;
 
-    fn write<W: WriteMqttPacket>(
-        &self,
-        buffer: &mut W,
-    ) -> impl core::future::Future<Output = WResult<W>> + Send;
+    fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W>;
 }
 
 macro_rules! define_properties {
@@ -86,10 +83,10 @@ macro_rules! define_properties {
                     fun(&self.0)
                 }
 
-                async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
+                fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
                     -> $crate::v5::write::WResult<W>
                 {
-                    $writer(buffer, self.0).await?;
+                    $writer(buffer, self.0)?;
                     Ok(())
                 }
             }
@@ -127,14 +124,14 @@ macro_rules! define_properties {
         #[cfg(test)]
         mod property_tests {
             $(
-                #[tokio::test]
-                async fn $testfnname () {
+                #[test]
+                fn $testfnname () {
                     use super::MqttProperties;
                     use super::$name;
                     $(
                         let mut writer = $crate::v5::test::TestWriter { buffer: Vec::new() };
                         let instance = $name ($testvalue);
-                        instance.write(&mut writer).await.unwrap();
+                        instance.write(&mut writer).unwrap();
                         let output = $name::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
 
                         let expected = $name ( $testvalue );
@@ -147,8 +144,8 @@ macro_rules! define_properties {
 }
 
 #[inline]
-async fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
-    buffer.write_byte(u).await
+fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
+    buffer.write_byte(u)
 }
 
 define_properties! {[
@@ -393,17 +390,17 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
             .sum()
     }
 
-    async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         let mut iter = self.iter();
         let first = iter
             .next()
             .expect("There is always at least one UserProperty available");
 
-        first.write(buffer).await?;
+        first.write(buffer)?;
 
         for up in iter {
-            write_variable_u32(buffer, UserProperties::IDENTIFIER).await?;
-            up.write(buffer).await?;
+            write_variable_u32(buffer, UserProperties::IDENTIFIER)?;
+            up.write(buffer)?;
         }
 
         Ok(())
@@ -448,9 +445,9 @@ impl<'i> UserProperty<'i> {
         crate::v5::strings::string_pair_binary_size(self.key, self.value)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        crate::v5::strings::write_string(buffer, self.key).await?;
-        crate::v5::strings::write_string(buffer, self.value).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        crate::v5::strings::write_string(buffer, self.key)?;
+        crate::v5::strings::write_string(buffer, self.value)
     }
 }
 
@@ -538,8 +535,8 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_write_properties() {
+    #[test]
+    fn test_write_properties() {
         #[rustfmt::skip]
         let input = &[
             // First the string pair of the UserProp
@@ -558,10 +555,8 @@ mod tests {
         let prop = UserProperties(input);
 
         let mut writer = TestWriter { buffer: Vec::new() };
-        write_variable_u32(&mut writer, UserProperties::IDENTIFIER)
-            .await
-            .unwrap();
-        prop.write(&mut writer).await.unwrap();
+        write_variable_u32(&mut writer, UserProperties::IDENTIFIER).unwrap();
+        prop.write(&mut writer).unwrap();
 
         let out = Property::parse(&mut Bytes::new(&writer.buffer)).unwrap();
 

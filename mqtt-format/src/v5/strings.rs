@@ -37,11 +37,11 @@ pub fn string_binary_size(s: &str) -> u32 {
     (2 + s.len()) as u32
 }
 
-pub async fn write_string<W: WriteMqttPacket>(buffer: &mut W, s: &str) -> WResult<W> {
+pub fn write_string<W: WriteMqttPacket>(buffer: &mut W, s: &str) -> WResult<W> {
     let len = s.len().try_into().map_err(|_| MqttWriteError::Invariant)?;
 
-    buffer.write_u16(len).await?;
-    buffer.write_slice(s.as_bytes()).await
+    buffer.write_u16(len)?;
+    buffer.write_slice(s.as_bytes())
 }
 
 #[inline]
@@ -79,13 +79,13 @@ mod tests {
         assert_eq!(parse_string(&mut Bytes::new(&input)).unwrap(), "A𪛔");
     }
 
-    #[tokio::test]
-    async fn test_write_string() {
+    #[test]
+    fn test_write_string() {
         let mut writer = TestWriter { buffer: Vec::new() };
 
         let s = "foo bar baz";
 
-        write_string(&mut writer, s).await.unwrap();
+        write_string(&mut writer, s).unwrap();
         let out = parse_string(&mut Bytes::new(&writer.buffer)).unwrap();
         assert_eq!(out, s)
     }

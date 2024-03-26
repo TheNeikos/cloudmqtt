@@ -63,10 +63,10 @@ impl<'i> MPubcomp<'i> {
             + self.properties.binary_size()
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.packet_identifier.write(buffer).await?;
-        self.reason.write(buffer).await?;
-        self.properties.write(buffer).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer)?;
+        self.reason.write(buffer)?;
+        self.properties.write(buffer)
     }
 }
 
@@ -79,8 +79,8 @@ mod test {
     use crate::v5::variable_header::ReasonString;
     use crate::v5::variable_header::UserProperties;
 
-    #[tokio::test]
-    async fn test_roundtrip_pubcomp_no_props() {
+    #[test]
+    fn test_roundtrip_pubcomp_no_props() {
         crate::v5::test::make_roundtrip_test!(MPubcomp {
             packet_identifier: PacketIdentifier(123),
             reason: PubcompReasonCode::Success,
@@ -91,8 +91,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_puback_with_props() {
+    #[test]
+    fn test_roundtrip_puback_with_props() {
         crate::v5::test::make_roundtrip_test!(MPubcomp {
             packet_identifier: PacketIdentifier(123),
             reason: PubcompReasonCode::Success,

@@ -26,7 +26,7 @@ impl MPingreq {
         0
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
         Ok(())
     }
 }
@@ -35,11 +35,11 @@ impl MPingreq {
 mod test {
     use crate::v5::packets::pingreq::MPingreq;
 
-    #[tokio::test]
-    async fn test_roundtrip_pingreq() {
+    #[test]
+    fn test_roundtrip_pingreq() {
         let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
         let instance = MPingreq;
-        instance.write(&mut writer).await.unwrap();
+        instance.write(&mut writer).unwrap();
         let output = MPingreq::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
         assert_eq!(instance, output);
     }
