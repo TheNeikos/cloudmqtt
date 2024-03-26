@@ -107,6 +107,30 @@ impl<'i> MqttPacket<'i> {
         Self::parse(&mut Bytes::new(input))
     }
 
+    pub fn binary_size(&self) -> u32 {
+        let header = MFixedHeader::binary_size();
+
+        let packet_size = match self {
+            MqttPacket::Auth(packet) => packet.binary_size(),
+            MqttPacket::Connack(packet) => packet.binary_size(),
+            MqttPacket::Connect(packet) => packet.binary_size(),
+            MqttPacket::Disconnect(packet) => packet.binary_size(),
+            MqttPacket::Pingreq(packet) => packet.binary_size(),
+            MqttPacket::Pingresp(packet) => packet.binary_size(),
+            MqttPacket::Puback(packet) => packet.binary_size(),
+            MqttPacket::Pubcomp(packet) => packet.binary_size(),
+            MqttPacket::Publish(packet) => packet.binary_size(),
+            MqttPacket::Pubrec(packet) => packet.binary_size(),
+            MqttPacket::Pubrel(packet) => packet.binary_size(),
+            MqttPacket::Suback(packet) => packet.binary_size(),
+            MqttPacket::Subscribe(packet) => packet.binary_size(),
+            MqttPacket::Unsuback(packet) => packet.binary_size(),
+            MqttPacket::Unsubscribe(packet) => packet.binary_size(),
+        };
+
+        header + crate::v5::integers::variable_u32_binary_size(packet_size) + packet_size
+    }
+
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         match self {
             MqttPacket::Auth(p) => {
