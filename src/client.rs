@@ -4,9 +4,6 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use std::num::NonZeroU16;
-use std::time::Duration;
-
 use futures::AsyncRead;
 use futures::AsyncWrite;
 use tokio::io::DuplexStream;
@@ -15,6 +12,7 @@ use tokio_util::compat::Compat as TokioCompat;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
 use crate::client_identifier::ClientIdentifier;
+use crate::keep_alive::KeepAlive;
 
 enum MqttConnection {
     Tokio(TokioCompat<tokio::net::TcpStream>),
@@ -92,26 +90,6 @@ impl CleanStart {
             CleanStart::No => false,
             CleanStart::Yes => true,
         }
-    }
-}
-
-pub enum KeepAlive {
-    Disabled,
-    Seconds(NonZeroU16),
-}
-
-impl KeepAlive {
-    fn as_u16(&self) -> u16 {
-        match self {
-            KeepAlive::Disabled => 0,
-            KeepAlive::Seconds(s) => s.get(),
-        }
-    }
-}
-impl TryFrom<Duration> for KeepAlive {
-    type Error = ();
-    fn try_from(value: Duration) -> Result<Self, Self::Error> {
-        todo!()
     }
 }
 
