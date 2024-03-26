@@ -72,6 +72,7 @@ macro_rules! define_properties {
 
         impl<$lt> $name <$lt> {
             #[allow(dead_code)]
+            #[allow(clippy::new_without_default)]
             pub fn new() -> Self {
                 $name {
                     $($prop_name: None),*
