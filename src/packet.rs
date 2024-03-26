@@ -32,7 +32,7 @@ unsafe impl StableDeref for StableBytes {}
 // SAFETY: StableBytes clones the pointer to the inner slice, and as such is stable as well
 unsafe impl CloneableCart for StableBytes {}
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct MqttPacket {
     pub(crate) packet: Yoke<FormatMqttPacket<'static>, StableBytes>,
 }
