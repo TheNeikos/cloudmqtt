@@ -37,6 +37,12 @@ pub struct MqttPacket {
     pub(crate) packet: Yoke<FormatMqttPacket<'static>, StableBytes>,
 }
 
+impl PartialEq for MqttPacket {
+    fn eq(&self, other: &Self) -> bool {
+        self.packet.get() == other.packet.get()
+    }
+}
+
 impl MqttPacket {
     pub fn get(&self) -> &FormatMqttPacket<'_> {
         self.packet.get()
