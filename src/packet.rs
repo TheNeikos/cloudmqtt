@@ -7,6 +7,7 @@
 use std::ops::Deref;
 
 use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
+use mqtt_format::v5::write::MqttWriteError;
 use mqtt_format::v5::write::WriteMqttPacket;
 use stable_deref_trait::StableDeref;
 use tokio_util::bytes::BufMut;
@@ -58,6 +59,23 @@ pub enum MqttWriterError {
 impl From<mqtt_format::v5::write::MqttWriteError> for MqttWriterError {
     fn from(value: mqtt_format::v5::write::MqttWriteError) -> Self {
         MqttWriterError::MqttWrite(value)
+    }
+}
+
+pub struct VecWriter<'a>(pub &'a mut Vec<u8>);
+
+impl<'a> WriteMqttPacket for VecWriter<'a> {
+    type Error = MqttWriteError;
+
+    fn write_byte(&mut self, u: u8) -> mqtt_format::v5::write::WResult<Self> {
+        self.0.push(u);
+
+        Ok(())
+    }
+
+    fn write_slice(&mut self, u: &[u8]) -> mqtt_format::v5::write::WResult<Self> {
+        self.0.extend_from_slice(u);
+        Ok(())
     }
 }
 
