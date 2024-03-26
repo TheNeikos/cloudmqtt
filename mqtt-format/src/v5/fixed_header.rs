@@ -104,6 +104,10 @@ impl MFixedHeader {
         Ok(MFixedHeader { packet_type })
     }
 
+    pub fn binary_size() -> u32 {
+        1
+    }
+
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         #[allow(clippy::identity_op)]
         let byte = match self.packet_type {

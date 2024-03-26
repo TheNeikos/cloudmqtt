@@ -56,17 +56,24 @@ pub fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
 /// The maximal value is smaller than a u32, so that type is used
 ///
 #[doc = crate::v5::util::md_speclink!("_Toc3901011")]
-pub fn parse_variable_u32(input: &mut &Bytes) -> MResult<u32> {
-    trace("mqtt_variable_u32", |input: &mut &Bytes| {
+pub fn parse_variable_u32<'a, I>(input: &mut I) -> MResult<u32>
+where
+    I: winnow::stream::StreamIsPartial + winnow::stream::Stream<Token = u8>,
+    <I as winnow::stream::Stream>::Slice: IntoIterator<Item = &'a u8>,
+{
+    trace("mqtt_variable_u32", |input: &mut I| {
         let var_bytes = (
-            take_while(0..=3, |b| b & 0b1000_0000 != 0),
-            winnow::binary::u8.verify(|b: &u8| b & 0b1000_0000 == 0),
+            take_while(0..=3, |b| b & 0b1000_0000 != 0)
+                .context(winnow::error::StrContext::Label("front bytes")),
+            winnow::binary::u8
+                .verify(|b: &u8| b & 0b1000_0000 == 0)
+                .context(winnow::error::StrContext::Label("last byte")),
         );
-        let bytes: &[u8] = var_bytes.recognize().parse_next(input)?;
+        let bytes = var_bytes.recognize().parse_next(input)?;
 
         let mut output: u32 = 0;
 
-        for (exp, val) in bytes.iter().enumerate() {
+        for (exp, val) in bytes.into_iter().enumerate() {
             output += (*val as u32 & 0b0111_1111) * 128u32.pow(exp as u32);
         }
 
@@ -126,7 +133,12 @@ pub fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult
 
 #[cfg(test)]
 mod tests {
+    use core::num::NonZeroUsize;
+
+    use pretty_assertions::assert_eq;
+    use winnow::error::ErrMode;
     use winnow::Bytes;
+    use winnow::Partial;
 
     use crate::v5::integers::parse_u16;
     use crate::v5::integers::parse_u32;
@@ -134,6 +146,30 @@ mod tests {
     use crate::v5::integers::write_variable_u32;
     use crate::v5::test::TestWriter;
     use crate::v5::write::WriteMqttPacket;
+
+    #[test]
+    fn check_incomplete_parsing() {
+        let input = [0xFF];
+
+        assert_eq!(
+            parse_variable_u32(&mut Partial::new(Bytes::new(&input))).unwrap_err(),
+            ErrMode::Incomplete(winnow::error::Needed::Size(NonZeroUsize::new(1).unwrap()))
+        );
+
+        let input = [0xFF, 0xFF, 0xFF];
+
+        assert_eq!(
+            parse_variable_u32(&mut Partial::new(Bytes::new(&input))).unwrap_err(),
+            ErrMode::Incomplete(winnow::error::Needed::Size(NonZeroUsize::new(1).unwrap()))
+        );
+
+        let input = [0xFF, 0xFF, 0xFF, 0xFF];
+
+        assert!(matches!(
+            parse_variable_u32(&mut Partial::new(Bytes::new(&input))).unwrap_err(),
+            ErrMode::Backtrack(_)
+        ));
+    }
 
     #[test]
     fn check_integer_parsing() {
