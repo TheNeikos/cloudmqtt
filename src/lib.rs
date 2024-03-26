@@ -5,4 +5,4 @@
 //
 
 mod codecs;
-pub mod packet;
+mod packet;
