@@ -66,13 +66,13 @@ macro_rules! define_properties {
                 $(
                     #[doc = $crate::v5::util::md_speclink!($prop_anker)]
                 )?
-                $prop_name: Option<$prop>
+                pub $prop_name: Option<$prop>
             ),*
         }
 
         impl<$lt> $name <$lt> {
             #[allow(dead_code)]
-            pub(crate) fn new() -> Self {
+            pub fn new() -> Self {
                 $name {
                     $($prop_name: None),*
                 }
