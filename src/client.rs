@@ -14,6 +14,8 @@ use tokio::net::TcpStream;
 use tokio_util::compat::Compat as TokioCompat;
 use tokio_util::compat::TokioAsyncReadCompatExt;
 
+use crate::client_identifier::ClientIdentifier;
+
 enum MqttConnection {
     Tokio(TokioCompat<tokio::net::TcpStream>),
     Duplex(TokioCompat<tokio::io::DuplexStream>),
@@ -76,25 +78,6 @@ impl From<MqttConnectTransport> for MqttConnection {
             MqttConnectTransport::TokioTcp(t) => MqttConnection::Tokio(t.compat()),
             MqttConnectTransport::TokioDuplex(d) => MqttConnection::Duplex(d.compat()),
         }
-    }
-}
-
-pub struct MinimalRequiredClientIdentifier(String);
-pub struct PotentiallyAcceptedClientIdentifier(String);
-
-pub enum ClientIdentifier {
-    MinimalRequired(MinimalRequiredClientIdentifier),
-    PotentiallyServerProvided,
-    PotentiallyAccepted(PotentiallyAcceptedClientIdentifier),
-}
-
-impl ClientIdentifier {
-    pub fn new_minimal_required(s: impl Into<String>) -> Result<ClientIdentifier, ()> {
-        todo!()
-    }
-
-    pub fn as_str(&self) -> &str {
-        todo!()
     }
 }
 
