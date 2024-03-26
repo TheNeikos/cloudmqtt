@@ -30,6 +30,7 @@ define_properties! {
     }
 }
 
+#[derive(Clone)]
 pub struct Unsubscriptions<'i> {
     start: &'i [u8],
 }
@@ -101,7 +102,7 @@ impl<'i> Iterator for UnsubscriptionsIter<'i> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Unsubscription<'i> {
     pub topic_filter: &'i str,
 }
@@ -122,7 +123,7 @@ impl<'i> Unsubscription<'i> {
 }
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901179")]
 pub struct MUnsubscribe<'i> {
     pub packet_identifier: PacketIdentifier,

@@ -61,7 +61,7 @@ macro_rules! define_properties {
         $(,)?
     ]) => {
         $(
-            #[derive(Debug, PartialEq)]
+            #[derive(Clone, Debug, PartialEq)]
             pub struct $name < $($tylt)? >(pub $(& $lt)? $kind);
 
             impl<'lt $(, $tylt)?> MqttProperties<'lt> for $name < $($tylt)? >
@@ -99,7 +99,7 @@ macro_rules! define_properties {
 
         )*
 
-        #[derive(Debug, PartialEq)]
+        #[derive(Clone, Debug, PartialEq)]
         enum Property<'i> {
             $(
                 $name ( $name $(< $tylt >)? ),
@@ -342,6 +342,7 @@ define_properties! {[
         testvalues: [12, 14, 42, 137],
 ]}
 
+#[derive(Clone)]
 pub struct UserProperties<'i>(pub &'i [u8]);
 
 impl<'i> core::cmp::PartialEq for UserProperties<'i> {

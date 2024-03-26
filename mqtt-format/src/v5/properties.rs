@@ -60,7 +60,7 @@ macro_rules! define_properties {
         $(
             #[doc = $crate::v5::util::md_speclink!($anker)]
         )?
-        #[derive(Debug, PartialEq)]
+        #[derive(Clone, Debug, PartialEq)]
         pub struct $name < $lt > {
             $(
                 $(
