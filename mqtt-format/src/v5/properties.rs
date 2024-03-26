@@ -136,7 +136,7 @@ macro_rules! define_properties {
                 $crate::v5::integers::variable_u32_binary_size(prop_size) + prop_size
             }
 
-            pub async fn write<W: crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> crate::v5::write::WResult<W> {
+            pub fn write<W: crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> crate::v5::write::WResult<W> {
                 use crate::v5::variable_header::MqttProperties;
 
                 #[cfg(test)]
@@ -147,12 +147,12 @@ macro_rules! define_properties {
                         + self.$prop_name.as_ref().map(|p| $crate::v5::integers::variable_u32_binary_size(<$prop>::IDENTIFIER) + p.binary_size()).unwrap_or(0)
                      )*
                     ;
-                $crate::v5::integers::write_variable_u32(buffer, size).await?;
+                $crate::v5::integers::write_variable_u32(buffer, size)?;
 
                 $(
                     if let Some(prop) = self.$prop_name.as_ref() {
-                        $crate::v5::integers::write_variable_u32(buffer, <$prop>::IDENTIFIER).await?;
-                        prop.write(buffer).await?;
+                        $crate::v5::integers::write_variable_u32(buffer, <$prop>::IDENTIFIER)?;
+                        prop.write(buffer)?;
                     }
                 )*
 

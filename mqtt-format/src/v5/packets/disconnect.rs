@@ -95,9 +95,9 @@ impl<'i> MDisconnect<'i> {
         self.reason_code.binary_size() + self.properties.binary_size()
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.reason_code.write(buffer).await?;
-        self.properties.write(buffer).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.reason_code.write(buffer)?;
+        self.properties.write(buffer)
     }
 }
 
@@ -111,8 +111,8 @@ mod test {
     use crate::v5::variable_header::SessionExpiryInterval;
     use crate::v5::variable_header::UserProperties;
 
-    #[tokio::test]
-    async fn test_roundtrip_disconnect_no_props() {
+    #[test]
+    fn test_roundtrip_disconnect_no_props() {
         crate::v5::test::make_roundtrip_test!(MDisconnect {
             reason_code: DisconnectReasonCode::NormalDisconnection,
             properties: DisconnectProperties {
@@ -124,8 +124,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_disconnect_with_props() {
+    #[test]
+    fn test_roundtrip_disconnect_with_props() {
         crate::v5::test::make_roundtrip_test!(MDisconnect {
             reason_code: DisconnectReasonCode::NormalDisconnection,
             properties: DisconnectProperties {

@@ -26,7 +26,7 @@ impl MPingresp {
         0
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
         Ok(())
     }
 }
@@ -35,11 +35,11 @@ impl MPingresp {
 mod test {
     use crate::v5::packets::pingresp::MPingresp;
 
-    #[tokio::test]
-    async fn test_roundtrip_pingresp() {
+    #[test]
+    fn test_roundtrip_pingresp() {
         let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
         let instance = MPingresp;
-        instance.write(&mut writer).await.unwrap();
+        instance.write(&mut writer).unwrap();
         let output = MPingresp::parse(&mut winnow::Bytes::new(&writer.buffer)).unwrap();
         assert_eq!(instance, output);
     }

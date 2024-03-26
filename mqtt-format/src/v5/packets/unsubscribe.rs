@@ -66,9 +66,9 @@ impl<'i> Unsubscriptions<'i> {
         self.start.len() as u32
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         for unsub in self.iter() {
-            unsub.write(buffer).await?;
+            unsub.write(buffer)?;
         }
 
         Ok(())
@@ -116,8 +116,8 @@ impl<'i> Unsubscription<'i> {
         .parse_next(input)
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        write_string(buffer, self.topic_filter).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        write_string(buffer, self.topic_filter)
     }
 }
 
@@ -155,10 +155,10 @@ impl<'i> MUnsubscribe<'i> {
             + self.unsubscriptions.binary_size()
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.packet_identifier.write(buffer).await?;
-        self.properties.write(buffer).await?;
-        self.unsubscriptions.write(buffer).await
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer)?;
+        self.properties.write(buffer)?;
+        self.unsubscriptions.write(buffer)
     }
 }
 
@@ -173,22 +173,22 @@ mod test {
     use crate::v5::variable_header::SubscriptionIdentifier;
     use crate::v5::variable_header::UserProperties;
 
-    #[tokio::test]
-    async fn test_roundtrip_unsubscription() {
+    #[test]
+    fn test_roundtrip_unsubscription() {
         crate::v5::test::make_roundtrip_test!(Unsubscription {
             topic_filter: "foo",
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_unsubscribe_no_props() {
+    #[test]
+    fn test_roundtrip_unsubscribe_no_props() {
         let mut sub_writer = TestWriter { buffer: Vec::new() };
 
         let subscription = Unsubscription {
             topic_filter: "foo",
         };
 
-        subscription.write(&mut sub_writer).await.unwrap();
+        subscription.write(&mut sub_writer).unwrap();
 
         crate::v5::test::make_roundtrip_test!(MUnsubscribe {
             packet_identifier: PacketIdentifier(88),
@@ -202,15 +202,15 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_unsubscribe_with_props() {
+    #[test]
+    fn test_roundtrip_unsubscribe_with_props() {
         let mut sub_writer = TestWriter { buffer: Vec::new() };
 
         let subscription = Unsubscription {
             topic_filter: "foo",
         };
 
-        subscription.write(&mut sub_writer).await.unwrap();
+        subscription.write(&mut sub_writer).unwrap();
 
         crate::v5::test::make_roundtrip_test!(MUnsubscribe {
             packet_identifier: PacketIdentifier(88),

@@ -30,10 +30,10 @@ macro_rules! make_combined_reason_code {
                 1
             }
 
-            pub async fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> $crate::v5::write::WResult<W> {
+            pub fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> $crate::v5::write::WResult<W> {
                 match self {
                     $(
-                        Self::$reason_code_name => buffer.write_byte(<$reason_code_type>::CODE).await?,
+                        Self::$reason_code_name => buffer.write_byte(<$reason_code_type>::CODE)?,
                     )*
                 }
 

@@ -20,14 +20,14 @@ pub fn parse_binary_data<'i>(input: &mut &'i Bytes) -> MResult<&'i [u8]> {
     .parse_next(input)
 }
 
-pub async fn write_binary_data<W: WriteMqttPacket>(buffer: &mut W, slice: &[u8]) -> WResult<W> {
+pub fn write_binary_data<W: WriteMqttPacket>(buffer: &mut W, slice: &[u8]) -> WResult<W> {
     let slice_len = slice
         .len()
         .try_into()
         .map_err(|_| W::Error::from(super::write::MqttWriteError::Invariant))?;
 
-    buffer.write_u16(slice_len).await?;
-    buffer.write_slice(slice).await
+    buffer.write_u16(slice_len)?;
+    buffer.write_slice(slice)
 }
 
 #[inline]
@@ -53,12 +53,12 @@ mod tests {
         );
     }
 
-    #[tokio::test]
-    async fn test_write_binary_data() {
+    #[test]
+    fn test_write_binary_data() {
         let mut writer = TestWriter { buffer: Vec::new() };
         let data = &[0xFF, 0xAB, 0x42, 0x13, 0x37, 0x69];
 
-        write_binary_data(&mut writer, data).await.unwrap();
+        write_binary_data(&mut writer, data).unwrap();
         let out = parse_binary_data(&mut Bytes::new(&writer.buffer)).unwrap();
 
         assert_eq!(out, data);

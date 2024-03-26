@@ -76,14 +76,14 @@ impl<'i> MUnsuback<'i> {
             + self.properties.binary_size()
     }
 
-    pub async fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        self.packet_identifier.write(buffer).await?;
-        self.properties.write(buffer).await?;
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        self.packet_identifier.write(buffer)?;
+        self.properties.write(buffer)?;
 
         // SAFETY: We know that UnsubackReasonCode is a valid u8
         let reasons: &[u8] = unsafe { core::mem::transmute(self.reasons) };
 
-        buffer.write_slice(reasons).await?;
+        buffer.write_slice(reasons)?;
 
         Ok(())
     }
@@ -98,8 +98,8 @@ mod test {
     use crate::v5::variable_header::ReasonString;
     use crate::v5::variable_header::UserProperties;
 
-    #[tokio::test]
-    async fn test_roundtrip_unsuback_no_props() {
+    #[test]
+    fn test_roundtrip_unsuback_no_props() {
         crate::v5::test::make_roundtrip_test!(MUnsuback {
             packet_identifier: PacketIdentifier(89),
             properties: UnsubackProperties {
@@ -110,8 +110,8 @@ mod test {
         });
     }
 
-    #[tokio::test]
-    async fn test_roundtrip_unsuback_props() {
+    #[test]
+    fn test_roundtrip_unsuback_props() {
         crate::v5::test::make_roundtrip_test!(MUnsuback {
             packet_identifier: PacketIdentifier(89),
             properties: UnsubackProperties {
