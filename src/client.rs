@@ -14,7 +14,7 @@ use tokio_util::compat::TokioAsyncReadCompatExt;
 use crate::client_identifier::ClientIdentifier;
 use crate::keep_alive::KeepAlive;
 
-enum MqttConnection {
+pub(crate) enum MqttConnection {
     Tokio(TokioCompat<tokio::net::TcpStream>),
     Duplex(TokioCompat<tokio::io::DuplexStream>),
 }
