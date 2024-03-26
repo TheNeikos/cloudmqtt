@@ -38,7 +38,7 @@ pub enum RetainHandling {
     DoNotSendRetainedMessages = 2,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SubscriptionOptions {
     pub quality_of_service: QualityOfService,
     pub no_local: bool,
@@ -86,7 +86,7 @@ impl SubscriptionOptions {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901161")]
 pub struct Subscription<'i> {
     pub topic_filter: &'i str,
@@ -113,6 +113,7 @@ impl<'i> Subscription<'i> {
     }
 }
 
+#[derive(Clone)]
 pub struct Subscriptions<'i> {
     start: &'i [u8],
 }
@@ -185,7 +186,7 @@ impl<'i> Iterator for SubscriptionsIter<'i> {
 }
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MSubscribe<'i> {
     pub packet_identifier: PacketIdentifier,
     pub properties: SubscribeProperties<'i>,

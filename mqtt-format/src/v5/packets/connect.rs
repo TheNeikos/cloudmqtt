@@ -34,7 +34,7 @@ use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct MConnect<'i> {
     pub client_identifier: &'i str,
     pub username: Option<&'i str>,
@@ -221,7 +221,7 @@ impl<'i> MConnect<'i> {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Will<'i> {
     pub properties: ConnectWillProperties<'i>,
     pub topic: &'i str,

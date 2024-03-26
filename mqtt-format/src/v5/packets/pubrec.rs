@@ -42,7 +42,7 @@ crate::v5::properties::define_properties![
 ];
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901131")]
 pub struct MPubrec<'i> {
     pub packet_identifier: PacketIdentifier,

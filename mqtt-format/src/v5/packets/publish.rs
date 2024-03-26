@@ -25,7 +25,7 @@ use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 #[doc = crate::v5::util::md_speclink!("_Toc3901100")]
 pub struct MPublish<'i> {
     pub duplicate: bool,
