@@ -42,13 +42,26 @@ impl ClientIdentifier {
         ClientIdentifier::PotentiallyServerProvided
     }
 
+    pub fn new_potetially_accepted(
+        s: impl Into<String>,
+    ) -> Result<ClientIdentifier, ClientIdentifierError> {
+        let s = s.into();
+        if s.is_empty() {
+            return Err(ClientIdentifierError::Zero);
+        }
+        crate::string::MqttString::try_from(s)
+            .map(PotentiallyAcceptedClientIdentifier)
+            .map(ClientIdentifier::PotentiallyAccepted)
+            .map_err(ClientIdentifierError::from)
+    }
+
     pub fn as_str(&self) -> &str {
         todo!()
     }
 }
 
 pub struct MinimalRequiredClientIdentifier(String);
-pub struct PotentiallyAcceptedClientIdentifier(String);
+pub struct PotentiallyAcceptedClientIdentifier(crate::string::MqttString);
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientIdentifierError {
@@ -59,9 +72,9 @@ pub enum ClientIdentifierError {
     #[error("Minimal client identifier contains more characters than allowed: {}", .0)]
     MinimalTooLong(usize),
 
-    #[error("Client identifier is now allowed to be of length zero")]
-    ZeroLen,
+    #[error("Client identifier is not allowed to be empty")]
+    Zero,
 
-    #[error("Client identifier is now allowed to be of length {}, maximum is {}", .0, u16::MAX)]
-    TooLong(usize),
+    #[error(transparent)]
+    String(#[from] crate::string::MqttStringError),
 }
