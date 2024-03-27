@@ -56,7 +56,11 @@ impl ClientIdentifier {
     }
 
     pub fn as_str(&self) -> &str {
-        todo!()
+        match self {
+            ClientIdentifier::MinimalRequired(s) => s.0.as_ref(),
+            ClientIdentifier::PotentiallyServerProvided => "",
+            ClientIdentifier::PotentiallyAccepted(s) => s.0.as_ref(),
+        }
     }
 }
 
