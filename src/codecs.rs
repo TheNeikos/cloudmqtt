@@ -54,6 +54,10 @@ impl Decoder for MqttPacketCodec {
                     src.reserve(needed.into());
                     return Ok(None);
                 }
+                Err(winnow::error::ErrMode::Incomplete(winnow::error::Needed::Unknown)) => {
+                    src.reserve(1);
+                    return Ok(None);
+                }
                 _ => {
                     return Err(MqttPacketCodecError::Protocol);
                 }
