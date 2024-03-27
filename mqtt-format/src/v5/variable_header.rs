@@ -14,6 +14,7 @@ use super::integers::write_variable_u32;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
 use super::MResult;
+use crate::v5::integers::parse_variable_u32;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct PacketIdentifier(pub u16);
@@ -190,9 +191,9 @@ define_properties! {[
         ],
 
     SubscriptionIdentifier as 0x0B =>
-        parse with parse_u32 as u32;
-        write with super::integers::write_u32;
-        with size |_| 4;
+        parse with parse_variable_u32 as u32;
+        write with super::integers::write_variable_u32;
+        with size |&v: &u32| super::integers::variable_u32_binary_size(v);
         testfnname: test_roundtrip_subscriptionidentifier;
         testvalues: [12, 14, 42, 1337],
 
