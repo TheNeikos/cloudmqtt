@@ -151,7 +151,7 @@ impl MqttClientConnector {
 
         let connack = loop {
             let can_use_auth = self.properties.authentication_data.is_some();
-            let auth = match maybe_connack.get() {
+            let _auth = match maybe_connack.get() {
                 mqtt_format::v5::packets::MqttPacket::Connack(connack) => break connack,
                 mqtt_format::v5::packets::MqttPacket::Auth(auth) => {
                     if can_use_auth {
@@ -180,7 +180,7 @@ impl MqttClientConnector {
         if connack.reason_code == mqtt_format::v5::packets::connack::ConnackReasonCode::Success {
             // TODO: Read properties, configure client
 
-            return Ok(MqttClient { conn });
+            return Ok(MqttClient { _conn: conn });
         }
 
         // TODO: Do something with error code
@@ -194,7 +194,7 @@ impl MqttClientConnector {
 }
 
 pub struct MqttClient {
-    conn: Framed<MqttConnection, MqttPacketCodec>,
+    _conn: Framed<MqttConnection, MqttPacketCodec>,
 }
 
 impl MqttClient {}
