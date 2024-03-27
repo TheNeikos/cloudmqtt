@@ -23,6 +23,9 @@ pub enum MqttPacketCodecError {
 
     #[error("A protocol error occurred")]
     Protocol,
+
+    #[error("Could not parse during decoding due to: {:?}", .0)]
+    Parsing(winnow::error::ErrMode<winnow::error::ContextError>),
 }
 
 pub(crate) struct MqttPacketCodec;
@@ -72,7 +75,7 @@ impl Decoder for MqttPacketCodec {
         let packet = Yoke::try_attach_to_cart(
             crate::packets::StableBytes(cart),
             |data| -> Result<_, MqttPacketCodecError> {
-                FormatMqttPacket::parse_complete(data).map_err(|_| MqttPacketCodecError::Protocol)
+                FormatMqttPacket::parse_complete(data).map_err(MqttPacketCodecError::Parsing)
             },
         )?;
 
