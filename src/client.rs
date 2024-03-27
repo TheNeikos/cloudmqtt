@@ -11,6 +11,7 @@ use tokio_util::codec::Framed;
 use crate::bytes::MqttBytes;
 use crate::client_identifier::ClientIdentifier;
 use crate::codecs::MqttPacketCodec;
+use crate::codecs::MqttPacketCodecError;
 use crate::keep_alive::KeepAlive;
 use crate::string::MqttString;
 use crate::transport::MqttConnectTransport;
@@ -58,6 +59,21 @@ impl MqttWill {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum MqttClientConnectError {
+    #[error("An error occured while encoding or sending an MQTT Packet")]
+    Send(#[source] MqttPacketCodecError),
+
+    #[error("An error occured while decoding or receiving an MQTT Packet")]
+    Receive(#[source] MqttPacketCodecError),
+
+    #[error("The transport unexpectedly closed")]
+    TransportUnexpectedlyClosed,
+
+    #[error("The server sent a response with a protocol error: {reason}")]
+    ServerProtocolError { reason: &'static str },
+}
+
 pub struct MqttClientConnector {
     transport: MqttConnectTransport,
     client_identifier: ClientIdentifier,
@@ -103,7 +119,8 @@ impl MqttClientConnector {
         self
     }
 
-    pub async fn connect(self) -> Result<MqttClient, ()> {
+    pub async fn connect(self) -> Result<MqttClient, MqttClientConnectError> {
+        type Mcce = MqttClientConnectError;
         let mut conn =
             tokio_util::codec::Framed::new(MqttConnection::from(self.transport), MqttPacketCodec);
 
@@ -119,14 +136,17 @@ impl MqttClientConnector {
 
         conn.send(mqtt_format::v5::packets::MqttPacket::Connect(conn_packet))
             .await
-            .map_err(|_| ())?;
+            .map_err(Mcce::Send)?;
 
         let Some(maybe_connack) = conn.next().await else {
-            return Err(());
+            return Err(Mcce::TransportUnexpectedlyClosed);
         };
 
-        let Ok(maybe_connack) = maybe_connack else {
-            return Err(());
+        let maybe_connack = match maybe_connack {
+            Ok(maybe_connack) => maybe_connack,
+            Err(e) => {
+                return Err(Mcce::Receive(e));
+            }
         };
 
         let connack = loop {
@@ -138,11 +158,15 @@ impl MqttClientConnector {
                         auth
                     } else {
                         // MQTT-4.12.0-6
-                        return Err(());
+                        return Err(Mcce::ServerProtocolError {
+                            reason: "MQTT-4.12.0-6",
+                        });
                     }
                 }
                 _ => {
-                    return Err(());
+                    return Err(MqttClientConnectError::ServerProtocolError {
+                        reason: "MQTT-3.1.4-5",
+                    });
                 }
             };
 
