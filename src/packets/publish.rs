@@ -15,7 +15,7 @@ crate::properties::define_properties! {
         message_expiry_interval: MessageExpiryInterval with setter = u32,
 
         (anker: "_Toc3901113")
-        topic_alias: TopicAlias with setter = u32,
+        topic_alias: TopicAlias with setter = u16,
 
         (anker: "_Toc3901114")
         response_topic: ResponseTopic<'i> with setter = String,
