@@ -4,14 +4,14 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-mod bytes;
-mod client;
-mod client_identifier;
+pub mod bytes;
+pub mod client;
+pub mod client_identifier;
 mod codecs;
 mod error;
-mod keep_alive;
+pub mod keep_alive;
 mod packets;
 mod properties;
-mod string;
-mod transport;
+pub mod string;
+pub mod transport;
 mod util;
