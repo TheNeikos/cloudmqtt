@@ -4,8 +4,6 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use mqtt_format::v5::packets::connect::ConnectWillProperties;
-
 use crate::bytes::MqttBytes;
 use crate::client_identifier::ClientIdentifier;
 use crate::keep_alive::KeepAlive;
@@ -28,7 +26,7 @@ impl CleanStart {
 }
 
 pub struct MqttWill {
-    properties: ConnectWillProperties,
+    properties: crate::packets::connect::ConnectWillProperties,
     topic: MqttString,
     payload: MqttBytes,
     qos: QualityOfService,
