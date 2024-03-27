@@ -25,17 +25,18 @@ macro_rules! define_properties {
         properties_type: $packettypename:ty,
         $( anker: $anker:literal $(,)?)?
         pub struct $name:ident {
-            $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ident $(<$prop_lt:lifetime>)?),* $(,)?
+            $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ident $(<$prop_lt:lifetime>)? with setter = $setter:ty),* $(,)?
         }
     ) => {
         #[derive(Clone, Debug, PartialEq)]
         pub struct $name {
             $(
-                pub $prop_name: Option<crate::properties::TypeOfProperty<crate::properties::define_properties!(@statify $prop $($prop_lt)?)>>
+                $prop_name: Option<crate::properties::TypeOfProperty<crate::properties::define_properties!(@statify $prop $($prop_lt)?)>>
             ),*
         }
 
         paste::paste! {
+            #[allow(dead_code)]
             impl $name {
                 #[allow(clippy::new_without_default)]
                 pub fn new() -> Self {
@@ -45,7 +46,7 @@ macro_rules! define_properties {
                 }
 
                 $(
-                    pub fn [<set_ $prop_name>](&mut self, value: impl Into<crate::properties::SetterTypeOfProperty<crate::properties::define_properties!(@statify $prop $($prop_lt)?)>>) -> &mut Self {
+                    pub fn [<with_ $prop_name>](&mut self, value: $setter) -> &mut Self {
                         <crate::properties::define_properties!(@statify $prop $($prop_lt)?) as crate::properties::FormatProperty>::apply(&mut self.$prop_name, value);
 
                         self
@@ -185,31 +186,31 @@ mod tests {
         anker: "_Toc3901046",
         pub struct ConnectProperties {
             (anker: "_Toc3901048")
-            session_expiry_interval: SessionExpiryInterval,
+            session_expiry_interval: SessionExpiryInterval with setter = u32,
 
             (anker: "_Toc3901049")
-            receive_maximum: ReceiveMaximum,
+            receive_maximum: ReceiveMaximum with setter = u32,
 
             (anker: "_Toc3901050")
-            maximum_packet_size: MaximumPacketSize,
+            maximum_packet_size: MaximumPacketSize with setter = u32,
 
             (anker: "_Toc3901051")
-            topic_alias_maximum: TopicAliasMaximum,
+            topic_alias_maximum: TopicAliasMaximum with setter = u32,
 
             (anker: "_Toc3901052")
-            request_response_information: RequestResponseInformation,
+            request_response_information: RequestResponseInformation with setter = u8,
 
             (anker: "_Toc3901053")
-            request_problem_information: RequestProblemInformation,
+            request_problem_information: RequestProblemInformation with setter = u8,
 
             (anker: "_Toc3901054")
-            user_properties: UserProperties<'a>,
+            user_properties: UserProperties<'a> with setter = crate::properties::UserProperty,
 
             (anker: "_Toc3901055")
-            authentication_method: AuthenticationMethod<'a>,
+            authentication_method: AuthenticationMethod<'a> with setter = String,
 
             (anker: "_Toc3901056")
-            authentication_data: AuthenticationData<'a>,
+            authentication_data: AuthenticationData<'a> with setter = Vec<u8>,
         }
     }
 
@@ -217,17 +218,18 @@ mod tests {
     fn check_properties() {
         let mut props = ConnectProperties::new();
 
-        props.set_session_expiry_interval(16u32);
-        props.set_user_properties(UserProperty {
+        props.with_session_expiry_interval(16u32);
+        props.with_user_properties(UserProperty {
             key: MqttString::from_str("foo").unwrap(),
             value: MqttString::from_str("bar").unwrap(),
         });
         for _ in 0..5 {
-            props.set_user_properties(UserProperty {
+            props.with_user_properties(UserProperty {
                 key: MqttString::from_str("foo").unwrap(),
                 value: MqttString::from_str("bar").unwrap(),
             });
         }
+        props.with_receive_maximum(4);
 
         let conn_props = props.as_ref();
 
