@@ -4,8 +4,10 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use crate::bytes::MqttBytes;
 use crate::client_identifier::ClientIdentifier;
 use crate::keep_alive::KeepAlive;
+use crate::string::MqttString;
 use crate::transport::MqttConnectTransport;
 use crate::transport::MqttConnection;
 
@@ -29,6 +31,8 @@ pub struct MqttClientConnector {
     clean_start: CleanStart,
     keep_alive: KeepAlive,
     properties: crate::packets::connect::ConnectProperties,
+    username: Option<MqttString>,
+    password: Option<MqttBytes>,
 }
 
 impl MqttClientConnector {
@@ -44,7 +48,19 @@ impl MqttClientConnector {
             clean_start,
             keep_alive,
             properties: crate::packets::connect::ConnectProperties::new(),
+            username: None,
+            password: None,
         }
+    }
+
+    pub fn with_username(&mut self, username: MqttString) -> &mut Self {
+        self.username = Some(username);
+        self
+    }
+
+    pub fn with_password(&mut self, password: MqttBytes) -> &mut Self {
+        self.password = Some(password);
+        self
     }
 
     pub async fn connect(self) -> Result<MqttClient, ()> {
@@ -52,8 +68,8 @@ impl MqttClientConnector {
 
         let conn_packet = mqtt_format::v5::packets::connect::MConnect {
             client_identifier: self.client_identifier.as_str(),
-            username: None,
-            password: None,
+            username: self.username.as_ref().map(AsRef::as_ref),
+            password: self.password.as_ref().map(AsRef::as_ref),
             clean_start: self.clean_start.as_bool(),
             will: None,
             properties: self.properties.as_ref(),
