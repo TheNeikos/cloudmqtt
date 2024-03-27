@@ -102,6 +102,7 @@ impl Encoder<FormatMqttPacket<'_>> for MqttPacketCodec {
 mod tests {
     use futures::SinkExt;
     use futures::StreamExt;
+    use mqtt_format::v5::packets::connect::MConnect;
     use mqtt_format::v5::packets::pingreq::MPingreq;
     use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
     use tokio_util::codec::Framed;
@@ -122,6 +123,34 @@ mod tests {
 
         let sent_packet = packet.clone();
         tokio::spawn(async move {
+            framed_client.send(sent_packet).await.unwrap();
+        });
+        let recv_packet = framed_server.next().await.unwrap().unwrap();
+
+        assert_eq!(packet, *recv_packet.get());
+    }
+
+    #[tokio::test]
+    async fn test_connect_codec() {
+        let (client, server) = tokio::io::duplex(100);
+        let mut framed_client =
+            Framed::new(MqttConnection::Duplex(client.compat()), MqttPacketCodec);
+        let mut framed_server =
+            Framed::new(MqttConnection::Duplex(server.compat()), MqttPacketCodec);
+
+        let packet = FormatMqttPacket::Connect(MConnect {
+            client_identifier: "test",
+            username: None,
+            password: None,
+            clean_start: false,
+            will: None,
+            properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+            keep_alive: 0,
+        });
+
+        let sent_packet = packet.clone();
+        tokio::spawn(async move {
+            framed_client.send(sent_packet.clone()).await.unwrap();
             framed_client.send(sent_packet).await.unwrap();
         });
         let recv_packet = framed_server.next().await.unwrap().unwrap();
