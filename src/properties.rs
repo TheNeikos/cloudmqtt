@@ -163,7 +163,7 @@ define_property_types! {[
     mqtt_format::v5::variable_header::ResponseInformation<'i> => inner = String; setter = String; outer ref = &'a str,
     mqtt_format::v5::variable_header::ServerReference<'i> => inner = String; setter = String; outer ref = &'a str,
     mqtt_format::v5::variable_header::ReasonString<'i> => inner = String; setter = String; outer ref = &'a str,
-    mqtt_format::v5::variable_header::ReceiveMaximum => inner = u32; setter = u32; outer deref = u32,
+    mqtt_format::v5::variable_header::ReceiveMaximum => inner = u16; setter = u16; outer deref = u16,
     mqtt_format::v5::variable_header::TopicAliasMaximum => inner = u16; setter = u16; outer deref = u16,
     mqtt_format::v5::variable_header::TopicAlias => inner = u32; setter = u32; outer deref = u32,
     mqtt_format::v5::variable_header::MaximumQoS => inner = u8; setter = u8; outer deref = u8,
