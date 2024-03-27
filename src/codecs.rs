@@ -11,8 +11,8 @@ use tokio_util::codec::Encoder;
 use winnow::Partial;
 use yoke::Yoke;
 
-use crate::packet::MqttPacket;
-use crate::packet::MqttWriterError;
+use crate::packets::MqttPacket;
+use crate::packets::MqttWriterError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MqttPacketCodecError {
@@ -71,7 +71,7 @@ impl Decoder for MqttPacketCodec {
         let cart = src.split_to(total_packet_length).freeze();
 
         let packet = Yoke::try_attach_to_cart(
-            crate::packet::StableBytes(cart),
+            crate::packets::StableBytes(cart),
             |data| -> Result<_, MqttPacketCodecError> {
                 FormatMqttPacket::parse_complete(data).map_err(|_| MqttPacketCodecError::Protocol)
             },

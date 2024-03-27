@@ -16,6 +16,22 @@ use tokio_util::bytes::BytesMut;
 use yoke::CloneableCart;
 use yoke::Yoke;
 
+pub mod auth;
+pub mod connack;
+pub mod connect;
+pub mod disconnect;
+pub mod pingreq;
+pub mod pingresp;
+pub mod puback;
+pub mod pubcomp;
+pub mod publish;
+pub mod pubrec;
+pub mod pubrel;
+pub mod suback;
+pub mod subscribe;
+pub mod unsuback;
+pub mod unsubscribe;
+
 #[derive(Debug, Clone)]
 pub(crate) struct StableBytes(pub(crate) Bytes);
 

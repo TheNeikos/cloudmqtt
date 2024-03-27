@@ -71,7 +71,7 @@ macro_rules! define_properties {
 }
 pub(crate) use define_properties;
 
-use crate::packet::VecWriter;
+use crate::packets::VecWriter;
 use crate::string::MqttString;
 
 pub struct UserProperty {

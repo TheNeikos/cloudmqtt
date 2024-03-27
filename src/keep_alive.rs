@@ -27,7 +27,7 @@ impl TryFrom<Duration> for KeepAlive {
     fn try_from(value: Duration) -> Result<Self, Self::Error> {
         let secs = value.as_secs();
         if secs > u16::MAX.into() {
-            return Err(KeepAliveError::OutOfBounds)
+            return Err(KeepAliveError::OutOfBounds);
         }
         let secs = secs as u16;
 
