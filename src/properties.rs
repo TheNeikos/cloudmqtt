@@ -46,6 +46,8 @@ macro_rules! define_properties {
                 }
 
                 $(
+                    #[doc = core::concat!("Set the ", stringify!($prop_name), " property.") ]
+                    $( #[doc = core::concat!("See also: ", crate::util::md_speclink!($prop_anker)) ] )?
                     pub fn [<with_ $prop_name>](&mut self, value: $setter) -> &mut Self {
                         <crate::properties::define_properties!(@statify $prop $($prop_lt)?) as crate::properties::FormatProperty>::apply(&mut self.$prop_name, value);
 
