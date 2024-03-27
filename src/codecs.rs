@@ -100,14 +100,18 @@ mod tests {
     use mqtt_format::v5::packets::pingreq::MPingreq;
     use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
     use tokio_util::codec::Framed;
+    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     use super::MqttPacketCodec;
+    use crate::transport::MqttConnection;
 
     #[tokio::test]
     async fn simple_test_codec() {
         let (client, server) = tokio::io::duplex(100);
-        let mut framed_client = Framed::new(client, MqttPacketCodec);
-        let mut framed_server = Framed::new(server, MqttPacketCodec);
+        let mut framed_client =
+            Framed::new(MqttConnection::Duplex(client.compat()), MqttPacketCodec);
+        let mut framed_server =
+            Framed::new(MqttConnection::Duplex(server.compat()), MqttPacketCodec);
 
         let packet = FormatMqttPacket::Pingreq(MPingreq);
 
