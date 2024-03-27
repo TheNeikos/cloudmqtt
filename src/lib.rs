@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+mod bytes;
 mod client;
 mod client_identifier;
 mod codecs;
