@@ -25,12 +25,20 @@ impl CleanStart {
     }
 }
 
+#[derive(typed_builder::TypedBuilder)]
 pub struct MqttWill {
+    #[builder(default = crate::packets::connect::ConnectWillProperties::new())]
     properties: crate::packets::connect::ConnectWillProperties,
     topic: MqttString,
     payload: MqttBytes,
     qos: mqtt_format::v5::fixed_header::QualityOfService,
     retain: bool,
+}
+
+impl MqttWill {
+    pub fn get_properties_mut(&mut self) -> &mut crate::packets::connect::ConnectWillProperties {
+        &mut self.properties
+    }
 }
 
 pub struct MqttClientConnector {
