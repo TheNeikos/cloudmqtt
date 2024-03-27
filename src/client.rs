@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use mqtt_format::v5::packets::connect::ConnectWillProperties;
+
 use crate::bytes::MqttBytes;
 use crate::client_identifier::ClientIdentifier;
 use crate::keep_alive::KeepAlive;
@@ -25,6 +27,14 @@ impl CleanStart {
     }
 }
 
+pub struct MqttWill {
+    properties: ConnectWillProperties,
+    topic: MqttString,
+    payload: MqttBytes,
+    qos: QualityOfService,
+    retain: bool,
+}
+
 pub struct MqttClientConnector {
     transport: MqttConnectTransport,
     client_identifier: ClientIdentifier,
@@ -33,6 +43,7 @@ pub struct MqttClientConnector {
     properties: crate::packets::connect::ConnectProperties,
     username: Option<MqttString>,
     password: Option<MqttBytes>,
+    will: Option<MqttWill>,
 }
 
 impl MqttClientConnector {
@@ -50,6 +61,7 @@ impl MqttClientConnector {
             properties: crate::packets::connect::ConnectProperties::new(),
             username: None,
             password: None,
+            will: None,
         }
     }
 
@@ -60,6 +72,11 @@ impl MqttClientConnector {
 
     pub fn with_password(&mut self, password: MqttBytes) -> &mut Self {
         self.password = Some(password);
+        self
+    }
+
+    pub fn with_will(&mut self, will: MqttWill) -> &mut Self {
+        self.will = Some(will);
         self
     }
 
