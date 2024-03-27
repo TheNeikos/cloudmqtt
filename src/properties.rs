@@ -5,7 +5,6 @@
 //
 
 pub type TypeOfProperty<P> = <P as FormatProperty>::Inner;
-pub type SetterTypeOfProperty<P> = <P as FormatProperty>::Setter;
 
 macro_rules! define_properties {
     (@no_lt $name:ident $pat:ident $lt:lifetime) => {
