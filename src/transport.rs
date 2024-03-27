@@ -4,8 +4,10 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use futures::AsyncRead;
-use futures::AsyncWrite;
+use futures::AsyncRead as FuturesAsyncRead;
+use futures::AsyncWrite as FuturesAsyncWrite;
+use tokio::io::AsyncRead as TokioAsyncRead;
+use tokio::io::AsyncWrite as TokioAsyncWrite;
 use tokio::io::DuplexStream;
 use tokio::net::TcpStream;
 use tokio_util::compat::Compat as TokioCompat;
@@ -16,7 +18,53 @@ pub(crate) enum MqttConnection {
     Duplex(TokioCompat<tokio::io::DuplexStream>),
 }
 
-impl AsyncRead for MqttConnection {
+impl TokioAsyncRead for MqttConnection {
+    fn poll_read(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &mut tokio::io::ReadBuf<'_>,
+    ) -> std::task::Poll<std::io::Result<()>> {
+        match &mut *self {
+            MqttConnection::Tokio(t) => std::pin::pin!(t.get_mut()).poll_read(cx, buf),
+            MqttConnection::Duplex(d) => std::pin::pin!(d.get_mut()).poll_read(cx, buf),
+        }
+    }
+}
+
+impl TokioAsyncWrite for MqttConnection {
+    fn poll_write(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+        buf: &[u8],
+    ) -> std::task::Poll<Result<usize, std::io::Error>> {
+        match &mut *self {
+            MqttConnection::Tokio(t) => std::pin::pin!(t.get_mut()).poll_write(cx, buf),
+            MqttConnection::Duplex(d) => std::pin::pin!(d.get_mut()).poll_write(cx, buf),
+        }
+    }
+
+    fn poll_flush(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::io::Error>> {
+        match &mut *self {
+            MqttConnection::Tokio(t) => std::pin::pin!(t.get_mut()).poll_flush(cx),
+            MqttConnection::Duplex(d) => std::pin::pin!(d.get_mut()).poll_flush(cx),
+        }
+    }
+
+    fn poll_shutdown(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Result<(), std::io::Error>> {
+        match &mut *self {
+            MqttConnection::Tokio(t) => std::pin::pin!(t.get_mut()).poll_shutdown(cx),
+            MqttConnection::Duplex(d) => std::pin::pin!(d.get_mut()).poll_shutdown(cx),
+        }
+    }
+}
+
+impl FuturesAsyncRead for MqttConnection {
     fn poll_read(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
@@ -29,7 +77,7 @@ impl AsyncRead for MqttConnection {
     }
 }
 
-impl AsyncWrite for MqttConnection {
+impl FuturesAsyncWrite for MqttConnection {
     fn poll_write(
         mut self: std::pin::Pin<&mut Self>,
         cx: &mut std::task::Context<'_>,
