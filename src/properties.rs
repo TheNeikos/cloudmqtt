@@ -31,7 +31,7 @@ macro_rules! define_properties {
         #[derive(Clone, Debug, PartialEq)]
         pub struct $name {
             $(
-                $prop_name: Option<crate::properties::TypeOfProperty<crate::properties::define_properties!(@statify $prop $($prop_lt)?)>>
+                pub(crate) $prop_name: Option<crate::properties::TypeOfProperty<crate::properties::define_properties!(@statify $prop $($prop_lt)?)>>
             ),*
         }
 
