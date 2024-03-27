@@ -99,11 +99,9 @@ mod tests {
     use futures::StreamExt;
     use mqtt_format::v5::packets::pingreq::MPingreq;
     use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
-    use tokio_util::bytes::BytesMut;
     use tokio_util::codec::Framed;
 
     use super::MqttPacketCodec;
-    use crate::packet::MqttWriter;
 
     #[tokio::test]
     async fn simple_test_codec() {
@@ -111,14 +109,12 @@ mod tests {
         let mut framed_client = Framed::new(client, MqttPacketCodec);
         let mut framed_server = Framed::new(server, MqttPacketCodec);
 
-        let mut data = BytesMut::new();
-
         let packet = FormatMqttPacket::Pingreq(MPingreq);
 
+        let sent_packet = packet.clone();
         tokio::spawn(async move {
-            framed_client.send(packet).await.unwrap();
+            framed_client.send(sent_packet).await.unwrap();
         });
-
         let recv_packet = framed_server.next().await.unwrap().unwrap();
 
         assert_eq!(packet, *recv_packet.get());
