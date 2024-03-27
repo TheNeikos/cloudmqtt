@@ -41,6 +41,18 @@ impl MqttWill {
     }
 }
 
+impl MqttWill {
+    fn as_ref(&self) -> mqtt_format::v5::packets::connect::Will<'_> {
+        mqtt_format::v5::packets::connect::Will {
+            properties: self.properties.as_ref(),
+            topic: self.topic.as_ref(),
+            payload: self.payload.as_ref(),
+            will_qos: self.qos,
+            will_retain: self.retain,
+        }
+    }
+}
+
 pub struct MqttClientConnector {
     transport: MqttConnectTransport,
     client_identifier: ClientIdentifier,
@@ -94,7 +106,7 @@ impl MqttClientConnector {
             username: self.username.as_ref().map(AsRef::as_ref),
             password: self.password.as_ref().map(AsRef::as_ref),
             clean_start: self.clean_start.as_bool(),
-            will: None,
+            will: self.will.as_ref().map(|w| w.as_ref()),
             properties: self.properties.as_ref(),
             keep_alive: self.keep_alive.as_u16(),
         };
