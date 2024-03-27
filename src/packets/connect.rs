@@ -36,3 +36,30 @@ crate::properties::define_properties! {
         authentication_data: AuthenticationData<'a> with setter = Vec<u8>,
     }
 }
+
+crate::properties::define_properties! {
+    properties_type: mqtt_format::v5::packets::connect::ConnectWillProperties,
+    anker: "_Toc3901060",
+    pub struct ConnectWillProperties {
+        (anker: "_Toc3901062")
+        will_delay_interval: WillDelayInterval with setter = u16,
+
+        (anker: "_Toc3901063")
+        payload_format_indicator: PayloadFormatIndicator with setter = u8,
+
+        (anker: "_Toc3901064")
+        message_expiry_interval: MessageExpiryInterval with setter = u32,
+
+        (anker: "_Toc3901065")
+        content_type: ContentType<'i> with setter = String,
+
+        (anker: "_Toc3901066")
+        response_topic: ResponseTopic<'i> with setter = String,
+
+        (anker: "_Toc3901067")
+        correlation_data: CorrelationData<'i> with setter = Vec<u8>,
+
+        (anker: "_Toc3901068")
+        user_properties: UserProperties<'i> with setter = crate::properties::UserProperty,
+    }
+}
