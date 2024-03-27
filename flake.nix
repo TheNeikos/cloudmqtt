@@ -31,6 +31,7 @@
           extensions = [ "rust-src" "miri" "rustfmt" ];
         });
         craneLib = (crane.mkLib pkgs).overrideToolchain rustTarget;
+        unstableCraneLib = (crane.mkLib pkgs).overrideToolchain unstableRustTarget;
 
         tomlInfo = craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
         inherit (tomlInfo) pname version;
@@ -73,7 +74,7 @@
             cargoClippyExtraArgs = "--no-deps -p mqtt-format -- --deny warnings";
           };
 
-          cloudmqtt-fmt = craneLib.cargoFmt {
+          cloudmqtt-fmt = unstableCraneLib.cargoFmt {
             inherit src;
           };
         };
