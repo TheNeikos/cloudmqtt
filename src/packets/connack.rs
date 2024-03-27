@@ -27,7 +27,7 @@ crate::properties::define_properties! {
         assigned_client_identifier: AssignedClientIdentifier<'i> with setter = String,
 
         (anker: "_Toc3901088")
-        topic_alias_maximum: TopicAliasMaximum with setter = u32,
+        topic_alias_maximum: TopicAliasMaximum with setter = u16,
 
         (anker: "_Toc3901089")
         reason_string: ReasonString<'i> with setter = String,

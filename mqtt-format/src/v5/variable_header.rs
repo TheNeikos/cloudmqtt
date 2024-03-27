@@ -286,9 +286,9 @@ define_properties! {[
         testvalues: [12, 14, 42, 1337],
 
     TopicAliasMaximum as 0x22 =>
-        parse with parse_u32 as u32;
-        write with super::integers::write_u32;
-        with size |_| 4;
+        parse with parse_u16 as u16;
+        write with super::integers::write_u16;
+        with size |_| 2;
         testfnname: test_roundtrip_topicaliasmaximum;
         testvalues: [12, 14, 42, 1337],
 

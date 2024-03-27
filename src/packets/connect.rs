@@ -18,7 +18,7 @@ crate::properties::define_properties! {
         maximum_packet_size: MaximumPacketSize with setter = u32,
 
         (anker: "_Toc3901051")
-        topic_alias_maximum: TopicAliasMaximum with setter = u32,
+        topic_alias_maximum: TopicAliasMaximum with setter = u16,
 
         (anker: "_Toc3901052")
         request_response_information: RequestResponseInformation with setter = u8,
