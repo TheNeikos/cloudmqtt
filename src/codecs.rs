@@ -47,9 +47,9 @@ impl Decoder for MqttPacketCodec {
             return Ok(None);
         }
 
-        let packet_size =
+        let remaining_length =
             match mqtt_format::v5::integers::parse_variable_u32(&mut Partial::new(&src[1..])) {
-                Ok(size) => size,
+                Ok(size) => size as usize,
                 Err(winnow::error::ErrMode::Incomplete(winnow::error::Needed::Size(needed))) => {
                     src.reserve(needed.into());
                     return Ok(None);
@@ -63,10 +63,8 @@ impl Decoder for MqttPacketCodec {
                 }
             };
 
-        let remaining_length = packet_size as usize;
-
         let total_packet_length = 1
-            + mqtt_format::v5::integers::variable_u32_binary_size(packet_size) as usize
+            + mqtt_format::v5::integers::variable_u32_binary_size(remaining_length as u32) as usize
             + remaining_length;
 
         if src.len() < total_packet_length {
