@@ -45,7 +45,7 @@ crate::properties::define_properties! {
         shared_scubscription_available: SharedSubscriptionAvailable with setter = u8,
 
         (anker: "_Toc3901094")
-        server_keep_alive: ServerKeepAlive with setter = u32,
+        server_keep_alive: ServerKeepAlive with setter = u16,
 
         (anker: "_Toc3901095")
         response_information: ResponseInformation<'i> with setter = String,

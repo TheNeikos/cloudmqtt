@@ -154,7 +154,7 @@ define_property_types! {[
     mqtt_format::v5::variable_header::SubscriptionIdentifier => inner = u32; setter = u32; outer deref = u32,
     mqtt_format::v5::variable_header::SessionExpiryInterval => inner = u32; setter = u32; outer deref = u32,
     mqtt_format::v5::variable_header::AssignedClientIdentifier<'i> => inner = String; setter = String; outer ref = &'a str,
-    mqtt_format::v5::variable_header::ServerKeepAlive => inner = u32; setter = u32; outer deref = u32,
+    mqtt_format::v5::variable_header::ServerKeepAlive => inner = u16; setter = u16; outer deref = u16,
     mqtt_format::v5::variable_header::AuthenticationMethod<'i> => inner = String; setter = String; outer ref = &'a str,
     mqtt_format::v5::variable_header::AuthenticationData<'i> => inner = Vec<u8>; setter = Vec<u8>; outer ref = &'a [u8],
     mqtt_format::v5::variable_header::RequestProblemInformation => inner = u8; setter = u8; outer deref = u8,
