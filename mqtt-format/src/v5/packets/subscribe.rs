@@ -24,8 +24,13 @@ use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
 
 define_properties! {
+    packet_type: MSubscribe,
+    anker: "_Toc3901164",
     pub struct SubscribeProperties<'i> {
+        (anker: "_Toc3901166")
         subscription_identifier: SubscriptionIdentifier,
+
+        (anker: "_Toc3901167")
         user_properties: UserProperties<'i>,
     }
 }
