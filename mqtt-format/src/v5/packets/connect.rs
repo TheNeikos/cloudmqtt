@@ -246,13 +246,23 @@ impl<'i> Will<'i> {
 }
 
 crate::v5::properties::define_properties! {
+    packet_type: Will,
+    anker: "_Toc3901060",
     pub struct ConnectWillProperties<'i> {
+        (anker: "_Toc3901062")
         will_delay_interval: WillDelayInterval,
+        (anker: "_Toc3901063")
         payload_format_indicator: PayloadFormatIndicator,
+        (anker: "_Toc3901064")
         message_expiry_interval: MessageExpiryInterval,
+        (anker: "_Toc3901065")
         content_type: ContentType<'i>,
+        (anker: "_Toc3901066")
         response_topic: ResponseTopic<'i>,
+        (anker: "_Toc3901067")
         correlation_data: CorrelationData<'i>,
+        (anker: "_Toc3901068")
+        user_properties: UserProperties<'i>,
     }
 }
 
@@ -342,6 +352,7 @@ mod test {
                     content_type: None,
                     response_topic: None,
                     correlation_data: None,
+                    user_properties: None,
                 },
                 topic: "crazy topic",
                 payload: &[0xAB, 0xCD, 0xEF],
@@ -378,6 +389,7 @@ mod test {
                     content_type: Some(ContentType("json")),
                     response_topic: Some(ResponseTopic("resp")),
                     correlation_data: Some(CorrelationData(&[0xFF])),
+                    user_properties: None,
                 },
                 topic: "crazy topic",
                 payload: &[0xAB, 0xCD, 0xEF],

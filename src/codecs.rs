@@ -5,14 +5,13 @@
 //
 
 use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
-use tokio_util::bytes::Bytes;
 use tokio_util::codec::Decoder;
 use tokio_util::codec::Encoder;
 use winnow::Partial;
 use yoke::Yoke;
 
-use crate::packet::MqttPacket;
-use crate::packet::MqttWriterError;
+use crate::packets::MqttPacket;
+use crate::packets::MqttWriterError;
 
 #[derive(Debug, thiserror::Error)]
 pub enum MqttPacketCodecError {
@@ -24,6 +23,9 @@ pub enum MqttPacketCodecError {
 
     #[error("A protocol error occurred")]
     Protocol,
+
+    #[error("Could not parse during decoding due to: {:?}", .0)]
+    Parsing(winnow::error::ErrMode<winnow::error::ContextError>),
 }
 
 pub(crate) struct MqttPacketCodec;
@@ -45,11 +47,15 @@ impl Decoder for MqttPacketCodec {
             return Ok(None);
         }
 
-        let packet_size =
+        let remaining_length =
             match mqtt_format::v5::integers::parse_variable_u32(&mut Partial::new(&src[1..])) {
-                Ok(size) => size,
+                Ok(size) => size as usize,
                 Err(winnow::error::ErrMode::Incomplete(winnow::error::Needed::Size(needed))) => {
                     src.reserve(needed.into());
+                    return Ok(None);
+                }
+                Err(winnow::error::ErrMode::Incomplete(winnow::error::Needed::Unknown)) => {
+                    src.reserve(1);
                     return Ok(None);
                 }
                 _ => {
@@ -57,10 +63,8 @@ impl Decoder for MqttPacketCodec {
                 }
             };
 
-        let remaining_length = packet_size as usize;
-
         let total_packet_length = 1
-            + mqtt_format::v5::integers::variable_u32_binary_size(packet_size) as usize
+            + mqtt_format::v5::integers::variable_u32_binary_size(remaining_length as u32) as usize
             + remaining_length;
 
         if src.len() < total_packet_length {
@@ -71,9 +75,9 @@ impl Decoder for MqttPacketCodec {
         let cart = src.split_to(total_packet_length).freeze();
 
         let packet = Yoke::try_attach_to_cart(
-            crate::packet::StableBytes(cart),
+            crate::packets::StableBytes(cart),
             |data| -> Result<_, MqttPacketCodecError> {
-                FormatMqttPacket::parse_complete(data).map_err(|_| MqttPacketCodecError::Protocol)
+                FormatMqttPacket::parse_complete(data).map_err(MqttPacketCodecError::Parsing)
             },
         )?;
 
@@ -81,16 +85,15 @@ impl Decoder for MqttPacketCodec {
     }
 }
 
-impl Encoder<Bytes> for MqttPacketCodec {
+impl Encoder<FormatMqttPacket<'_>> for MqttPacketCodec {
     type Error = MqttPacketCodecError;
 
     fn encode(
         &mut self,
-        packet: Bytes,
+        packet: FormatMqttPacket<'_>,
         dst: &mut tokio_util::bytes::BytesMut,
     ) -> Result<(), Self::Error> {
-        dst.extend_from_slice(&packet);
-
+        packet.write(&mut crate::packets::MqttWriter(dst))?;
         Ok(())
     }
 }
@@ -99,31 +102,57 @@ impl Encoder<Bytes> for MqttPacketCodec {
 mod tests {
     use futures::SinkExt;
     use futures::StreamExt;
+    use mqtt_format::v5::packets::connect::MConnect;
     use mqtt_format::v5::packets::pingreq::MPingreq;
     use mqtt_format::v5::packets::MqttPacket as FormatMqttPacket;
-    use tokio_util::bytes::BytesMut;
     use tokio_util::codec::Framed;
+    use tokio_util::compat::TokioAsyncReadCompatExt;
 
     use super::MqttPacketCodec;
-    use crate::packet::MqttWriter;
+    use crate::transport::MqttConnection;
 
     #[tokio::test]
     async fn simple_test_codec() {
         let (client, server) = tokio::io::duplex(100);
-        let mut framed_client = Framed::new(client, MqttPacketCodec);
-        let mut framed_server = Framed::new(server, MqttPacketCodec);
-
-        let mut data = BytesMut::new();
+        let mut framed_client =
+            Framed::new(MqttConnection::Duplex(client.compat()), MqttPacketCodec);
+        let mut framed_server =
+            Framed::new(MqttConnection::Duplex(server.compat()), MqttPacketCodec);
 
         let packet = FormatMqttPacket::Pingreq(MPingreq);
 
-        packet.write(&mut MqttWriter(&mut data)).unwrap();
-
-        let send_data = data.clone().freeze();
+        let sent_packet = packet.clone();
         tokio::spawn(async move {
-            framed_client.send(send_data).await.unwrap();
+            framed_client.send(sent_packet).await.unwrap();
+        });
+        let recv_packet = framed_server.next().await.unwrap().unwrap();
+
+        assert_eq!(packet, *recv_packet.get());
+    }
+
+    #[tokio::test]
+    async fn test_connect_codec() {
+        let (client, server) = tokio::io::duplex(100);
+        let mut framed_client =
+            Framed::new(MqttConnection::Duplex(client.compat()), MqttPacketCodec);
+        let mut framed_server =
+            Framed::new(MqttConnection::Duplex(server.compat()), MqttPacketCodec);
+
+        let packet = FormatMqttPacket::Connect(MConnect {
+            client_identifier: "test",
+            username: None,
+            password: None,
+            clean_start: false,
+            will: None,
+            properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+            keep_alive: 0,
         });
 
+        let sent_packet = packet.clone();
+        tokio::spawn(async move {
+            framed_client.send(sent_packet.clone()).await.unwrap();
+            framed_client.send(sent_packet).await.unwrap();
+        });
         let recv_packet = framed_server.next().await.unwrap().unwrap();
 
         assert_eq!(packet, *recv_packet.get());

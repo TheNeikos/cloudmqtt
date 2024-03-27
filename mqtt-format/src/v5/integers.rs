@@ -29,7 +29,7 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
 }
 
 pub fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> WResult<W> {
-    buffer.write_u16(u.to_be())?;
+    buffer.write_u16(u)?;
     Ok(())
 }
 
