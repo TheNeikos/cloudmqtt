@@ -9,6 +9,7 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use super::integers::parse_u16;
+use super::integers::parse_u16_nonzero;
 use super::integers::parse_u32;
 use super::integers::write_variable_u32;
 use super::write::WResult;
@@ -280,11 +281,16 @@ define_properties! {[
         testvalues: ["fooobarbar"],
 
     ReceiveMaximum as 0x21 =>
-        parse with parse_u16 as u16;
-        write with super::integers::write_u16;
+        parse with parse_u16_nonzero as core::num::NonZeroU16;
+        write with super::integers::write_u16_nonzero;
         with size |_| 2;
         testfnname: test_roundtrip_receivemaximum;
-        testvalues: [12, 14, 42, 1337],
+        testvalues: [
+            core::num::NonZeroU16::new(12).unwrap(),
+            core::num::NonZeroU16::new(14).unwrap(),
+            core::num::NonZeroU16::new(42).unwrap(),
+            core::num::NonZeroU16::new(1337).unwrap(),
+        ],
 
     TopicAliasMaximum as 0x22 =>
         parse with parse_u16 as u16;

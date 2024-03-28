@@ -220,7 +220,7 @@ mod test {
             reason_code: ConnackReasonCode::Success,
             properties: ConnackProperties {
                 session_expiry_interval: Some(SessionExpiryInterval(120)),
-                receive_maximum: Some(ReceiveMaximum(123)),
+                receive_maximum: Some(ReceiveMaximum(core::num::NonZeroU16::new(123).unwrap())),
                 maximum_qos: Some(MaximumQoS(8)),
                 retain_available: Some(RetainAvailable(1)),
                 maximum_packet_size: Some(MaximumPacketSize(1024)),

@@ -399,7 +399,7 @@ mod test {
             keep_alive: 321,
             properties: ConnectProperties {
                 session_expiry_interval: Some(SessionExpiryInterval(123)),
-                receive_maximum: Some(ReceiveMaximum(1024)),
+                receive_maximum: Some(ReceiveMaximum(core::num::NonZeroU16::new(1024).unwrap())),
                 maximum_packet_size: Some(MaximumPacketSize(1024)),
                 topic_alias_maximum: Some(TopicAliasMaximum(1203)),
                 request_response_information: Some(RequestResponseInformation(90)),
