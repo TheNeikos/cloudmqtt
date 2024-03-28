@@ -15,7 +15,6 @@ use crate::client_identifier::ProposedClientIdentifier;
 use crate::codecs::MqttPacketCodec;
 use crate::codecs::MqttPacketCodecError;
 use crate::keep_alive::KeepAlive;
-use crate::packets::MqttPacket;
 use crate::string::MqttString;
 use crate::transport::MqttConnectTransport;
 use crate::transport::MqttConnection;
@@ -78,23 +77,9 @@ pub enum MqttClientConnectError {
     ServerProtocolError { reason: &'static str },
 }
 
-pub struct ConnackPropertiesView {
-    packet: MqttPacket,
-}
-
-impl ConnackPropertiesView {
-    pub fn reason_string(&self) -> Option<&str> {
-        if let mqtt_format::v5::packets::MqttPacket::Connack(connack) = self.packet.get() {
-            connack.properties.reason_string().map(|rs| rs.0)
-        } else {
-            None
-        }
-    }
-}
-
 pub struct MqttConnected {
     pub client: MqttClient,
-    pub properties: ConnackPropertiesView,
+    pub properties: crate::packets::connack::ConnackPropertiesView,
 }
 
 pub struct MqttClientConnector {
@@ -251,9 +236,8 @@ impl MqttClientConnector {
                     client_identifier,
                     _conn: conn,
                 },
-                properties: ConnackPropertiesView {
-                    packet: maybe_connack,
-                },
+                properties: crate::packets::connack::ConnackPropertiesView::try_from(maybe_connack)
+                    .expect("An already matched value suddenly changed?"),
             });
         }
 
