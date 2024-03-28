@@ -18,7 +18,7 @@ crate::properties::define_properties! {
         maximum_qos: MaximumQoS with setter = mqtt_format::v5::qos::QualityOfService,
 
         (anker: "_Toc3901085")
-        retain_available: RetainAvailable with setter = u8,
+        retain_available: RetainAvailable with setter = bool,
 
         (anker: "_Toc3901086")
         maximum_packet_size: MaximumPacketSize with setter = u32,
