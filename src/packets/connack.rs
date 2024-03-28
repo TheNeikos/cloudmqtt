@@ -15,7 +15,7 @@ crate::properties::define_properties! {
         receive_maximum: ReceiveMaximum with setter = core::num::NonZeroU16,
 
         (anker: "_Toc3901084")
-        maximum_qos: MaximumQoS with setter = crate::v5::qos::QualityOfService,
+        maximum_qos: MaximumQoS with setter = mqtt_format::v5::qos::QualityOfService,
 
         (anker: "_Toc3901085")
         retain_available: RetainAvailable with setter = u8,
