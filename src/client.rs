@@ -37,7 +37,7 @@ pub struct MqttWill {
     properties: crate::packets::connect::ConnectWillProperties,
     topic: MqttString,
     payload: MqttBytes,
-    qos: mqtt_format::v5::fixed_header::QualityOfService,
+    qos: mqtt_format::v5::qos::QualityOfService,
     retain: bool,
 }
 

@@ -307,14 +307,14 @@ define_properties! {[
         testvalues: [12, 14, 42, 1337],
 
     MaximumQoS as 0x24 =>
-        parse with crate::v5::fixed_header::parse_qos as crate::v5::fixed_header::QualityOfService;
-        write with crate::v5::fixed_header::write_qos;
+        parse with crate::v5::qos::parse_qos as crate::v5::qos::QualityOfService;
+        write with crate::v5::qos::write_qos;
         with size |_| 1;
         testfnname: test_roundtrip_maximumqos;
         testvalues: [
-            crate::v5::fixed_header::QualityOfService::AtMostOnce,
-            crate::v5::fixed_header::QualityOfService::AtLeastOnce,
-            crate::v5::fixed_header::QualityOfService::ExactlyOnce,
+            crate::v5::qos::QualityOfService::AtMostOnce,
+            crate::v5::qos::QualityOfService::AtLeastOnce,
+            crate::v5::qos::QualityOfService::ExactlyOnce,
         ],
 
     RetainAvailable as 0x25 =>

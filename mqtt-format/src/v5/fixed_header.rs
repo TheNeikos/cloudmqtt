@@ -17,35 +17,13 @@ use super::write::WResult;
 use super::write::WriteMqttPacket;
 use super::MResult;
 
-#[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum QualityOfService {
-    AtMostOnce = 0,
-    AtLeastOnce = 1,
-    ExactlyOnce = 2,
-}
-
-pub fn parse_qos(input: &mut &Bytes) -> MResult<QualityOfService> {
-    winnow::binary::u8(input).and_then(|byte| {
-        QualityOfService::try_from(byte).map_err(|e| {
-            winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
-        })
-    })
-}
-
-#[inline]
-pub fn write_qos<W: WriteMqttPacket>(buffer: &mut W, qos: QualityOfService) -> WResult<W> {
-    crate::v5::variable_header::write_u8(buffer, qos.into())
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PacketType {
     Connect,
     Connack,
     Publish {
         dup: bool,
-        qos: QualityOfService,
+        qos: crate::v5::qos::QualityOfService,
         retain: bool,
     },
     Puback,
@@ -89,9 +67,9 @@ impl MFixedHeader {
             (2, 0) => PacketType::Connack,
             (3, flags) => PacketType::Publish {
                 dup: (0b1000 & flags) != 0,
-                qos: QualityOfService::try_from((flags & 0b0110) >> 1).map_err(|e| {
-                    ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
-                })?,
+                qos: crate::v5::qos::QualityOfService::try_from((flags & 0b0110) >> 1).map_err(
+                    |e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e),
+                )?,
                 retain: (0b0001 & flags) != 0,
             },
             (4, 0) => PacketType::Puback,
@@ -171,7 +149,7 @@ mod tests {
             MFixedHeader {
                 packet_type: crate::v5::fixed_header::PacketType::Publish {
                     dup: true,
-                    qos: crate::v5::fixed_header::QualityOfService::AtLeastOnce,
+                    qos: crate::v5::qos::QualityOfService::AtLeastOnce,
                     retain: false
                 },
             }

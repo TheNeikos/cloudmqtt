@@ -40,6 +40,7 @@ pub mod fixed_header;
 pub mod integers;
 pub mod packets;
 pub mod properties;
+pub mod qos;
 pub mod reason_code;
 pub mod strings;
 mod util;
