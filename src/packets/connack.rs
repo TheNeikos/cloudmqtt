@@ -4,8 +4,11 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use crate::properties::UserPropertiesView;
+
 crate::properties::define_properties! {
     properties_type: mqtt_format::v5::packets::connack::ConnackProperties,
+    from packet variant: Connack,
     anker: "_Toc3901080",
     pub struct ConnackProperties {
         (anker: "_Toc3901082")
@@ -30,10 +33,10 @@ crate::properties::define_properties! {
         topic_alias_maximum: TopicAliasMaximum with setter = u16,
 
         (anker: "_Toc3901089")
-        reason_string: ReasonString<'i> with setter = String,
+        reason_string: ReasonString<'i> with setter = String; with viewer = &str,
 
         (anker: "_Toc3901090")
-        user_properties: UserProperties<'i> with setter = crate::properties::UserProperty,
+        user_properties: UserProperties<'i> with setter = crate::properties::UserProperty; with viewer = UserPropertiesView,
 
         (anker: "_Toc3901091")
         wildcard_subscription_available: WildcardSubscriptionAvailable with setter = u8,
@@ -48,15 +51,15 @@ crate::properties::define_properties! {
         server_keep_alive: ServerKeepAlive with setter = u16,
 
         (anker: "_Toc3901095")
-        response_information: ResponseInformation<'i> with setter = String,
+        response_information: ResponseInformation<'i> with setter = String; with viewer = &str,
 
         (anker: "_Toc3901096")
         server_reference: ServerReference<'i> with setter = String,
 
         (anker: "_Toc3901097")
-        authentication_method: AuthenticationMethod<'i> with setter = String,
+        authentication_method: AuthenticationMethod<'i> with setter = String; with viewer = &str,
 
         (anker: "_Toc3901098")
-        authentication_data: AuthenticationData<'i> with setter = Vec<u8>,
+        authentication_data: AuthenticationData<'i> with setter = Vec<u8>; with viewer = &[u8],
     }
 }
