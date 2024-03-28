@@ -26,6 +26,19 @@ pub enum QualityOfService {
     ExactlyOnce = 2,
 }
 
+pub fn parse_qos(input: &mut &Bytes) -> MResult<QualityOfService> {
+    winnow::binary::u8(input).and_then(|byte| {
+        QualityOfService::try_from(byte).map_err(|e| {
+            winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
+        })
+    })
+}
+
+#[inline]
+pub fn write_qos<W: WriteMqttPacket>(buffer: &mut W, qos: QualityOfService) -> WResult<W> {
+    crate::v5::variable_header::write_u8(buffer, qos.into())
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PacketType {
     Connect,
