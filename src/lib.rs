@@ -10,7 +10,7 @@ pub mod client_identifier;
 mod codecs;
 mod error;
 pub mod keep_alive;
-mod packets;
+pub mod packets;
 mod properties;
 pub mod string;
 pub mod transport;
