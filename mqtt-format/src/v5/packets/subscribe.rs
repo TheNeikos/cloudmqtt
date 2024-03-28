@@ -12,8 +12,8 @@ use winnow::error::ParserError;
 use winnow::Bytes;
 use winnow::Parser;
 
-use crate::v5::fixed_header::QualityOfService;
 use crate::v5::properties::define_properties;
+use crate::v5::qos::QualityOfService;
 use crate::v5::strings::parse_string;
 use crate::v5::strings::write_string;
 use crate::v5::variable_header::PacketIdentifier;
@@ -230,13 +230,13 @@ impl<'i> MSubscribe<'i> {
 
 #[cfg(test)]
 mod test {
-    use crate::v5::fixed_header::QualityOfService;
     use crate::v5::packets::subscribe::MSubscribe;
     use crate::v5::packets::subscribe::RetainHandling;
     use crate::v5::packets::subscribe::SubscribeProperties;
     use crate::v5::packets::subscribe::Subscription;
     use crate::v5::packets::subscribe::SubscriptionOptions;
     use crate::v5::packets::subscribe::Subscriptions;
+    use crate::v5::qos::QualityOfService;
     use crate::v5::test::TestWriter;
     use crate::v5::variable_header::PacketIdentifier;
     use crate::v5::variable_header::SubscriptionIdentifier;

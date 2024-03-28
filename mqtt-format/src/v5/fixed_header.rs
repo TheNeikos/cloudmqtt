@@ -17,22 +17,13 @@ use super::write::WResult;
 use super::write::WriteMqttPacket;
 use super::MResult;
 
-#[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
-#[repr(u8)]
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum QualityOfService {
-    AtMostOnce = 0,
-    AtLeastOnce = 1,
-    ExactlyOnce = 2,
-}
-
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PacketType {
     Connect,
     Connack,
     Publish {
         dup: bool,
-        qos: QualityOfService,
+        qos: crate::v5::qos::QualityOfService,
         retain: bool,
     },
     Puback,
@@ -76,9 +67,9 @@ impl MFixedHeader {
             (2, 0) => PacketType::Connack,
             (3, flags) => PacketType::Publish {
                 dup: (0b1000 & flags) != 0,
-                qos: QualityOfService::try_from((flags & 0b0110) >> 1).map_err(|e| {
-                    ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
-                })?,
+                qos: crate::v5::qos::QualityOfService::try_from((flags & 0b0110) >> 1).map_err(
+                    |e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e),
+                )?,
                 retain: (0b0001 & flags) != 0,
             },
             (4, 0) => PacketType::Puback,
@@ -158,7 +149,7 @@ mod tests {
             MFixedHeader {
                 packet_type: crate::v5::fixed_header::PacketType::Publish {
                     dup: true,
-                    qos: crate::v5::fixed_header::QualityOfService::AtLeastOnce,
+                    qos: crate::v5::qos::QualityOfService::AtLeastOnce,
                     retain: false
                 },
             }

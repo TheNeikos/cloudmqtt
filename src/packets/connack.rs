@@ -12,13 +12,13 @@ crate::properties::define_properties! {
         session_expiry_interval: SessionExpiryInterval with setter = u32,
 
         (anker: "_Toc3901083")
-        receive_maximum: ReceiveMaximum with setter = u16,
+        receive_maximum: ReceiveMaximum with setter = core::num::NonZeroU16,
 
         (anker: "_Toc3901084")
-        maximum_qos: MaximumQoS with setter = u8,
+        maximum_qos: MaximumQoS with setter = mqtt_format::v5::qos::MaximumQualityOfService,
 
         (anker: "_Toc3901085")
-        retain_available: RetainAvailable with setter = u8,
+        retain_available: RetainAvailable with setter = bool,
 
         (anker: "_Toc3901086")
         maximum_packet_size: MaximumPacketSize with setter = u32,

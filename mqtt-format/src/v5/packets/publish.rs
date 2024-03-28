@@ -10,7 +10,7 @@ use winnow::stream::Stream;
 use winnow::Bytes;
 use winnow::Parser;
 
-use crate::v5::fixed_header::QualityOfService;
+use crate::v5::qos::QualityOfService;
 use crate::v5::strings::write_string;
 use crate::v5::variable_header::ContentType;
 use crate::v5::variable_header::CorrelationData;
@@ -123,9 +123,9 @@ fn sanity_check_topic_name(topic_name: &str) -> bool {
 
 #[cfg(test)]
 mod test {
-    use crate::v5::fixed_header::QualityOfService;
     use crate::v5::packets::publish::MPublish;
     use crate::v5::packets::publish::PublishProperties;
+    use crate::v5::qos::QualityOfService;
     use crate::v5::variable_header::PacketIdentifier;
 
     #[test]

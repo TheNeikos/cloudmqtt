@@ -11,8 +11,8 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use crate::v5::bytes::parse_binary_data;
-use crate::v5::fixed_header::QualityOfService;
 use crate::v5::integers::parse_u16;
+use crate::v5::qos::QualityOfService;
 use crate::v5::strings::parse_string;
 use crate::v5::variable_header::AuthenticationData;
 use crate::v5::variable_header::AuthenticationMethod;
@@ -356,7 +356,7 @@ mod test {
                 },
                 topic: "crazy topic",
                 payload: &[0xAB, 0xCD, 0xEF],
-                will_qos: crate::v5::fixed_header::QualityOfService::ExactlyOnce,
+                will_qos: crate::v5::qos::QualityOfService::ExactlyOnce,
                 will_retain: true,
             }),
             keep_alive: 321,
@@ -393,13 +393,13 @@ mod test {
                 },
                 topic: "crazy topic",
                 payload: &[0xAB, 0xCD, 0xEF],
-                will_qos: crate::v5::fixed_header::QualityOfService::ExactlyOnce,
+                will_qos: crate::v5::qos::QualityOfService::ExactlyOnce,
                 will_retain: true,
             }),
             keep_alive: 321,
             properties: ConnectProperties {
                 session_expiry_interval: Some(SessionExpiryInterval(123)),
-                receive_maximum: Some(ReceiveMaximum(1024)),
+                receive_maximum: Some(ReceiveMaximum(core::num::NonZeroU16::new(1024).unwrap())),
                 maximum_packet_size: Some(MaximumPacketSize(1024)),
                 topic_alias_maximum: Some(TopicAliasMaximum(1203)),
                 request_response_information: Some(RequestResponseInformation(90)),

@@ -8,6 +8,7 @@
 //! All integers in MQTT are big-endian
 
 use winnow::combinator::trace;
+use winnow::error::FromExternalError;
 use winnow::token::take_while;
 use winnow::Bytes;
 use winnow::Parser;
@@ -31,6 +32,26 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
 pub fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> WResult<W> {
     buffer.write_u16(u)?;
     Ok(())
+}
+
+pub fn parse_u16_nonzero(input: &mut &Bytes) -> MResult<core::num::NonZeroU16> {
+    let u: u16 = trace(
+        "mqtt_u16",
+        winnow::binary::u16(winnow::binary::Endianness::Big),
+    )
+    .parse_next(input)?;
+
+    core::num::NonZeroU16::try_from(u).map_err(|e| {
+        winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
+    })
+}
+
+#[inline]
+pub fn write_u16_nonzero<W: WriteMqttPacket>(
+    buffer: &mut W,
+    u: core::num::NonZeroU16,
+) -> WResult<W> {
+    write_u16(buffer, u.get())
 }
 
 /// Parse a u32

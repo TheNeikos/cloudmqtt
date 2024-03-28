@@ -12,7 +12,7 @@ crate::properties::define_properties! {
         session_expiry_interval: SessionExpiryInterval with setter = u32,
 
         (anker: "_Toc3901049")
-        receive_maximum: ReceiveMaximum with setter = u16,
+        receive_maximum: ReceiveMaximum with setter = core::num::NonZeroU16,
 
         (anker: "_Toc3901050")
         maximum_packet_size: MaximumPacketSize with setter = u32,

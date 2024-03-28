@@ -9,6 +9,7 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use super::integers::parse_u16;
+use super::integers::parse_u16_nonzero;
 use super::integers::parse_u32;
 use super::integers::write_variable_u32;
 use super::write::WResult;
@@ -145,7 +146,7 @@ macro_rules! define_properties {
 }
 
 #[inline]
-fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
+pub(crate) fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
     buffer.write_byte(u)
 }
 
@@ -280,11 +281,16 @@ define_properties! {[
         testvalues: ["fooobarbar"],
 
     ReceiveMaximum as 0x21 =>
-        parse with parse_u16 as u16;
-        write with super::integers::write_u16;
+        parse with parse_u16_nonzero as core::num::NonZeroU16;
+        write with super::integers::write_u16_nonzero;
         with size |_| 2;
         testfnname: test_roundtrip_receivemaximum;
-        testvalues: [12, 14, 42, 1337],
+        testvalues: [
+            core::num::NonZeroU16::new(12).unwrap(),
+            core::num::NonZeroU16::new(14).unwrap(),
+            core::num::NonZeroU16::new(42).unwrap(),
+            core::num::NonZeroU16::new(1337).unwrap(),
+        ],
 
     TopicAliasMaximum as 0x22 =>
         parse with parse_u16 as u16;
@@ -301,18 +307,21 @@ define_properties! {[
         testvalues: [12, 14, 42, 1337],
 
     MaximumQoS as 0x24 =>
-        parse with winnow::binary::u8 as u8;
-        write with write_u8;
+        parse with crate::v5::qos::parse_maximum_quality_of_service as crate::v5::qos::MaximumQualityOfService;
+        write with crate::v5::qos::write_maximum_quality_of_service;
         with size |_| 1;
         testfnname: test_roundtrip_maximumqos;
-        testvalues: [12, 14, 42, 137],
+        testvalues: [
+            crate::v5::qos::MaximumQualityOfService::AtMostOnce,
+            crate::v5::qos::MaximumQualityOfService::AtLeastOnce,
+        ],
 
     RetainAvailable as 0x25 =>
-        parse with winnow::binary::u8 as u8;
-        write with write_u8;
+        parse with crate::v5::boolean::parse_bool as bool;
+        write with crate::v5::boolean::write_bool;
         with size |_| 1;
         testfnname: test_roundtrip_retainavailable;
-        testvalues: [12, 14, 42, 137],
+        testvalues: [true, false],
 
     MaximumPacketSize as 0x27 =>
         parse with parse_u32 as u32;
