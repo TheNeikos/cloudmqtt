@@ -4,12 +4,14 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::num::NonZeroU16;
+
 use futures::SinkExt;
 use futures::StreamExt;
 use tokio_util::codec::Framed;
 
 use crate::bytes::MqttBytes;
-use crate::client_identifier::ClientIdentifier;
+use crate::client_identifier::ProposedClientIdentifier;
 use crate::codecs::MqttPacketCodec;
 use crate::codecs::MqttPacketCodecError;
 use crate::keep_alive::KeepAlive;
@@ -17,6 +19,7 @@ use crate::string::MqttString;
 use crate::transport::MqttConnectTransport;
 use crate::transport::MqttConnection;
 
+#[derive(Debug, PartialEq, Eq)]
 pub enum CleanStart {
     No,
     Yes,
@@ -76,7 +79,7 @@ pub enum MqttClientConnectError {
 
 pub struct MqttClientConnector {
     transport: MqttConnectTransport,
-    client_identifier: ClientIdentifier,
+    client_identifier: ProposedClientIdentifier,
     clean_start: CleanStart,
     keep_alive: KeepAlive,
     properties: crate::packets::connect::ConnectProperties,
@@ -88,7 +91,7 @@ pub struct MqttClientConnector {
 impl MqttClientConnector {
     pub fn new(
         transport: MqttConnectTransport,
-        client_identifier: ClientIdentifier,
+        client_identifier: ProposedClientIdentifier,
         clean_start: CleanStart,
         keep_alive: KeepAlive,
     ) -> MqttClientConnector {
@@ -180,7 +183,53 @@ impl MqttClientConnector {
         if connack.reason_code == mqtt_format::v5::packets::connack::ConnackReasonCode::Success {
             // TODO: Read properties, configure client
 
-            return Ok(MqttClient { _conn: conn });
+            if connack.session_present && self.clean_start == CleanStart::Yes {
+                return Err(MqttClientConnectError::ServerProtocolError {
+                    reason: "MQTT-3.2.2-2",
+                });
+            }
+
+            let connect_client_state = ConnectClientState {
+                session_present: connack.session_present,
+                receive_maximum: connack.properties.receive_maximum().map(|rm| rm.0),
+                maximum_qos: connack.properties.maximum_qos().map(|mq| mq.0),
+                retain_available: connack.properties.retain_available().map(|ra| ra.0),
+                topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
+            };
+
+            let assigned_client_identifier = connack.properties.assigned_client_identifier();
+
+            let client_identifier: MqttString;
+
+            if let Some(aci) = assigned_client_identifier {
+                if self.client_identifier == ProposedClientIdentifier::PotentiallyServerProvided {
+                    client_identifier = MqttString::try_from(aci.0).map_err(|_mse| {
+                        MqttClientConnectError::ServerProtocolError {
+                            reason: "MQTT-1.5.4",
+                        }
+                    })?;
+                } else {
+                    return Err(MqttClientConnectError::ServerProtocolError {
+                        reason: "MQTT-3.2.2.3.7",
+                    });
+                }
+            } else {
+                client_identifier = match self.client_identifier {
+                    ProposedClientIdentifier::PotentiallyServerProvided => {
+                        return Err(MqttClientConnectError::ServerProtocolError {
+                            reason: "MQTT-3.2.2.3.7",
+                        });
+                    }
+                    ProposedClientIdentifier::MinimalRequired(mr) => mr.into_inner(),
+                    ProposedClientIdentifier::PotentiallyAccepted(pa) => pa.into_inner(),
+                };
+            }
+
+            return Ok(MqttClient {
+                connect_client_state,
+                client_identifier,
+                _conn: conn,
+            });
         }
 
         // TODO: Do something with error code
@@ -193,7 +242,17 @@ impl MqttClientConnector {
     }
 }
 
+struct ConnectClientState {
+    session_present: bool,
+    receive_maximum: Option<NonZeroU16>,
+    maximum_qos: Option<mqtt_format::v5::qos::MaximumQualityOfService>,
+    retain_available: Option<bool>,
+    topic_alias_maximum: Option<u16>,
+}
+
 pub struct MqttClient {
+    connect_client_state: ConnectClientState,
+    client_identifier: MqttString,
     _conn: Framed<MqttConnection, MqttPacketCodec>,
 }
 
