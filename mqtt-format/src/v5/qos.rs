@@ -32,3 +32,27 @@ pub fn parse_qos(input: &mut &Bytes) -> MResult<QualityOfService> {
 pub fn write_qos<W: WriteMqttPacket>(buffer: &mut W, qos: QualityOfService) -> WResult<W> {
     crate::v5::variable_header::write_u8(buffer, qos.into())
 }
+
+#[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
+#[repr(u8)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum MaximumQualityOfService {
+    AtMostOnce = 0,
+    AtLeastOnce = 1,
+}
+
+pub fn parse_maximum_quality_of_service(input: &mut &Bytes) -> MResult<MaximumQualityOfService> {
+    winnow::binary::u8(input).and_then(|byte| {
+        MaximumQualityOfService::try_from(byte).map_err(|e| {
+            winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
+        })
+    })
+}
+
+#[inline]
+pub fn write_maximum_quality_of_service<W: WriteMqttPacket>(
+    buffer: &mut W,
+    qos: MaximumQualityOfService,
+) -> WResult<W> {
+    crate::v5::variable_header::write_u8(buffer, qos.into())
+}
