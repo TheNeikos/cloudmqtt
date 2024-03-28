@@ -20,11 +20,16 @@ macro_rules! define_properties {
     (@statify $pat:ident) => {
         mqtt_format::v5::variable_header:: $pat
     };
+    (@optional $variant:ident { $($rest:tt)* }) => {
+        $($rest)*
+    };
+    (@optional { $($rest:tt)* }) => {};
     (
         properties_type: $packettypename:ty,
+        $(from packet variant: $packet_variant:ident,)?
         $( anker: $anker:literal $(,)?)?
         pub struct $name:ident {
-            $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ident $(<$prop_lt:lifetime>)? with setter = $setter:ty),* $(,)?
+            $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ident $(<$prop_lt:lifetime>)? with setter = $setter:ty $(; with viewer = $viewer:ty)?),* $(,)?
         }
     ) => {
         #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +40,43 @@ macro_rules! define_properties {
         }
 
         paste::paste! {
+
+            crate::properties::define_properties!(@optional $($packet_variant)? {
+                #[allow(dead_code)]
+                pub struct [<$name View>] {
+                    pub(crate) packet: yoke::Yoke<$packettypename<'static>, crate::packets::StableBytes>,
+                }
+
+                $(
+                    impl TryFrom<crate::packets::MqttPacket> for [<$name View>] {
+                        type Error = crate::packets::InvalidPacketType;
+
+                        fn try_from(from: crate::packets::MqttPacket) -> Result<Self, Self::Error> {
+                            Ok(Self {
+                                packet: from.packet.try_map_project(|packet, _| {
+                                    match packet {
+                                        mqtt_format::v5::packets::MqttPacket::$packet_variant (packet) => {
+                                            Ok(packet.properties)
+                                        }
+                                        _ => Err(crate::packets::InvalidPacketType),
+                                    }
+                                })?
+                            })
+                        }
+                    }
+                )?
+
+                impl [<$name View>] {
+                    $(
+                        $(
+                            pub fn $prop_name(&self) -> Option<$viewer> {
+                                self.packet.get().$prop_name().map(|e| e.0)
+                            }
+                        )?
+                    )*
+                }
+            });
+
             #[allow(dead_code)]
             impl $name {
                 #[allow(clippy::new_without_default)]

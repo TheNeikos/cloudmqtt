@@ -32,6 +32,10 @@ pub mod subscribe;
 pub mod unsuback;
 pub mod unsubscribe;
 
+#[derive(Debug, thiserror::Error)]
+#[error("Could not convert into the required packet type")]
+pub struct InvalidPacketType;
+
 #[derive(Debug, Clone)]
 pub(crate) struct StableBytes(pub(crate) Bytes);
 
