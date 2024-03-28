@@ -60,6 +60,7 @@ macro_rules! define_properties {
         $(
             #[doc = $crate::v5::util::md_speclink!($anker)]
         )?
+        #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
         #[derive(Clone, Debug, PartialEq)]
         pub struct $name < $lt > {
             $(
