@@ -517,6 +517,7 @@ dependencies = [
  "nom",
  "nom-supreme",
  "num_enum",
+ "paste",
  "pretty_assertions",
  "thiserror",
  "tokio",
