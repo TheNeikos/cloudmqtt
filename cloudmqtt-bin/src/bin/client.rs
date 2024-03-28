@@ -23,7 +23,7 @@ async fn main() {
     let socket = TcpStream::connect(args.hostname).await.unwrap();
 
     let connection = MqttConnectTransport::TokioTcp(socket);
-    let client_id = cloudmqtt::client_identifier::ClientIdentifier::PotentiallyServerProvided;
+    let client_id = cloudmqtt::client_identifier::ProposedClientIdentifier::PotentiallyServerProvided;
 
     let connector = MqttClientConnector::new(
         connection,

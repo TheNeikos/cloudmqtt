@@ -4,16 +4,16 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-pub enum ClientIdentifier {
+pub enum ProposedClientIdentifier {
     MinimalRequired(MinimalRequiredClientIdentifier),
     PotentiallyServerProvided,
     PotentiallyAccepted(PotentiallyAcceptedClientIdentifier),
 }
 
-impl ClientIdentifier {
+impl ProposedClientIdentifier {
     pub fn new_minimal_required(
         s: impl Into<String>,
-    ) -> Result<ClientIdentifier, ClientIdentifierError> {
+    ) -> Result<ProposedClientIdentifier, ClientIdentifierError> {
         const ALLOWED_CHARS: &str =
             "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
         let s = s.into();
@@ -33,33 +33,33 @@ impl ClientIdentifier {
             return Err(ClientIdentifierError::MinimalTooLong(s.len()));
         }
 
-        Ok(ClientIdentifier::MinimalRequired(
+        Ok(ProposedClientIdentifier::MinimalRequired(
             MinimalRequiredClientIdentifier(s),
         ))
     }
 
-    pub fn new_potentially_server_provided() -> ClientIdentifier {
-        ClientIdentifier::PotentiallyServerProvided
+    pub fn new_potentially_server_provided() -> ProposedClientIdentifier {
+        ProposedClientIdentifier::PotentiallyServerProvided
     }
 
     pub fn new_potetially_accepted(
         s: impl Into<String>,
-    ) -> Result<ClientIdentifier, ClientIdentifierError> {
+    ) -> Result<ProposedClientIdentifier, ClientIdentifierError> {
         let s = s.into();
         if s.is_empty() {
             return Err(ClientIdentifierError::Zero);
         }
         crate::string::MqttString::try_from(s)
             .map(PotentiallyAcceptedClientIdentifier)
-            .map(ClientIdentifier::PotentiallyAccepted)
+            .map(ProposedClientIdentifier::PotentiallyAccepted)
             .map_err(ClientIdentifierError::from)
     }
 
     pub fn as_str(&self) -> &str {
         match self {
-            ClientIdentifier::MinimalRequired(s) => s.0.as_ref(),
-            ClientIdentifier::PotentiallyServerProvided => "",
-            ClientIdentifier::PotentiallyAccepted(s) => s.0.as_ref(),
+            ProposedClientIdentifier::MinimalRequired(s) => s.0.as_ref(),
+            ProposedClientIdentifier::PotentiallyServerProvided => "",
+            ProposedClientIdentifier::PotentiallyAccepted(s) => s.0.as_ref(),
         }
     }
 }
