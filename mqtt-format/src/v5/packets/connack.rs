@@ -222,7 +222,7 @@ mod test {
                 session_expiry_interval: Some(SessionExpiryInterval(120)),
                 receive_maximum: Some(ReceiveMaximum(core::num::NonZeroU16::new(123).unwrap())),
                 maximum_qos: Some(MaximumQoS(crate::v5::qos::QualityOfService::AtMostOnce)),
-                retain_available: Some(RetainAvailable(1)),
+                retain_available: Some(RetainAvailable(true)),
                 maximum_packet_size: Some(MaximumPacketSize(1024)),
                 assigned_client_identifier: Some(AssignedClientIdentifier("foobar")),
                 topic_alias_maximum: Some(TopicAliasMaximum(1234)),

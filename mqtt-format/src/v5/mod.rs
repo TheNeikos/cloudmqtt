@@ -35,6 +35,7 @@
 //! }
 //! ```
 
+pub mod boolean;
 pub mod bytes;
 pub mod fixed_header;
 pub mod integers;

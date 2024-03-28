@@ -318,11 +318,11 @@ define_properties! {[
         ],
 
     RetainAvailable as 0x25 =>
-        parse with winnow::binary::u8 as u8;
-        write with write_u8;
+        parse with crate::v5::boolean::parse_bool as bool;
+        write with crate::v5::boolean::write_bool;
         with size |_| 1;
         testfnname: test_roundtrip_retainavailable;
-        testvalues: [12, 14, 42, 137],
+        testvalues: [true, false],
 
     MaximumPacketSize as 0x27 =>
         parse with parse_u32 as u32;
