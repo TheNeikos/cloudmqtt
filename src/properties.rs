@@ -238,7 +238,7 @@ impl UserPropertiesView<'_> {
         self.user_properties.iter().map(|up| (up.key, up.value))
     }
 
-    pub fn into_hashmap(&self) -> HashMap<String, String> {
+    pub fn to_hashmap(&self) -> HashMap<String, String> {
         self.iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
