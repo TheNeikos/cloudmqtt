@@ -46,11 +46,6 @@
           cargoExtraArgs = "--all-features --all";
         };
 
-        mqttformatArtifacts = craneLib.buildDepsOnly {
-          inherit src;
-          cargoExtraArgs = "--all-features --all -p mqtt-format";
-        };
-
         cloudmqtt = craneLib.buildPackage {
           inherit cargoArtifacts src version;
           cargoExtraArgs = "--all-features --all";
@@ -65,13 +60,6 @@
             inherit cargoArtifacts src;
             cargoExtraArgs = "--all --all-features";
             cargoClippyExtraArgs = "-- --deny warnings";
-          };
-
-          mqtt-format-clippy = craneLib.cargoClippy {
-            inherit src;
-            cargoArtifacts = mqttformatArtifacts;
-            cargoExtraArgs = "--all --all-features -p mqtt-format";
-            cargoClippyExtraArgs = "--no-deps -p mqtt-format -- --deny warnings";
           };
 
           cloudmqtt-fmt = unstableCraneLib.cargoFmt {
