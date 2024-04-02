@@ -17,3 +17,4 @@ pub mod transport;
 mod util;
 pub mod qos;
 pub mod topic;
+pub mod payload;
