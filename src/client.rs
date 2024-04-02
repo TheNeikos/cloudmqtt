@@ -147,6 +147,7 @@ pub struct MqttClient {
 }
 
 impl MqttClient {
+    #[allow(clippy::new_without_default)]
     pub fn new() -> MqttClient {
         MqttClient {
             connection_state: None,
