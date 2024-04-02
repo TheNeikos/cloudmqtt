@@ -103,6 +103,8 @@ where
     .parse_next(input)
 }
 
+pub const VARIABLE_INTEGER_MAX: u32 = 268_435_455;
+
 #[inline]
 pub const fn variable_u32_binary_size(u: u32) -> u32 {
     match u {
