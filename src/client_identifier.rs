@@ -4,19 +4,20 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-pub enum ClientIdentifier {
+#[derive(Debug, PartialEq)]
+pub enum ProposedClientIdentifier {
     MinimalRequired(MinimalRequiredClientIdentifier),
     PotentiallyServerProvided,
     PotentiallyAccepted(PotentiallyAcceptedClientIdentifier),
 }
 
-impl ClientIdentifier {
+impl ProposedClientIdentifier {
     pub fn new_minimal_required(
         s: impl Into<String>,
-    ) -> Result<ClientIdentifier, ClientIdentifierError> {
+    ) -> Result<ProposedClientIdentifier, ClientIdentifierError> {
         const ALLOWED_CHARS: &str =
             "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        let s = s.into();
+        let s: String = s.into();
 
         let disallowed_chars = s
             .chars()
@@ -33,39 +34,53 @@ impl ClientIdentifier {
             return Err(ClientIdentifierError::MinimalTooLong(s.len()));
         }
 
-        Ok(ClientIdentifier::MinimalRequired(
-            MinimalRequiredClientIdentifier(s),
-        ))
+        crate::string::MqttString::try_from(s)
+            .map(MinimalRequiredClientIdentifier)
+            .map(ProposedClientIdentifier::MinimalRequired)
+            .map_err(ClientIdentifierError::from)
     }
 
-    pub fn new_potentially_server_provided() -> ClientIdentifier {
-        ClientIdentifier::PotentiallyServerProvided
+    pub fn new_potentially_server_provided() -> ProposedClientIdentifier {
+        ProposedClientIdentifier::PotentiallyServerProvided
     }
 
     pub fn new_potetially_accepted(
         s: impl Into<String>,
-    ) -> Result<ClientIdentifier, ClientIdentifierError> {
+    ) -> Result<ProposedClientIdentifier, ClientIdentifierError> {
         let s = s.into();
         if s.is_empty() {
             return Err(ClientIdentifierError::Zero);
         }
         crate::string::MqttString::try_from(s)
             .map(PotentiallyAcceptedClientIdentifier)
-            .map(ClientIdentifier::PotentiallyAccepted)
+            .map(ProposedClientIdentifier::PotentiallyAccepted)
             .map_err(ClientIdentifierError::from)
     }
 
     pub fn as_str(&self) -> &str {
         match self {
-            ClientIdentifier::MinimalRequired(s) => s.0.as_ref(),
-            ClientIdentifier::PotentiallyServerProvided => "",
-            ClientIdentifier::PotentiallyAccepted(s) => s.0.as_ref(),
+            ProposedClientIdentifier::MinimalRequired(s) => s.0.as_ref(),
+            ProposedClientIdentifier::PotentiallyServerProvided => "",
+            ProposedClientIdentifier::PotentiallyAccepted(s) => s.0.as_ref(),
         }
     }
 }
 
-pub struct MinimalRequiredClientIdentifier(String);
+#[derive(Debug, PartialEq)]
+pub struct MinimalRequiredClientIdentifier(crate::string::MqttString);
+impl MinimalRequiredClientIdentifier {
+    pub fn into_inner(self) -> crate::string::MqttString {
+        self.0
+    }
+}
+
+#[derive(Debug, PartialEq)]
 pub struct PotentiallyAcceptedClientIdentifier(crate::string::MqttString);
+impl PotentiallyAcceptedClientIdentifier {
+    pub fn into_inner(self) -> crate::string::MqttString {
+        self.0
+    }
+}
 
 #[derive(Debug, thiserror::Error)]
 pub enum ClientIdentifierError {

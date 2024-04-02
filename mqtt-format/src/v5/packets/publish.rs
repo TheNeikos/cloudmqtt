@@ -20,6 +20,7 @@ use crate::v5::variable_header::ResponseTopic;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::TopicAlias;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::MqttWriteError;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
@@ -32,7 +33,7 @@ pub struct MPublish<'i> {
     pub quality_of_service: QualityOfService,
     pub retain: bool,
     pub topic_name: &'i str,
-    pub packet_identifier: crate::v5::variable_header::PacketIdentifier,
+    pub packet_identifier: Option<crate::v5::variable_header::PacketIdentifier>,
     pub properties: PublishProperties<'i>,
     pub payload: &'i [u8],
 }
@@ -83,7 +84,11 @@ impl<'i> MPublish<'i> {
                 ));
             }
 
-            let packet_identifier = crate::v5::variable_header::PacketIdentifier::parse(input)?;
+            let packet_identifier = if quality_of_service != QualityOfService::AtMostOnce {
+                Some(crate::v5::variable_header::PacketIdentifier::parse(input)?)
+            } else {
+                None
+            };
             let properties = PublishProperties::parse(input)?;
 
             let payload = input.finish();
@@ -103,14 +108,26 @@ impl<'i> MPublish<'i> {
 
     pub fn binary_size(&self) -> u32 {
         crate::v5::strings::string_binary_size(self.topic_name)
-            + self.packet_identifier.binary_size()
+            + self
+                .packet_identifier
+                .map(|pi| pi.binary_size())
+                .unwrap_or(0)
             + self.properties.binary_size()
             + crate::v5::bytes::binary_data_binary_size(self.payload)
     }
 
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         write_string(buffer, self.topic_name)?;
-        self.packet_identifier.write(buffer)?;
+
+        if self.quality_of_service == QualityOfService::AtMostOnce
+            && self.packet_identifier.is_some()
+        {
+            return Err(MqttWriteError::Invariant.into());
+        }
+        if let Some(pi) = self.packet_identifier {
+            pi.write(buffer)?;
+        }
+
         self.properties.write(buffer)?;
 
         buffer.write_slice(self.payload)
@@ -141,7 +158,7 @@ mod test {
             quality_of_service,
             retain,
             topic_name: "top/ic",
-            packet_identifier: PacketIdentifier(1),
+            packet_identifier: Some(PacketIdentifier(1)),
             properties: PublishProperties {
                 payload_format_indicator: None,
                 message_expiry_interval: None,
@@ -177,7 +194,7 @@ mod test {
             quality_of_service,
             retain,
             topic_name: "top/ic",
-            packet_identifier: PacketIdentifier(1),
+            packet_identifier: Some(PacketIdentifier(1)),
             properties: PublishProperties {
                 payload_format_indicator: None,
                 message_expiry_interval: None,

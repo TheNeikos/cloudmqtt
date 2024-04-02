@@ -23,6 +23,14 @@ impl std::str::FromStr for MqttString {
     }
 }
 
+impl TryFrom<&str> for MqttString {
+    type Error = MqttStringError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        <MqttString as std::str::FromStr>::from_str(s)
+    }
+}
+
 impl TryFrom<String> for MqttString {
     type Error = MqttStringError;
 

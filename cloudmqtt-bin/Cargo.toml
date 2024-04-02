@@ -9,3 +9,4 @@ edition = "2021"
 clap = { version = "4.5.4", features = ["derive"] }
 cloudmqtt = { version = "0.5.0", path = ".." }
 tokio = { version = "1.37.0", features = ["full"] }
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }

@@ -5,9 +5,12 @@
 //
 
 use clap::Parser;
+use cloudmqtt::client::MqttClient;
 use cloudmqtt::client::MqttClientConnector;
 use cloudmqtt::transport::MqttConnectTransport;
 use tokio::net::TcpStream;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -20,10 +23,24 @@ struct Args {
 async fn main() {
     let args = Args::parse();
 
+    let filter = tracing_subscriber::filter::EnvFilter::from_default_env();
+    let fmt_layer = tracing_subscriber::fmt::layer()
+        .with_timer(tracing_subscriber::fmt::time::uptime())
+        .with_level(true)
+        .with_file(true)
+        .with_line_number(true)
+        .pretty();
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(fmt_layer)
+        .init();
+
     let socket = TcpStream::connect(args.hostname).await.unwrap();
 
     let connection = MqttConnectTransport::TokioTcp(socket);
-    let client_id = cloudmqtt::client_identifier::ClientIdentifier::PotentiallyServerProvided;
+    let client_id =
+        cloudmqtt::client_identifier::ProposedClientIdentifier::PotentiallyServerProvided;
 
     let connector = MqttClientConnector::new(
         connection,
@@ -32,7 +49,18 @@ async fn main() {
         cloudmqtt::keep_alive::KeepAlive::Disabled,
     );
 
-    let _client = connector.connect().await.unwrap();
+    let client = MqttClient::new();
+    client.connect(connector).await.unwrap();
 
-    println!("Yay, we connected! That's all for now");
+    client
+        .publish(
+            "foo/bar".try_into().unwrap(),
+            cloudmqtt::qos::QualityOfService::AtMostOnce,
+            false,
+            vec![123].try_into().unwrap(),
+        )
+        .await
+        .unwrap();
+
+    println!("Sent message! Bye");
 }

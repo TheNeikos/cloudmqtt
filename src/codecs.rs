@@ -93,7 +93,14 @@ impl Encoder<FormatMqttPacket<'_>> for MqttPacketCodec {
         packet: FormatMqttPacket<'_>,
         dst: &mut tokio_util::bytes::BytesMut,
     ) -> Result<(), Self::Error> {
+        let size = packet.binary_size() as usize;
+        dst.reserve(size);
+
+        let pre_size = dst.len();
         packet.write(&mut crate::packets::MqttWriter(dst))?;
+        let total_written = dst.len() - pre_size;
+
+        debug_assert_eq!(total_written, size, "Expected written bytes and actual written bytes differ! This is a bug for the {:?} packet type.", packet.get_kind());
         Ok(())
     }
 }

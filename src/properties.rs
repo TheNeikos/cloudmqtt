@@ -20,11 +20,16 @@ macro_rules! define_properties {
     (@statify $pat:ident) => {
         mqtt_format::v5::variable_header:: $pat
     };
+    (@optional $variant:ident { $($rest:tt)* }) => {
+        $($rest)*
+    };
+    (@optional { $($rest:tt)* }) => {};
     (
         properties_type: $packettypename:ty,
+        $(from packet variant: $packet_variant:ident,)?
         $( anker: $anker:literal $(,)?)?
         pub struct $name:ident {
-            $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ident $(<$prop_lt:lifetime>)? with setter = $setter:ty),* $(,)?
+            $( $((anker: $prop_anker:literal ))? $prop_name:ident : $prop:ident $(<$prop_lt:lifetime>)? with setter = $setter:ty $(; with viewer = $viewer:ty)?),* $(,)?
         }
     ) => {
         #[derive(Clone, Debug, PartialEq)]
@@ -35,6 +40,44 @@ macro_rules! define_properties {
         }
 
         paste::paste! {
+
+            crate::properties::define_properties!(@optional $($packet_variant)? {
+
+                #[allow(dead_code)]
+                pub struct [<$name View>] {
+                    pub(crate) packet: yoke::Yoke<$packettypename<'static>, crate::packets::StableBytes>,
+                }
+
+                $(
+                    impl TryFrom<crate::packets::MqttPacket> for [<$name View>] {
+                        type Error = crate::packets::InvalidPacketType;
+
+                        fn try_from(from: crate::packets::MqttPacket) -> Result<Self, Self::Error> {
+                            Ok(Self {
+                                packet: from.packet.try_map_project(|packet, _| {
+                                    match packet {
+                                        mqtt_format::v5::packets::MqttPacket::$packet_variant (packet) => {
+                                            Ok(packet.properties)
+                                        }
+                                        _ => Err(crate::packets::InvalidPacketType),
+                                    }
+                                })?
+                            })
+                        }
+                    }
+                )?
+
+                impl [<$name View>] {
+                    $(
+                        $(
+                            pub fn $prop_name(&self) -> Option<$viewer> {
+                                self.packet.get().$prop_name().map(|e| <$viewer>::from(e.0))
+                            }
+                        )?
+                    )*
+                }
+            });
+
             #[allow(dead_code)]
             impl $name {
                 #[allow(clippy::new_without_default)]
@@ -70,7 +113,10 @@ macro_rules! define_properties {
         }
     };
 }
+use std::collections::HashMap;
+
 pub(crate) use define_properties;
+use mqtt_format::v5::variable_header::UserProperties;
 
 use crate::packets::VecWriter;
 use crate::string::MqttString;
@@ -173,6 +219,39 @@ define_property_types! {[
     mqtt_format::v5::variable_header::SubscriptionIdentifiersAvailable => inner = u8; setter = u8; outer deref = u8,
     mqtt_format::v5::variable_header::SharedSubscriptionAvailable => inner = u8; setter = u8; outer deref = u8,
 ]}
+
+pub struct UserPropertiesView<'a> {
+    user_properties: UserProperties<'a>,
+}
+
+impl<'a> UserPropertiesView<'a> {
+    /// We explicitely do not implement From::from because we want this impl to stay private
+    pub(crate) fn from(props: &'a [u8]) -> Self {
+        UserPropertiesView {
+            user_properties: UserProperties(props),
+        }
+    }
+}
+
+impl UserPropertiesView<'_> {
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.user_properties.iter().map(|up| (up.key, up.value))
+    }
+
+    pub fn to_hashmap(&self) -> HashMap<String, String> {
+        self.iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.iter().map(|(k, _)| k)
+    }
+
+    pub fn values(&self) -> impl Iterator<Item = &str> {
+        self.iter().map(|(_, v)| v)
+    }
+}
 
 #[cfg(test)]
 mod tests {
