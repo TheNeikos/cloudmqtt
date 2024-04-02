@@ -292,3 +292,44 @@ impl_try_from_packet!(
     MUnsuback<'i> => Unsuback,
     MUnsubscribe<'i> => Unsubscribe
 );
+
+#[derive(Debug)]
+pub enum MqttPacketKind {
+    Auth,
+    Connack,
+    Connect,
+    Disconnect,
+    Pingreq,
+    Pingresp,
+    Puback,
+    Pubcomp,
+    Publish,
+    Pubrec,
+    Pubrel,
+    Suback,
+    Subscribe,
+    Unsuback,
+    Unsubscribe,
+}
+
+impl<'i> MqttPacket<'i> {
+    pub fn get_kind(&self) -> MqttPacketKind {
+        match self {
+            MqttPacket::Auth(_) => MqttPacketKind::Auth,
+            MqttPacket::Connack(_) => MqttPacketKind::Connack,
+            MqttPacket::Connect(_) => MqttPacketKind::Connect,
+            MqttPacket::Disconnect(_) => MqttPacketKind::Disconnect,
+            MqttPacket::Pingreq(_) => MqttPacketKind::Pingreq,
+            MqttPacket::Pingresp(_) => MqttPacketKind::Pingresp,
+            MqttPacket::Puback(_) => MqttPacketKind::Puback,
+            MqttPacket::Pubcomp(_) => MqttPacketKind::Pubcomp,
+            MqttPacket::Publish(_) => MqttPacketKind::Publish,
+            MqttPacket::Pubrec(_) => MqttPacketKind::Pubrec,
+            MqttPacket::Pubrel(_) => MqttPacketKind::Pubrel,
+            MqttPacket::Suback(_) => MqttPacketKind::Suback,
+            MqttPacket::Subscribe(_) => MqttPacketKind::Subscribe,
+            MqttPacket::Unsuback(_) => MqttPacketKind::Unsuback,
+            MqttPacket::Unsubscribe(_) => MqttPacketKind::Unsubscribe,
+        }
+    }
+}
