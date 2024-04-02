@@ -16,3 +16,4 @@ pub mod string;
 pub mod transport;
 mod util;
 pub mod qos;
+pub mod topic;
