@@ -283,10 +283,15 @@ define_properties! {[
         testvalues: [12, 14, 42, 1337],
 
     TopicAlias as 0x23 =>
-        parse with parse_u16 as u16;
-        write with super::integers::write_u16;
+        parse with parse_u16_nonzero as core::num::NonZeroU16;
+        write with super::integers::write_u16_nonzero;
         with size |_| 2;
-        testvalues: [12, 14, 42, 1337],
+        testvalues: [
+            core::num::NonZeroU16::new(12).unwrap(),
+            core::num::NonZeroU16::new(14).unwrap(),
+            core::num::NonZeroU16::new(42).unwrap(),
+            core::num::NonZeroU16::new(1337).unwrap(),
+        ],
 
     MaximumQoS as 0x24 =>
         parse with crate::v5::qos::parse_maximum_quality_of_service as crate::v5::qos::MaximumQualityOfService;
