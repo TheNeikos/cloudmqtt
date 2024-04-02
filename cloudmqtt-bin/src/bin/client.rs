@@ -5,6 +5,7 @@
 //
 
 use clap::Parser;
+use cloudmqtt::client::MqttClient;
 use cloudmqtt::client::MqttClientConnector;
 use cloudmqtt::transport::MqttConnectTransport;
 use tokio::net::TcpStream;
@@ -23,7 +24,8 @@ async fn main() {
     let socket = TcpStream::connect(args.hostname).await.unwrap();
 
     let connection = MqttConnectTransport::TokioTcp(socket);
-    let client_id = cloudmqtt::client_identifier::ProposedClientIdentifier::PotentiallyServerProvided;
+    let client_id =
+        cloudmqtt::client_identifier::ProposedClientIdentifier::PotentiallyServerProvided;
 
     let connector = MqttClientConnector::new(
         connection,
@@ -32,7 +34,8 @@ async fn main() {
         cloudmqtt::keep_alive::KeepAlive::Disabled,
     );
 
-    let _client = connector.connect().await.unwrap();
+    let mut client = MqttClient::new();
+    client.connect(connector).await.unwrap();
 
     println!("Yay, we connected! That's all for now");
 }
