@@ -20,6 +20,7 @@ use crate::v5::variable_header::ResponseTopic;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::TopicAlias;
 use crate::v5::variable_header::UserProperties;
+use crate::v5::write::MqttWriteError;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 use crate::v5::MResult;
@@ -117,9 +118,16 @@ impl<'i> MPublish<'i> {
 
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         write_string(buffer, self.topic_name)?;
+
+        if self.quality_of_service == QualityOfService::AtMostOnce
+            && self.packet_identifier.is_some()
+        {
+            return Err(MqttWriteError::Invariant.into());
+        }
         if let Some(pi) = self.packet_identifier {
             pi.write(buffer)?;
         }
+
         self.properties.write(buffer)?;
 
         buffer.write_slice(self.payload)
