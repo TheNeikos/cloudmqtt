@@ -6,8 +6,11 @@
 
 use std::num::NonZeroU16;
 
+use futures::lock::Mutex;
 use futures::SinkExt;
 use futures::StreamExt;
+use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
+use mqtt_format::v5::packets::publish::MPublish;
 use tokio_util::codec::Framed;
 
 use crate::bytes::MqttBytes;
@@ -16,6 +19,8 @@ use crate::codecs::MqttPacketCodec;
 use crate::codecs::MqttPacketCodecError;
 use crate::keep_alive::KeepAlive;
 use crate::packets::connack::ConnackPropertiesView;
+use crate::payload::MqttPayload;
+use crate::qos::QualityOfService;
 use crate::string::MqttString;
 use crate::transport::MqttConnectTransport;
 use crate::transport::MqttConnection;
@@ -134,32 +139,41 @@ struct ConnectState {
     maximum_qos: Option<mqtt_format::v5::qos::MaximumQualityOfService>,
     retain_available: Option<bool>,
     topic_alias_maximum: Option<u16>,
-    _conn: Framed<MqttConnection, MqttPacketCodec>,
+    maximum_packet_size: Option<u32>,
+    conn: Framed<MqttConnection, MqttPacketCodec>,
 }
 
 struct SessionState {
     client_identifier: MqttString,
 }
 
-pub struct MqttClient {
+struct InnerClient {
     connection_state: Option<ConnectState>,
     session_state: Option<SessionState>,
+}
+
+pub struct MqttClient {
+    inner: Mutex<InnerClient>,
 }
 
 impl MqttClient {
     #[allow(clippy::new_without_default)]
     pub fn new() -> MqttClient {
         MqttClient {
-            connection_state: None,
-            session_state: None,
+            inner: Mutex::new(InnerClient {
+                connection_state: None,
+                session_state: None,
+            }),
         }
     }
 
     pub async fn connect(
-        &mut self,
+        &self,
         connector: MqttClientConnector,
     ) -> Result<ConnackPropertiesView, MqttClientConnectError> {
         type Mcce = MqttClientConnectError;
+
+        let mut inner = self.inner.lock().await;
         let mut conn = tokio_util::codec::Framed::new(
             MqttConnection::from(connector.transport),
             MqttPacketCodec,
@@ -232,8 +246,9 @@ impl MqttClient {
                 receive_maximum: connack.properties.receive_maximum().map(|rm| rm.0),
                 maximum_qos: connack.properties.maximum_qos().map(|mq| mq.0),
                 retain_available: connack.properties.retain_available().map(|ra| ra.0),
+                maximum_packet_size: connack.properties.maximum_packet_size().map(|mps| mps.0),
                 topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
-                _conn: conn,
+                conn,
             };
 
             let assigned_client_identifier = connack.properties.assigned_client_identifier();
@@ -266,8 +281,8 @@ impl MqttClient {
                 };
             }
 
-            self.connection_state = Some(connect_client_state);
-            self.session_state = Some(SessionState { client_identifier });
+            inner.connection_state = Some(connect_client_state);
+            inner.session_state = Some(SessionState { client_identifier });
 
             return Ok(
                 crate::packets::connack::ConnackPropertiesView::try_from(maybe_connack)
@@ -279,4 +294,58 @@ impl MqttClient {
 
         todo!()
     }
+
+    #[tracing::instrument(skip(self, payload), fields(payload_length = payload.as_ref().len()))]
+    pub async fn publish(
+        &self,
+        topic: crate::topic::MqttTopic,
+        _qos: QualityOfService,
+        retain: bool,
+        payload: MqttPayload,
+    ) -> Result<(), ()> {
+        let mut inner = self.inner.lock().await;
+
+        let Some(conn_state) = &mut inner.connection_state else {
+            return Err(());
+        };
+
+        if conn_state.retain_available.unwrap_or(true) && retain {
+            return Err(());
+        }
+
+        let publish = MPublish {
+            duplicate: false,
+            quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+            retain,
+            topic_name: topic.as_ref(),
+            packet_identifier: None,
+            properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+            payload: payload.as_ref(),
+        };
+
+        let packet = mqtt_format::v5::packets::MqttPacket::Publish(publish);
+
+        let maximum_packet_size = conn_state
+            .maximum_packet_size
+            .unwrap_or(VARIABLE_INTEGER_MAX);
+
+        if packet.binary_size() > maximum_packet_size {
+            return Err(());
+        }
+
+        tracing::trace!(%maximum_packet_size, "Packet size");
+
+        conn_state.conn.send(packet).await.unwrap();
+
+        tracing::trace!("Finished publishing");
+
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::client::MqttClient;
+
+    static_assertions::assert_impl_all!(MqttClient: Send, Sync);
 }
