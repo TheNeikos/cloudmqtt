@@ -50,7 +50,7 @@ async fn main() {
         cloudmqtt::keep_alive::KeepAlive::Disabled,
     );
 
-    let client = MqttClient::new();
+    let client = MqttClient::new_with_default_handlers();
     let connected = client.connect(connector).await.unwrap();
     let background = tokio::task::spawn(connected.background_task);
 

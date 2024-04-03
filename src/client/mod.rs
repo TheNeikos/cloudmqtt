@@ -32,8 +32,7 @@ pub struct MqttClient {
 }
 
 impl MqttClient {
-    #[allow(clippy::new_without_default)]
-    pub fn new() -> MqttClient {
+    pub fn new_with_default_handlers() -> MqttClient {
         MqttClient {
             inner: Arc::new(Mutex::new(InnerClient {
                 connection_state: None,
