@@ -50,7 +50,8 @@ async fn main() {
     );
 
     let client = MqttClient::new();
-    client.connect(connector).await.unwrap();
+    let connected = client.connect(connector).await.unwrap();
+    tokio::task::spawn(connected.background_task);
 
     client
         .publish(
