@@ -141,10 +141,74 @@ struct ConnectState {
     topic_alias_maximum: Option<u16>,
     maximum_packet_size: Option<u32>,
     conn: Framed<MqttConnection, MqttPacketCodec>,
+
+    next_packet_identifier: std::num::NonZeroU16,
 }
 
 struct SessionState {
     client_identifier: MqttString,
+    outstanding_packets: OutstandingPackets,
+}
+
+struct OutstandingPackets {
+    packet_ident_order: Vec<std::num::NonZeroU16>,
+    outstanding_packets:
+        std::collections::BTreeMap<std::num::NonZeroU16, crate::packets::MqttPacket>,
+}
+
+impl OutstandingPackets {
+    pub fn empty() -> Self {
+        Self {
+            packet_ident_order: Vec::new(),
+            outstanding_packets: std::collections::BTreeMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, ident: std::num::NonZeroU16, packet: crate::packets::MqttPacket) {
+        debug_assert_eq!(
+            self.packet_ident_order.len(),
+            self.outstanding_packets.len()
+        );
+
+        self.packet_ident_order.push(ident);
+        let removed = self.outstanding_packets.insert(ident, packet);
+
+        debug_assert!(removed.is_none());
+    }
+
+    pub fn update_by_id(&mut self, ident: std::num::NonZeroU16, packet: crate::packets::MqttPacket) {
+        debug_assert_eq!(
+            self.packet_ident_order.len(),
+            self.outstanding_packets.len()
+        );
+
+        let removed = self.outstanding_packets.insert(ident, packet);
+
+        debug_assert!(removed.is_some());
+    }
+
+    pub fn exists_outstanding_packet(&self, ident: std::num::NonZeroU16) -> bool {
+        self.outstanding_packets.contains_key(&ident)
+    }
+
+    pub fn iter_in_send_order(
+        &self,
+    ) -> impl Iterator<Item = (std::num::NonZeroU16, &crate::packets::MqttPacket)> {
+        self.packet_ident_order
+            .iter()
+            .flat_map(|id| self.outstanding_packets.get(id).map(|p| (*id, p)))
+    }
+
+    pub fn remove_by_id(&mut self, id: std::num::NonZeroU16) {
+        // Vec::retain() preserves order
+        self.packet_ident_order.retain(|&elm| elm != id);
+        self.outstanding_packets.remove(&id);
+
+        debug_assert_eq!(
+            self.packet_ident_order.len(),
+            self.outstanding_packets.len()
+        );
+    }
 }
 
 struct InnerClient {
@@ -249,6 +313,7 @@ impl MqttClient {
                 maximum_packet_size: connack.properties.maximum_packet_size().map(|mps| mps.0),
                 topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
                 conn,
+                next_packet_identifier: std::num::NonZeroU16::MIN,
             };
 
             let assigned_client_identifier = connack.properties.assigned_client_identifier();
@@ -282,7 +347,10 @@ impl MqttClient {
             }
 
             inner.connection_state = Some(connect_client_state);
-            inner.session_state = Some(SessionState { client_identifier });
+            inner.session_state = Some(SessionState {
+                client_identifier,
+                outstanding_packets: OutstandingPackets::empty(),
+            });
 
             return Ok(
                 crate::packets::connack::ConnackPropertiesView::try_from(maybe_connack)
