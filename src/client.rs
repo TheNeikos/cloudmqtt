@@ -176,7 +176,11 @@ impl OutstandingPackets {
         debug_assert!(removed.is_none());
     }
 
-    pub fn update_by_id(&mut self, ident: std::num::NonZeroU16, packet: crate::packets::MqttPacket) {
+    pub fn update_by_id(
+        &mut self,
+        ident: std::num::NonZeroU16,
+        packet: crate::packets::MqttPacket,
+    ) {
         debug_assert_eq!(
             self.packet_ident_order.len(),
             self.outstanding_packets.len()
@@ -367,13 +371,18 @@ impl MqttClient {
     pub async fn publish(
         &self,
         topic: crate::topic::MqttTopic,
-        _qos: QualityOfService,
+        qos: QualityOfService,
         retain: bool,
         payload: MqttPayload,
     ) -> Result<(), ()> {
         let mut inner = self.inner.lock().await;
+        let inner = &mut *inner;
 
         let Some(conn_state) = &mut inner.connection_state else {
+            return Err(());
+        };
+
+        let Some(sess_state) = &mut inner.session_state else {
             return Err(());
         };
 
@@ -381,12 +390,24 @@ impl MqttClient {
             return Err(());
         }
 
+        let packet_identifier = if qos > QualityOfService::AtMostOnce {
+            get_next_packet_ident(
+                &mut conn_state.next_packet_identifier,
+                &sess_state.outstanding_packets,
+            )
+            .map(Some)
+            .map_err(|_| ())? // TODO
+        } else {
+            None
+        };
+
         let publish = MPublish {
             duplicate: false,
-            quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+            quality_of_service: qos.into(),
             retain,
             topic_name: topic.as_ref(),
-            packet_identifier: None,
+            packet_identifier: packet_identifier
+                .map(|nz| mqtt_format::v5::variable_header::PacketIdentifier(nz.get())),
             properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
             payload: payload.as_ref(),
         };
@@ -403,6 +424,23 @@ impl MqttClient {
 
         tracing::trace!(%maximum_packet_size, "Packet size");
 
+        if let Some(pi) = packet_identifier {
+            let mut bytes = tokio_util::bytes::BytesMut::new();
+            bytes.reserve(packet.binary_size() as usize);
+            let mut writer = crate::packets::MqttWriter(&mut bytes);
+            packet.write(&mut writer).map_err(drop)?; // TODO
+            let mqtt_packet = crate::packets::MqttPacket {
+                packet: yoke::Yoke::try_attach_to_cart(
+                    crate::packets::StableBytes(bytes.freeze()),
+                    |bytes: &[u8]| {
+                        mqtt_format::v5::packets::MqttPacket::parse_complete(bytes)
+                    },
+                ).map_err(drop)?, // TODO
+            };
+
+            sess_state.outstanding_packets.insert(pi, mqtt_packet);
+        }
+
         conn_state.conn.send(packet).await.unwrap();
 
         tracing::trace!("Finished publishing");
@@ -410,6 +448,34 @@ impl MqttClient {
         Ok(())
     }
 }
+
+fn get_next_packet_ident(
+    next_packet_ident: &mut std::num::NonZeroU16,
+    outstanding_packets: &OutstandingPackets,
+) -> Result<std::num::NonZeroU16, PacketIdentifierExhausted> {
+    let start = *next_packet_ident;
+
+    loop {
+        let next = *next_packet_ident;
+
+        if !outstanding_packets.exists_outstanding_packet(next) {
+            return Ok(next);
+        }
+
+        match next_packet_ident.checked_add(1) {
+            Some(n) => *next_packet_ident = n,
+            None => *next_packet_ident = std::num::NonZeroU16::MIN,
+        }
+
+        if start == *next_packet_ident {
+            return Err(PacketIdentifierExhausted);
+        }
+    }
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("No free packet identifiers available")]
+pub struct PacketIdentifierExhausted;
 
 #[cfg(test)]
 mod tests {
