@@ -16,6 +16,7 @@ use mqtt_format::v5::packets::publish::MPublish;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 use tracing::Instrument;
+use yoke::Yoke;
 
 use crate::bytes::MqttBytes;
 use crate::client_identifier::ProposedClientIdentifier;
@@ -24,6 +25,8 @@ use crate::codecs::MqttPacketCodecError;
 use crate::keep_alive::KeepAlive;
 use crate::packets::connack::ConnackPropertiesView;
 use crate::packets::MqttPacket;
+use crate::packets::MqttWriter;
+use crate::packets::StableBytes;
 use crate::payload::MqttPayload;
 use crate::qos::QualityOfService;
 use crate::string::MqttString;
@@ -437,18 +440,59 @@ impl MqttClient {
                                     // TODO: Forward mpuback.properties etc to the user
                                 }
 
-                                mqtt_format::v5::packets::puback::PubackReasonCode::ImplementationSpecificError => todo!(),
-                                mqtt_format::v5::packets::puback::PubackReasonCode::NotAuthorized => todo!(),
-                                mqtt_format::v5::packets::puback::PubackReasonCode::PacketIdentifierInUse => todo!(),
-                                mqtt_format::v5::packets::puback::PubackReasonCode::PayloadFormatInvalid => todo!(),
-                                mqtt_format::v5::packets::puback::PubackReasonCode::QuotaExceeded => todo!(),
-                                mqtt_format::v5::packets::puback::PubackReasonCode::TopicNameInvalid => todo!(),
-                                mqtt_format::v5::packets::puback::PubackReasonCode::UnspecifiedError => todo!(),
+                                _ => todo!("Handle errors")
                             }
                         },
-                        mqtt_format::v5::packets::MqttPacket::Pubcomp(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Pubrec(pubrec) => {
+                            match pubrec.reason {
+                                mqtt_format::v5::packets::pubrec::PubrecReasonCode::Success => {
+                                    let mut inner = inner.lock().await;
+                                    let inner = &mut *inner;
+                                    let Some(ref mut session_state) = inner.session_state else {
+                                        tracing::error!(parent: &process_span, "No session state found");
+                                        todo!()
+                                    };
+                                    let Some(ref mut conn_state) = inner.connection_state else {
+                                        tracing::error!(parent: &process_span, "No session state found");
+                                        todo!()
+                                    };
+                                    let pident = NonZeroU16::try_from(pubrec.packet_identifier.0).expect("zero PacketIdentifier not valid here");
+                                    process_span.record("packet_identifier", pident);
+
+                                    if session_state.outstanding_packets.exists_outstanding_packet(pident) {
+                                        let pubrel = mqtt_format::v5::packets::MqttPacket::Pubrel(mqtt_format::v5::packets::pubrel::MPubrel { packet_identifier: pubrec.packet_identifier, reason: mqtt_format::v5::packets::pubrel::PubrelReasonCode::Success, properties: mqtt_format::v5::packets::pubrel::PubrelProperties::new() });
+
+                                        let mut bytes = tokio_util::bytes::BytesMut::new();
+                                        bytes.reserve(pubrel.binary_size() as usize);
+                                        pubrel.write(&mut MqttWriter(&mut bytes)).map_err(drop)?;
+                                        let pubrel_packet = MqttPacket { packet: Yoke::try_attach_to_cart(StableBytes(bytes.freeze()), |bytes| {
+                                            mqtt_format::v5::packets::MqttPacket::parse_complete(bytes)
+                                        }).unwrap()};
+                                        session_state.outstanding_packets.update_by_id(pident, pubrel_packet);
+                                        tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
+                                        conn_state.conn_write.send(pubrel).await.map_err(drop)?;
+
+                                        if let Some(callback) = inner.outstanding_completions.get_mut(&Id::PacketIdentifier(pident)) {
+                                            match callback {
+                                                CallbackState::Qos2 { on_receive, ..} => {
+                                                    if let Some(on_receive) = on_receive.take() {
+                                                    if let Err(_) = on_receive.send(packet.clone()) {
+                                                        tracing::trace!("Could not send ack, receiver was dropped.")
+                                                    }
+                                                    } else {
+                                                        todo!("Invariant broken: Double on_receive for a single pid: {pident}")
+                                                    }
+                                                }
+                                                _ => todo!(),
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => todo!("Handle errors")
+                            }
+                        }
+                        mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => todo!(),
                         mqtt_format::v5::packets::MqttPacket::Publish(_) => todo!(),
-                        mqtt_format::v5::packets::MqttPacket::Pubrec(_) => todo!(),
                         mqtt_format::v5::packets::MqttPacket::Pubrel(_) => todo!(),
                         mqtt_format::v5::packets::MqttPacket::Suback(_) => todo!(),
                         mqtt_format::v5::packets::MqttPacket::Unsuback(_) => todo!(),
@@ -580,8 +624,8 @@ impl MqttClient {
                     inner.outstanding_completions.insert(
                         Id::PacketIdentifier(pi),
                         CallbackState::Qos2 {
-                            on_receive,
-                            on_complete,
+                            on_receive: Some(on_receive),
+                            on_complete: Some(on_complete),
                         },
                     );
                     published_recv =
@@ -709,8 +753,8 @@ enum CallbackState {
         on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
     },
     Qos2 {
-        on_receive: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
-        on_complete: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
+        on_receive: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
+        on_complete: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
     },
 }
 
