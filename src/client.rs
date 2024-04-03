@@ -23,6 +23,7 @@ use crate::codecs::MqttPacketCodec;
 use crate::codecs::MqttPacketCodecError;
 use crate::keep_alive::KeepAlive;
 use crate::packets::connack::ConnackPropertiesView;
+use crate::packets::MqttPacket;
 use crate::payload::MqttPayload;
 use crate::qos::QualityOfService;
 use crate::string::MqttString;
@@ -390,7 +391,7 @@ impl MqttClient {
                     tracing::debug!(parent: &process_span, valid = next.is_ok(), "Received packet");
                     let packet = match next {
                         Ok(packet) => packet,
-                        Err(_) => todo!(),
+                        Err(e) => panic!("Received err: {e}"),
                     };
                     process_span.record("packet_kind", tracing::field::debug(packet.get().get_kind()));
 
@@ -403,8 +404,9 @@ impl MqttClient {
                             match mpuback.reason {
                                 mqtt_format::v5::packets::puback::PubackReasonCode::Success |
                                 mqtt_format::v5::packets::puback::PubackReasonCode::NoMatchingSubscribers => {
-                                    // happy path
-                                    let Some(ref mut session_state) = inner.lock().await.session_state else {
+                                    let mut inner = inner.lock().await;
+                                    let inner = &mut *inner;
+                                    let Some(ref mut session_state) = inner.session_state else {
                                         tracing::error!(parent: &process_span, "No session state found");
                                         todo!()
                                     };
@@ -416,6 +418,17 @@ impl MqttClient {
                                     if session_state.outstanding_packets.exists_outstanding_packet(pident) {
                                         session_state.outstanding_packets.remove_by_id(pident);
                                         tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
+
+                                        if let Some(callback) = inner.outstanding_completions.remove(&Id::PacketIdentifier(pident)) {
+                                            match callback {
+                                                CallbackState::Qos1 { on_acknowledge } => {
+                                                    if let Err(_) = on_acknowledge.send(packet.clone()) {
+                                                        tracing::trace!("Could not send ack, receiver was dropped.")
+                                                    }
+                                                }
+                                                _ => todo!(),
+                                            }
+                                        }
                                     } else {
                                         tracing::error!(parent: &process_span, "Packet id does not exist in outstanding packets");
                                         todo!()
@@ -480,7 +493,7 @@ impl MqttClient {
             payload,
             on_packet_recv: _,
         }: Publish,
-    ) -> Result<(), ()> {
+    ) -> Result<Published, ()> {
         let mut inner = self.inner.lock().await;
         let inner = &mut *inner;
 
@@ -535,6 +548,8 @@ impl MqttClient {
 
         tracing::trace!(%maximum_packet_size, packet_size = packet.binary_size(), "Packet size");
 
+        let published_recv;
+
         if let Some(pi) = packet_identifier {
             let mut bytes = tokio_util::bytes::BytesMut::new();
             bytes.reserve(packet.binary_size() as usize);
@@ -549,6 +564,32 @@ impl MqttClient {
             };
 
             sess_state.outstanding_packets.insert(pi, mqtt_packet);
+            match qos {
+                QualityOfService::AtMostOnce => unreachable!(),
+                QualityOfService::AtLeastOnce => {
+                    let (on_acknowledge, recv) = futures::channel::oneshot::channel();
+                    inner.outstanding_completions.insert(
+                        Id::PacketIdentifier(pi),
+                        CallbackState::Qos1 { on_acknowledge },
+                    );
+                    published_recv = PublishedReceiver::Once(PublishedQos1 { recv });
+                }
+                QualityOfService::ExactlyOnce => {
+                    let (on_receive, recv) = futures::channel::oneshot::channel();
+                    let (on_complete, comp_recv) = futures::channel::oneshot::channel();
+                    inner.outstanding_completions.insert(
+                        Id::PacketIdentifier(pi),
+                        CallbackState::Qos2 {
+                            on_receive,
+                            on_complete,
+                        },
+                    );
+                    published_recv =
+                        PublishedReceiver::Twice(PublishedQos2Received { recv, comp_recv });
+                }
+            }
+        } else {
+            published_recv = PublishedReceiver::None;
         }
 
         tracing::trace!("Publishing");
@@ -560,7 +601,9 @@ impl MqttClient {
             .unwrap();
         tracing::trace!("Finished publishing");
 
-        Ok(())
+        Ok(Published {
+            recv: published_recv,
+        })
     }
 
     pub async fn publish_qos1(
@@ -656,8 +699,11 @@ enum Acknowledge {
     YesWithProps {},
 }
 
-#[derive(Hash, PartialEq)]
-struct Id;
+#[derive(Debug, Hash, PartialEq, Eq)]
+enum Id {
+    PacketIdentifier(NonZeroU16),
+}
+
 enum CallbackState {
     Qos1 {
         on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
@@ -673,13 +719,66 @@ pub struct Publish {
     pub qos: QualityOfService,
     pub retain: bool,
     pub payload: MqttPayload,
-    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>>,
+    pub on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>>,
 }
 
-enum PublishReceiver {
+pub struct Published {
+    recv: PublishedReceiver,
+}
+
+impl Published {
+    pub async fn acknowledged(self) {
+        match self.recv {
+            PublishedReceiver::None => return,
+            PublishedReceiver::Once(qos1) => {
+                qos1.acknowledged().await;
+            }
+            PublishedReceiver::Twice(qos2) => {
+                qos2.received().await.completed().await;
+            }
+        }
+    }
+}
+
+enum PublishedReceiver {
     None,
-    Once(PublishQos1),
-    Twice(PublishQos2),
+    Once(PublishedQos1),
+    Twice(PublishedQos2Received),
+}
+
+pub struct PublishedQos1 {
+    recv: futures::channel::oneshot::Receiver<MqttPacket>,
+}
+
+impl PublishedQos1 {
+    pub async fn acknowledged(self) {
+        self.recv.await.unwrap();
+    }
+}
+
+pub struct PublishedQos2Received {
+    recv: futures::channel::oneshot::Receiver<MqttPacket>,
+    comp_recv: futures::channel::oneshot::Receiver<MqttPacket>,
+}
+
+impl PublishedQos2Received {
+    pub async fn received(self) -> PublishedQos2Completed {
+        self.recv.await.unwrap();
+
+        PublishedQos2Completed {
+            recv: self.comp_recv,
+        }
+    }
+}
+
+pub struct PublishedQos2Completed {
+    recv: futures::channel::oneshot::Receiver<MqttPacket>,
+}
+
+impl PublishedQos2Completed {
+    pub async fn completed(self) {
+        self.recv.await.unwrap();
+    }
 }
 
 pub struct PublishQos1 {
