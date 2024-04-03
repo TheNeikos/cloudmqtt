@@ -5,9 +5,9 @@
 //
 
 use clap::Parser;
+use cloudmqtt::client::connect::MqttClientConnector;
+use cloudmqtt::client::publish::Publish;
 use cloudmqtt::client::MqttClient;
-use cloudmqtt::client::MqttClientConnector;
-use cloudmqtt::client::Publish;
 use cloudmqtt::transport::MqttConnectTransport;
 use tokio::net::TcpStream;
 use tracing_subscriber::layer::SubscriberExt;
@@ -46,7 +46,7 @@ async fn main() {
     let connector = MqttClientConnector::new(
         connection,
         client_id,
-        cloudmqtt::client::CleanStart::Yes,
+        cloudmqtt::client::connect::CleanStart::Yes,
         cloudmqtt::keep_alive::KeepAlive::Disabled,
     );
 
