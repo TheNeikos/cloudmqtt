@@ -4,7 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, PartialOrd)]
 pub enum QualityOfService {
     AtMostOnce,
     AtLeastOnce,
