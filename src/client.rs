@@ -11,7 +11,8 @@ use futures::SinkExt;
 use futures::StreamExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
-use tokio_util::codec::Framed;
+use tokio_util::codec::FramedRead;
+use tokio_util::codec::FramedWrite;
 
 use crate::bytes::MqttBytes;
 use crate::client_identifier::ProposedClientIdentifier;
@@ -140,7 +141,8 @@ struct ConnectState {
     retain_available: Option<bool>,
     topic_alias_maximum: Option<u16>,
     maximum_packet_size: Option<u32>,
-    conn: Framed<MqttConnection, MqttPacketCodec>,
+    conn_write: FramedWrite<tokio::io::WriteHalf<MqttConnection>, MqttPacketCodec>,
+    conn_read: FramedRead<tokio::io::ReadHalf<MqttConnection>, MqttPacketCodec>,
 
     next_packet_identifier: std::num::NonZeroU16,
 }
@@ -242,10 +244,9 @@ impl MqttClient {
         type Mcce = MqttClientConnectError;
 
         let mut inner = self.inner.lock().await;
-        let mut conn = tokio_util::codec::Framed::new(
-            MqttConnection::from(connector.transport),
-            MqttPacketCodec,
-        );
+        let (read, write) = tokio::io::split(MqttConnection::from(connector.transport));
+        let mut conn_write = FramedWrite::new(write, MqttPacketCodec);
+        let mut conn_read = FramedRead::new(read, MqttPacketCodec);
 
         let conn_packet = mqtt_format::v5::packets::connect::MConnect {
             client_identifier: connector.client_identifier.as_str(),
@@ -257,11 +258,12 @@ impl MqttClient {
             keep_alive: connector.keep_alive.as_u16(),
         };
 
-        conn.send(mqtt_format::v5::packets::MqttPacket::Connect(conn_packet))
+        conn_write
+            .send(mqtt_format::v5::packets::MqttPacket::Connect(conn_packet))
             .await
             .map_err(Mcce::Send)?;
 
-        let Some(maybe_connack) = conn.next().await else {
+        let Some(maybe_connack) = conn_read.next().await else {
             return Err(Mcce::TransportUnexpectedlyClosed);
         };
 
@@ -316,7 +318,8 @@ impl MqttClient {
                 retain_available: connack.properties.retain_available().map(|ra| ra.0),
                 maximum_packet_size: connack.properties.maximum_packet_size().map(|mps| mps.0),
                 topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
-                conn,
+                conn_write,
+                conn_read,
                 next_packet_identifier: std::num::NonZeroU16::MIN,
             };
 
@@ -432,16 +435,15 @@ impl MqttClient {
             let mqtt_packet = crate::packets::MqttPacket {
                 packet: yoke::Yoke::try_attach_to_cart(
                     crate::packets::StableBytes(bytes.freeze()),
-                    |bytes: &[u8]| {
-                        mqtt_format::v5::packets::MqttPacket::parse_complete(bytes)
-                    },
-                ).map_err(drop)?, // TODO
+                    |bytes: &[u8]| mqtt_format::v5::packets::MqttPacket::parse_complete(bytes),
+                )
+                .map_err(drop)?, // TODO
             };
 
             sess_state.outstanding_packets.insert(pi, mqtt_packet);
         }
 
-        conn_state.conn.send(packet).await.unwrap();
+        conn_state.conn_write.send(packet).await.unwrap();
 
         tracing::trace!("Finished publishing");
 
