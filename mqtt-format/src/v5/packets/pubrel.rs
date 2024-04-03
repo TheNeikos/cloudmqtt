@@ -48,21 +48,23 @@ impl<'i> MPubrel<'i> {
         winnow::combinator::trace("MPubrel", |input: &mut &'i Bytes| {
             let packet_identifier = PacketIdentifier::parse(input)?;
 
-            if input.is_empty() {
-                Ok(Self {
-                    packet_identifier,
-                    reason: PubrelReasonCode::Success,
-                    properties: PubrelProperties::new(),
-                })
+            let reason = if input.is_empty() {
+                PubrelReasonCode::Success
             } else {
-                let reason = PubrelReasonCode::parse(input)?;
-                let properties = PubrelProperties::parse(input)?;
-                Ok(Self {
-                    packet_identifier,
-                    reason,
-                    properties,
-                })
-            }
+                PubrelReasonCode::parse(input)?
+            };
+
+            let properties = if input.is_empty() {
+                PubrelProperties::new()
+            } else {
+                PubrelProperties::parse(input)?
+            };
+
+            Ok(Self {
+                packet_identifier,
+                reason,
+                properties,
+            })
         })
         .parse_next(input)
     }
