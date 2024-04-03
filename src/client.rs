@@ -15,6 +15,7 @@ use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
+use tracing::Instrument;
 
 use crate::bytes::MqttBytes;
 use crate::client_identifier::ProposedClientIdentifier;
@@ -474,14 +475,17 @@ impl MqttClient {
         let inner = &mut *inner;
 
         let Some(conn_state) = &mut inner.connection_state else {
+            tracing::error!("No connection state found");
             return Err(());
         };
 
         let Some(sess_state) = &mut inner.session_state else {
+            tracing::error!("No session state found");
             return Err(());
         };
 
         if conn_state.retain_available.unwrap_or(true) && retain {
+            tracing::warn!("Retain not available, but requested");
             return Err(());
         }
 
@@ -495,6 +499,7 @@ impl MqttClient {
         } else {
             None
         };
+        tracing::debug!(?packet_identifier, "Packet identifier computed");
 
         let publish = MPublish {
             duplicate: false,
@@ -514,10 +519,11 @@ impl MqttClient {
             .unwrap_or(VARIABLE_INTEGER_MAX);
 
         if packet.binary_size() > maximum_packet_size {
+            tracing::error!("Binary size bigger than maximum packet size");
             return Err(());
         }
 
-        tracing::trace!(%maximum_packet_size, "Packet size");
+        tracing::trace!(%maximum_packet_size, packet_size = packet.binary_size(), "Packet size");
 
         if let Some(pi) = packet_identifier {
             let mut bytes = tokio_util::bytes::BytesMut::new();
@@ -529,14 +535,19 @@ impl MqttClient {
                     crate::packets::StableBytes(bytes.freeze()),
                     |bytes: &[u8]| mqtt_format::v5::packets::MqttPacket::parse_complete(bytes),
                 )
-                .map_err(drop)?, // TODO
+                .unwrap(), // TODO
             };
 
             sess_state.outstanding_packets.insert(pi, mqtt_packet);
         }
 
-        conn_state.conn_write.send(packet).await.unwrap();
-
+        tracing::trace!("Publishing");
+        conn_state
+            .conn_write
+            .send(packet)
+            .in_current_span()
+            .await
+            .unwrap();
         tracing::trace!("Finished publishing");
 
         Ok(())
