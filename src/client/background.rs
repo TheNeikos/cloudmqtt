@@ -177,10 +177,6 @@ pub(super) async fn handle_background_receiving(
                         tracing::error!(parent: &process_span, "No session state found");
                         todo!()
                     };
-                    let Some(ref mut conn_state) = inner.connection_state else {
-                        tracing::error!(parent: &process_span, "No session state found");
-                        todo!()
-                    };
                     let pident = NonZeroU16::try_from(pubcomp.packet_identifier.0)
                         .expect("zero PacketIdentifier not valid here");
                     process_span.record("packet_identifier", pident);
