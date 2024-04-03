@@ -376,10 +376,15 @@ impl MqttClient {
                 let inner: Arc<Mutex<InnerClient>> = inner_clone;
 
                 while let Some(next) = conn_read.next().await {
+                    let process_span = tracing::debug_span!("Processing packet",
+                                                            packet_kind = tracing::field::Empty,
+                                                            packet_identifier = tracing::field::Empty);
+                    tracing::debug!(parent: &process_span, valid = next.is_ok(), "Received packet");
                     let packet = match next {
                         Ok(packet) => packet,
                         Err(_) => todo!(),
                     };
+                    process_span.record("packet_kind", tracing::field::debug(packet.get().get_kind()));
 
                     match packet.get() {
                         mqtt_format::v5::packets::MqttPacket::Auth(_) => todo!(),
@@ -392,15 +397,19 @@ impl MqttClient {
                                 mqtt_format::v5::packets::puback::PubackReasonCode::NoMatchingSubscribers => {
                                     // happy path
                                     let Some(ref mut session_state) = inner.lock().await.session_state else {
+                                        tracing::error!(parent: &process_span, "No session state found");
                                         todo!()
                                     };
 
                                     let pident = std::num::NonZeroU16::try_from(mpuback.packet_identifier.0)
                                         .expect("Zero PacketIdentifier not valid here");
+                                    process_span.record("packet_identifier", pident);
 
                                     if session_state.outstanding_packets.exists_outstanding_packet(pident) {
-                                        session_state.outstanding_packets.remove_by_id(pident)
+                                        session_state.outstanding_packets.remove_by_id(pident);
+                                        tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
                                     } else {
+                                        tracing::error!(parent: &process_span, "Packet id does not exist in outstanding packets");
                                         todo!()
                                     }
 
@@ -432,7 +441,9 @@ impl MqttClient {
                     }
                 }
 
+                tracing::debug!("Finished processing, returning reader");
                 if let Err(conn_read) = conn_read_sender.send(conn_read) {
+                    tracing::error!("Failed to return reader");
                     todo!()
                 }
 
