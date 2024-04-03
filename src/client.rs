@@ -5,8 +5,10 @@
 //
 
 use std::num::NonZeroU16;
+use std::sync::Arc;
 
 use futures::lock::Mutex;
+use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
@@ -142,7 +144,10 @@ struct ConnectState {
     topic_alias_maximum: Option<u16>,
     maximum_packet_size: Option<u32>,
     conn_write: FramedWrite<tokio::io::WriteHalf<MqttConnection>, MqttPacketCodec>,
-    conn_read: FramedRead<tokio::io::ReadHalf<MqttConnection>, MqttPacketCodec>,
+
+    conn_read_recv: futures::channel::oneshot::Receiver<
+        FramedRead<tokio::io::ReadHalf<MqttConnection>, MqttPacketCodec>,
+    >,
 
     next_packet_identifier: std::num::NonZeroU16,
 }
@@ -223,26 +228,27 @@ struct InnerClient {
 }
 
 pub struct MqttClient {
-    inner: Mutex<InnerClient>,
+    inner: Arc<Mutex<InnerClient>>,
 }
 
 impl MqttClient {
     #[allow(clippy::new_without_default)]
     pub fn new() -> MqttClient {
         MqttClient {
-            inner: Mutex::new(InnerClient {
+            inner: Arc::new(Mutex::new(InnerClient {
                 connection_state: None,
                 session_state: None,
-            }),
+            })),
         }
     }
 
     pub async fn connect(
         &self,
         connector: MqttClientConnector,
-    ) -> Result<ConnackPropertiesView, MqttClientConnectError> {
+    ) -> Result<Connected, MqttClientConnectError> {
         type Mcce = MqttClientConnectError;
 
+        let inner_clone = self.inner.clone();
         let mut inner = self.inner.lock().await;
         let (read, write) = tokio::io::split(MqttConnection::from(connector.transport));
         let mut conn_write = FramedWrite::new(write, MqttPacketCodec);
@@ -311,6 +317,8 @@ impl MqttClient {
                 });
             }
 
+            let (conn_read_sender, conn_read_recv) = futures::channel::oneshot::channel();
+
             let connect_client_state = ConnectState {
                 session_present: connack.session_present,
                 receive_maximum: connack.properties.receive_maximum().map(|rm| rm.0),
@@ -319,7 +327,7 @@ impl MqttClient {
                 maximum_packet_size: connack.properties.maximum_packet_size().map(|mps| mps.0),
                 topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
                 conn_write,
-                conn_read,
+                conn_read_recv,
                 next_packet_identifier: std::num::NonZeroU16::MIN,
             };
 
@@ -359,10 +367,83 @@ impl MqttClient {
                 outstanding_packets: OutstandingPackets::empty(),
             });
 
-            return Ok(
+            let connack_prop_view =
                 crate::packets::connack::ConnackPropertiesView::try_from(maybe_connack)
-                    .expect("An already matched value suddenly changed?"),
-            );
+                    .expect("An already matched value suddenly changed?");
+
+            let background_task = async move {
+                tracing::info!("Starting background task");
+                let inner: Arc<Mutex<InnerClient>> = inner_clone;
+
+                while let Some(next) = conn_read.next().await {
+                    let packet = match next {
+                        Ok(packet) => packet,
+                        Err(_) => todo!(),
+                    };
+
+                    match packet.get() {
+                        mqtt_format::v5::packets::MqttPacket::Auth(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Disconnect(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Pingreq(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Pingresp(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Puback(mpuback) => {
+                            match mpuback.reason {
+                                mqtt_format::v5::packets::puback::PubackReasonCode::Success |
+                                mqtt_format::v5::packets::puback::PubackReasonCode::NoMatchingSubscribers => {
+                                    // happy path
+                                    let Some(ref mut session_state) = inner.lock().await.session_state else {
+                                        todo!()
+                                    };
+
+                                    let pident = std::num::NonZeroU16::try_from(mpuback.packet_identifier.0)
+                                        .expect("Zero PacketIdentifier not valid here");
+
+                                    if session_state.outstanding_packets.exists_outstanding_packet(pident) {
+                                        session_state.outstanding_packets.remove_by_id(pident)
+                                    } else {
+                                        todo!()
+                                    }
+
+                                    // TODO: Forward mpuback.properties etc to the user
+                                }
+
+                                mqtt_format::v5::packets::puback::PubackReasonCode::ImplementationSpecificError => todo!(),
+                                mqtt_format::v5::packets::puback::PubackReasonCode::NotAuthorized => todo!(),
+                                mqtt_format::v5::packets::puback::PubackReasonCode::PacketIdentifierInUse => todo!(),
+                                mqtt_format::v5::packets::puback::PubackReasonCode::PayloadFormatInvalid => todo!(),
+                                mqtt_format::v5::packets::puback::PubackReasonCode::QuotaExceeded => todo!(),
+                                mqtt_format::v5::packets::puback::PubackReasonCode::TopicNameInvalid => todo!(),
+                                mqtt_format::v5::packets::puback::PubackReasonCode::UnspecifiedError => todo!(),
+                            }
+                        },
+                        mqtt_format::v5::packets::MqttPacket::Pubcomp(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Publish(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Pubrec(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Pubrel(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Suback(_) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Unsuback(_) => todo!(),
+
+                        mqtt_format::v5::packets::MqttPacket::Connack(_) |
+                        mqtt_format::v5::packets::MqttPacket::Connect(_) |
+                        mqtt_format::v5::packets::MqttPacket::Subscribe(_) |
+                        mqtt_format::v5::packets::MqttPacket::Unsubscribe(_) => {
+                            todo!("Handle invalid packet")
+                        }
+                    }
+                }
+
+                if let Err(conn_read) = conn_read_sender.send(conn_read) {
+                    todo!()
+                }
+
+                Ok(())
+            }
+            .boxed::<>();
+
+            return Ok(Connected {
+                connack_prop_view,
+                background_task,
+            });
         }
 
         // TODO: Do something with error code
@@ -473,6 +554,12 @@ fn get_next_packet_ident(
             return Err(PacketIdentifierExhausted);
         }
     }
+}
+
+#[must_use]
+pub struct Connected {
+    pub connack_prop_view: ConnackPropertiesView,
+    pub background_task: futures::future::BoxFuture<'static, Result<(), ()>>,
 }
 
 #[derive(Debug, thiserror::Error)]
