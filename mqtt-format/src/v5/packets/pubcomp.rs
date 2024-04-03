@@ -46,8 +46,19 @@ impl<'i> MPubcomp<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         winnow::combinator::trace("MPubcomp", |input: &mut &'i Bytes| {
             let packet_identifier = PacketIdentifier::parse(input)?;
-            let reason = PubcompReasonCode::parse(input)?;
-            let properties = PubcompProperties::parse(input)?;
+
+            let reason = if input.is_empty() {
+                PubcompReasonCode::Success
+            } else {
+                PubcompReasonCode::parse(input)?
+            };
+
+            let properties = if input.is_empty() {
+                PubcompProperties::new()
+            } else {
+                PubcompProperties::parse(input)?
+            };
+
             Ok(Self {
                 packet_identifier,
                 reason,
