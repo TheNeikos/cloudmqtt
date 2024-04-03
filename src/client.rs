@@ -469,7 +469,7 @@ impl MqttClient {
                                             mqtt_format::v5::packets::MqttPacket::parse_complete(bytes)
                                         }).unwrap()};
                                         session_state.outstanding_packets.update_by_id(pident, pubrel_packet);
-                                        tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
+                                        tracing::trace!(parent: &process_span, "Update packet from outstanding packets");
                                         conn_state.conn_write.send(pubrel).await.map_err(drop)?;
 
                                         if let Some(callback) = inner.outstanding_completions.get_mut(&Id::PacketIdentifier(pident)) {
@@ -491,7 +491,45 @@ impl MqttClient {
                                 _ => todo!("Handle errors")
                             }
                         }
-                        mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => todo!(),
+                        mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => {
+                            match pubcomp.reason {
+                                mqtt_format::v5::packets::pubcomp::PubcompReasonCode::Success => {
+                                    let mut inner = inner.lock().await;
+                                    let inner = &mut *inner;
+                                    let Some(ref mut session_state) = inner.session_state else {
+                                        tracing::error!(parent: &process_span, "No session state found");
+                                        todo!()
+                                    };
+                                    let Some(ref mut conn_state) = inner.connection_state else {
+                                        tracing::error!(parent: &process_span, "No session state found");
+                                        todo!()
+                                    };
+                                    let pident = NonZeroU16::try_from(pubcomp.packet_identifier.0).expect("zero PacketIdentifier not valid here");
+                                    process_span.record("packet_identifier", pident);
+
+                                    if session_state.outstanding_packets.exists_outstanding_packet(pident) {
+                                        session_state.outstanding_packets.remove_by_id(pident);
+                                        tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
+
+                                        if let Some(callback) = inner.outstanding_completions.get_mut(&Id::PacketIdentifier(pident)) {
+                                            match callback {
+                                                CallbackState::Qos2 { on_complete, ..} => {
+                                                    if let Some(on_complete) = on_complete.take() {
+                                                    if let Err(_) = on_complete.send(packet.clone()) {
+                                                        tracing::trace!("Could not send ack, receiver was dropped.")
+                                                    }
+                                                    } else {
+                                                        todo!("Invariant broken: Double on_complete for a single pid: {pident}")
+                                                    }
+                                                }
+                                                _ => todo!(),
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => todo!("Handle errors")
+                            }
+                        }
                         mqtt_format::v5::packets::MqttPacket::Publish(_) => todo!(),
                         mqtt_format::v5::packets::MqttPacket::Pubrel(_) => todo!(),
                         mqtt_format::v5::packets::MqttPacket::Suback(_) => todo!(),
