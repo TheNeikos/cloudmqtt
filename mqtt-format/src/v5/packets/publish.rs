@@ -113,7 +113,7 @@ impl<'i> MPublish<'i> {
                 .map(|pi| pi.binary_size())
                 .unwrap_or(0)
             + self.properties.binary_size()
-            + crate::v5::bytes::binary_data_binary_size(self.payload)
+            + self.payload.len() as u32
     }
 
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
