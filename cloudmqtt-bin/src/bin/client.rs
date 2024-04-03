@@ -50,17 +50,19 @@ async fn main() {
     );
 
     let client = MqttClient::new();
-    client.connect(connector).await.unwrap();
+    let connected = client.connect(connector).await.unwrap();
+    let background = tokio::task::spawn(connected.background_task);
 
     client
         .publish(
             "foo/bar".try_into().unwrap(),
-            cloudmqtt::qos::QualityOfService::AtMostOnce,
+            cloudmqtt::qos::QualityOfService::AtLeastOnce,
             false,
             vec![123].try_into().unwrap(),
         )
         .await
         .unwrap();
 
+    let _ = background.await;
     println!("Sent message! Bye");
 }
