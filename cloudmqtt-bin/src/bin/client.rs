@@ -7,6 +7,7 @@
 use clap::Parser;
 use cloudmqtt::client::MqttClient;
 use cloudmqtt::client::MqttClientConnector;
+use cloudmqtt::client::Publish;
 use cloudmqtt::transport::MqttConnectTransport;
 use tokio::net::TcpStream;
 use tracing_subscriber::layer::SubscriberExt;
@@ -54,15 +55,17 @@ async fn main() {
     let background = tokio::task::spawn(connected.background_task);
 
     client
-        .publish(
-            "foo/bar".try_into().unwrap(),
-            cloudmqtt::qos::QualityOfService::AtLeastOnce,
-            false,
-            vec![123].try_into().unwrap(),
-        )
+        .publish(Publish {
+            topic: "foo/bar".try_into().unwrap(),
+            qos: cloudmqtt::qos::QualityOfService::AtLeastOnce,
+            retain: false,
+            payload: vec![123].try_into().unwrap(),
+            on_packet_recv: None,
+        })
         .await
-        .unwrap();
+        .unwrap()
+        .acknowledged()
+        .await;
 
-    let _ = background.await;
     println!("Sent message! Bye");
 }
