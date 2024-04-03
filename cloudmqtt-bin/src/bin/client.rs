@@ -57,7 +57,7 @@ async fn main() {
     client
         .publish(Publish {
             topic: "foo/bar".try_into().unwrap(),
-            qos: cloudmqtt::qos::QualityOfService::AtLeastOnce,
+            qos: cloudmqtt::qos::QualityOfService::ExactlyOnce,
             retain: false,
             payload: vec![123].try_into().unwrap(),
             on_packet_recv: None,
