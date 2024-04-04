@@ -6,13 +6,47 @@
 
 use std::num::NonZeroU16;
 
+use futures::SinkExt;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 
 use crate::codecs::MqttPacketCodec;
+use crate::codecs::MqttPacketCodecError;
+use crate::keep_alive::KeepAlive;
 use crate::packet_identifier::PacketIdentifier;
 use crate::string::MqttString;
 use crate::transport::MqttConnection;
+
+pub(super) struct TransportWriter {
+    conn: FramedWrite<tokio::io::WriteHalf<MqttConnection>, MqttPacketCodec>,
+    notify: futures::channel::mpsc::Sender<()>,
+}
+
+impl TransportWriter {
+    pub(super) fn new(
+        conn: FramedWrite<tokio::io::WriteHalf<MqttConnection>, MqttPacketCodec>,
+        notify: futures::channel::mpsc::Sender<()>,
+    ) -> Self {
+        Self { conn, notify }
+    }
+
+    pub(super) async fn send(
+        &mut self,
+        packet: mqtt_format::v5::packets::MqttPacket<'_>,
+    ) -> Result<(), MqttPacketCodecError> {
+        self.conn.send(packet).await?;
+        if let Err(e) = self.notify.try_send(()) {
+            if e.is_full() {
+                // This is fine, we are already notifying of a send
+            }
+            if e.is_disconnected() {
+                todo!("Could not send to heartbeat!?")
+            }
+        }
+
+        Ok(())
+    }
+}
 
 pub(super) struct ConnectState {
     pub(super) session_present: bool,
@@ -21,7 +55,7 @@ pub(super) struct ConnectState {
     pub(super) retain_available: Option<bool>,
     pub(super) topic_alias_maximum: Option<u16>,
     pub(super) maximum_packet_size: Option<u32>,
-    pub(super) conn_write: FramedWrite<tokio::io::WriteHalf<MqttConnection>, MqttPacketCodec>,
+    pub(super) conn_write: TransportWriter,
 
     pub(super) conn_read_recv: futures::channel::oneshot::Receiver<
         FramedRead<tokio::io::ReadHalf<MqttConnection>, MqttPacketCodec>,

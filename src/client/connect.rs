@@ -13,6 +13,7 @@ use tokio_util::codec::FramedWrite;
 use super::MqttClient;
 use crate::bytes::MqttBytes;
 use crate::client::state::OutstandingPackets;
+use crate::client::state::TransportWriter;
 use crate::client::ConnectState;
 use crate::client::SessionState;
 use crate::client_identifier::ProposedClientIdentifier;
@@ -212,6 +213,8 @@ impl MqttClient {
                     reason: "MQTT-3.2.2-2",
                 });
             }
+
+            let conn_write = TransportWriter::new(conn_write, sender);
 
             let (conn_read_sender, conn_read_recv) = futures::channel::oneshot::channel();
 
