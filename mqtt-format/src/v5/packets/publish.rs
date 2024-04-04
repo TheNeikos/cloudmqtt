@@ -158,7 +158,7 @@ mod test {
             quality_of_service,
             retain,
             topic_name: "top/ic",
-            packet_identifier: Some(PacketIdentifier(1)),
+            packet_identifier: Some(PacketIdentifier(core::num::NonZeroU16::new(1).unwrap())),
             properties: PublishProperties {
                 payload_format_indicator: None,
                 message_expiry_interval: None,
@@ -194,7 +194,7 @@ mod test {
             quality_of_service,
             retain,
             topic_name: "top/ic",
-            packet_identifier: Some(PacketIdentifier(1)),
+            packet_identifier: Some(PacketIdentifier(core::num::NonZeroU16::new(1).unwrap())),
             properties: PublishProperties {
                 payload_format_indicator: None,
                 message_expiry_interval: None,

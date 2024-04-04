@@ -18,12 +18,12 @@ use super::MResult;
 use crate::v5::integers::parse_variable_u32;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub struct PacketIdentifier(pub u16);
+pub struct PacketIdentifier(pub core::num::NonZeroU16);
 
 impl PacketIdentifier {
     pub fn parse(input: &mut &Bytes) -> MResult<Self> {
         winnow::combinator::trace("PacketIdentifier", |input: &mut &Bytes| {
-            parse_u16(input).map(PacketIdentifier)
+            parse_u16_nonzero(input).map(PacketIdentifier)
         })
         .parse_next(input)
     }
@@ -33,7 +33,7 @@ impl PacketIdentifier {
     }
 
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
-        buffer.write_u16(self.0)
+        buffer.write_u16(self.0.get())
     }
 }
 

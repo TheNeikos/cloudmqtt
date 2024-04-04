@@ -192,7 +192,7 @@ mod test {
         subscription.write(&mut sub_writer).unwrap();
 
         crate::v5::test::make_roundtrip_test!(MUnsubscribe {
-            packet_identifier: PacketIdentifier(88),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(88).unwrap()),
             unsubscriptions: Unsubscriptions {
                 start: &sub_writer.buffer
             },
@@ -214,7 +214,7 @@ mod test {
         subscription.write(&mut sub_writer).unwrap();
 
         crate::v5::test::make_roundtrip_test!(MUnsubscribe {
-            packet_identifier: PacketIdentifier(88),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(88).unwrap()),
             unsubscriptions: Unsubscriptions {
                 start: &sub_writer.buffer
             },
