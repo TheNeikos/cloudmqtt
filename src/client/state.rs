@@ -10,6 +10,7 @@ use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 
 use crate::codecs::MqttPacketCodec;
+use crate::packet_identifier::PacketIdentifierNonZero;
 use crate::string::MqttString;
 use crate::transport::MqttConnection;
 
@@ -35,9 +36,9 @@ pub(super) struct SessionState {
 }
 
 pub(super) struct OutstandingPackets {
-    pub(super) packet_ident_order: Vec<std::num::NonZeroU16>,
+    pub(super) packet_ident_order: Vec<PacketIdentifierNonZero>,
     pub(super) outstanding_packets:
-        std::collections::BTreeMap<std::num::NonZeroU16, crate::packets::MqttPacket>,
+        std::collections::BTreeMap<PacketIdentifierNonZero, crate::packets::MqttPacket>,
 }
 
 impl OutstandingPackets {
@@ -48,7 +49,7 @@ impl OutstandingPackets {
         }
     }
 
-    pub fn insert(&mut self, ident: std::num::NonZeroU16, packet: crate::packets::MqttPacket) {
+    pub fn insert(&mut self, ident: PacketIdentifierNonZero, packet: crate::packets::MqttPacket) {
         debug_assert_eq!(
             self.packet_ident_order.len(),
             self.outstanding_packets.len()
@@ -62,7 +63,7 @@ impl OutstandingPackets {
 
     pub fn update_by_id(
         &mut self,
-        ident: std::num::NonZeroU16,
+        ident: PacketIdentifierNonZero,
         packet: crate::packets::MqttPacket,
     ) {
         debug_assert_eq!(
@@ -75,19 +76,19 @@ impl OutstandingPackets {
         debug_assert!(removed.is_some());
     }
 
-    pub fn exists_outstanding_packet(&self, ident: std::num::NonZeroU16) -> bool {
+    pub fn exists_outstanding_packet(&self, ident: PacketIdentifierNonZero) -> bool {
         self.outstanding_packets.contains_key(&ident)
     }
 
     pub fn iter_in_send_order(
         &self,
-    ) -> impl Iterator<Item = (std::num::NonZeroU16, &crate::packets::MqttPacket)> {
+    ) -> impl Iterator<Item = (PacketIdentifierNonZero, &crate::packets::MqttPacket)> {
         self.packet_ident_order
             .iter()
             .flat_map(|id| self.outstanding_packets.get(id).map(|p| (*id, p)))
     }
 
-    pub fn remove_by_id(&mut self, id: std::num::NonZeroU16) {
+    pub fn remove_by_id(&mut self, id: PacketIdentifierNonZero) {
         // Vec::retain() preserves order
         self.packet_ident_order.retain(|&elm| elm != id);
         self.outstanding_packets.remove(&id);

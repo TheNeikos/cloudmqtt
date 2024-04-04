@@ -15,6 +15,7 @@ use tracing::Instrument;
 
 use super::state::OutstandingPackets;
 use super::MqttClient;
+use crate::packet_identifier::PacketIdentifierNonZero;
 use crate::packets::MqttPacket;
 use crate::payload::MqttPayload;
 use crate::qos::QualityOfService;
@@ -188,11 +189,11 @@ impl MqttClient {
 fn get_next_packet_ident(
     next_packet_ident: &mut std::num::NonZeroU16,
     outstanding_packets: &OutstandingPackets,
-) -> Result<std::num::NonZeroU16, PacketIdentifierExhausted> {
+) -> Result<PacketIdentifierNonZero, PacketIdentifierExhausted> {
     let start = *next_packet_ident;
 
     loop {
-        let next = *next_packet_ident;
+        let next = PacketIdentifierNonZero::from(*next_packet_ident);
 
         if !outstanding_packets.exists_outstanding_packet(next) {
             return Ok(next);
@@ -229,9 +230,9 @@ pub(crate) enum Acknowledge {
 
 pub(crate) struct Callbacks {
     ping_req: VecDeque<futures::channel::oneshot::Sender<()>>,
-    qos1: HashMap<NonZeroU16, Qos1Callbacks>,
-    qos2_receive: HashMap<NonZeroU16, Qos2ReceiveCallback>,
-    qos2_complete: HashMap<NonZeroU16, Qos2CompleteCallback>,
+    qos1: HashMap<PacketIdentifierNonZero, Qos1Callbacks>,
+    qos2_receive: HashMap<PacketIdentifierNonZero, Qos2ReceiveCallback>,
+    qos2_complete: HashMap<PacketIdentifierNonZero, Qos2CompleteCallback>,
 }
 
 impl Callbacks {
@@ -248,13 +249,13 @@ impl Callbacks {
         self.ping_req.push_back(cb);
     }
 
-    pub(crate) fn add_qos1(&mut self, id: NonZeroU16, cb: Qos1Callbacks) {
+    pub(crate) fn add_qos1(&mut self, id: PacketIdentifierNonZero, cb: Qos1Callbacks) {
         self.qos1.insert(id, cb);
     }
 
     pub(crate) fn add_qos2(
         &mut self,
-        id: NonZeroU16,
+        id: PacketIdentifierNonZero,
         rec: Qos2ReceiveCallback,
         comp: Qos2CompleteCallback,
     ) {
@@ -266,15 +267,21 @@ impl Callbacks {
         self.ping_req.pop_front()
     }
 
-    pub(crate) fn take_qos1(&mut self, id: NonZeroU16) -> Option<Qos1Callbacks> {
+    pub(crate) fn take_qos1(&mut self, id: PacketIdentifierNonZero) -> Option<Qos1Callbacks> {
         self.qos1.remove(&id)
     }
 
-    pub(crate) fn take_qos2_receive(&mut self, id: NonZeroU16) -> Option<Qos2ReceiveCallback> {
+    pub(crate) fn take_qos2_receive(
+        &mut self,
+        id: PacketIdentifierNonZero,
+    ) -> Option<Qos2ReceiveCallback> {
         self.qos2_receive.remove(&id)
     }
 
-    pub(crate) fn take_qos2_complete(&mut self, id: NonZeroU16) -> Option<Qos2CompleteCallback> {
+    pub(crate) fn take_qos2_complete(
+        &mut self,
+        id: PacketIdentifierNonZero,
+    ) -> Option<Qos2CompleteCallback> {
         self.qos2_complete.remove(&id)
     }
 }
