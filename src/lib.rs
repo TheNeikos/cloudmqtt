@@ -12,6 +12,7 @@ pub mod client_identifier;
 mod codecs;
 mod error;
 pub mod keep_alive;
+pub mod packet_identifier;
 pub mod packets;
 pub mod payload;
 mod properties;
