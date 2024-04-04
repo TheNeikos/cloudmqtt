@@ -225,6 +225,15 @@ impl MqttClient {
                 retain_available: connack.properties.retain_available().map(|ra| ra.0),
                 maximum_packet_size: connack.properties.maximum_packet_size().map(|mps| mps.0),
                 topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
+                keep_alive: connack
+                    .properties
+                    .server_keep_alive()
+                    .map(|ska| {
+                        std::num::NonZeroU16::try_from(ska.0)
+                            .map(KeepAlive::Seconds)
+                            .unwrap_or(KeepAlive::Disabled)
+                    })
+                    .unwrap_or(connector.keep_alive),
                 conn_write,
                 conn_read_recv,
                 next_packet_identifier: std::num::NonZeroU16::MIN,

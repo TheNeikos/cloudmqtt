@@ -62,6 +62,7 @@ pub(super) struct ConnectState {
     >,
 
     pub(super) next_packet_identifier: std::num::NonZeroU16,
+    pub(crate) keep_alive: KeepAlive,
 }
 
 pub(super) struct SessionState {
