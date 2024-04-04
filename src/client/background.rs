@@ -54,52 +54,7 @@ pub(super) async fn handle_background_receiving(
             mqtt_format::v5::packets::MqttPacket::Pingreq(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Pingresp(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Puback(mpuback) => {
-                match mpuback.reason {
-                    mqtt_format::v5::packets::puback::PubackReasonCode::Success
-                    | mqtt_format::v5::packets::puback::PubackReasonCode::NoMatchingSubscribers => {
-                        let mut inner = inner.lock().await;
-                        let inner = &mut *inner;
-                        let Some(ref mut session_state) = inner.session_state else {
-                            tracing::error!(parent: &process_span, "No session state found");
-                            todo!()
-                        };
-
-                        let pident = std::num::NonZeroU16::try_from(mpuback.packet_identifier.0)
-                            .expect("Zero PacketIdentifier not valid here");
-                        process_span.record("packet_identifier", pident);
-
-                        if session_state
-                            .outstanding_packets
-                            .exists_outstanding_packet(pident)
-                        {
-                            session_state.outstanding_packets.remove_by_id(pident);
-                            tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
-
-                            if let Some(callback) = inner
-                                .outstanding_completions
-                                .remove(&Id::PacketIdentifier(pident))
-                            {
-                                match callback {
-                                    CallbackState::Qos1 { on_acknowledge } => {
-                                        if let Err(_) = on_acknowledge.send(packet.clone()) {
-                                            tracing::trace!(
-                                                "Could not send ack, receiver was dropped."
-                                            )
-                                        }
-                                    }
-                                    _ => todo!(),
-                                }
-                            }
-                        } else {
-                            tracing::error!(parent: &process_span, "Packet id does not exist in outstanding packets");
-                            todo!()
-                        }
-
-                        // TODO: Forward mpuback.properties etc to the user
-                    }
-
-                    _ => todo!("Handle errors"),
-                }
+                handle_puback(mpuback, &inner, &process_span, &packet).await?
             }
             mqtt_format::v5::packets::MqttPacket::Pubrec(pubrec) => {
                 handle_pubrec(pubrec, &inner, &process_span, &packet).await?
@@ -164,6 +119,60 @@ pub(super) async fn handle_background_receiving(
     if let Err(conn_read) = conn_read_sender.send(conn_read) {
         tracing::error!("Failed to return reader");
         todo!()
+    }
+
+    Ok(())
+}
+
+async fn handle_puback(
+    mpuback: &mqtt_format::v5::packets::puback::MPuback<'_>,
+    inner: &Arc<Mutex<InnerClient>>,
+    process_span: &tracing::Span,
+    packet: &MqttPacket,
+) -> Result<(), ()> {
+    match mpuback.reason {
+        mqtt_format::v5::packets::puback::PubackReasonCode::Success
+        | mqtt_format::v5::packets::puback::PubackReasonCode::NoMatchingSubscribers => {
+            let mut inner = inner.lock().await;
+            let inner = &mut *inner;
+            let Some(ref mut session_state) = inner.session_state else {
+                tracing::error!(parent: process_span, "No session state found");
+                todo!()
+            };
+
+            let pident = std::num::NonZeroU16::try_from(mpuback.packet_identifier.0)
+                .expect("Zero PacketIdentifier not valid here");
+            process_span.record("packet_identifier", pident);
+
+            if session_state
+                .outstanding_packets
+                .exists_outstanding_packet(pident)
+            {
+                session_state.outstanding_packets.remove_by_id(pident);
+                tracing::trace!(parent: process_span, "Removed packet id from outstanding packets");
+
+                if let Some(callback) = inner
+                    .outstanding_completions
+                    .remove(&Id::PacketIdentifier(pident))
+                {
+                    match callback {
+                        CallbackState::Qos1 { on_acknowledge } => {
+                            if let Err(_) = on_acknowledge.send(packet.clone()) {
+                                tracing::trace!("Could not send ack, receiver was dropped.")
+                            }
+                        }
+                        _ => todo!(),
+                    }
+                }
+            } else {
+                tracing::error!(parent: process_span, "Packet id does not exist in outstanding packets");
+                todo!()
+            }
+
+            // TODO: Forward mpuback.properties etc to the user
+        }
+
+        _ => todo!("Handle errors"),
     }
 
     Ok(())
