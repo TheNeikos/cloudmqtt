@@ -5,22 +5,22 @@
 //
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PacketIdentifierNonZero(std::num::NonZeroU16);
+pub struct PacketIdentifier(std::num::NonZeroU16);
 
-impl PacketIdentifierNonZero {
+impl PacketIdentifier {
     #[inline]
     pub fn get(&self) -> u16 {
         self.0.get()
     }
 }
 
-impl std::fmt::Display for PacketIdentifierNonZero {
+impl std::fmt::Display for PacketIdentifier {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl TryFrom<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdentifierNonZero {
+impl TryFrom<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdentifier {
     type Error = (); // TODO
 
     fn try_from(
@@ -32,13 +32,13 @@ impl TryFrom<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdent
     }
 }
 
-impl From<PacketIdentifierNonZero> for mqtt_format::v5::variable_header::PacketIdentifier {
-    fn from(value: PacketIdentifierNonZero) -> mqtt_format::v5::variable_header::PacketIdentifier {
+impl From<PacketIdentifier> for mqtt_format::v5::variable_header::PacketIdentifier {
+    fn from(value: PacketIdentifier) -> mqtt_format::v5::variable_header::PacketIdentifier {
         mqtt_format::v5::variable_header::PacketIdentifier(value.0)
     }
 }
 
-impl From<std::num::NonZeroU16> for PacketIdentifierNonZero {
+impl From<std::num::NonZeroU16> for PacketIdentifier {
     fn from(value: std::num::NonZeroU16) -> Self {
         Self(value)
     }

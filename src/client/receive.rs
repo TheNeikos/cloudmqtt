@@ -15,7 +15,7 @@ use yoke::Yoke;
 
 use super::InnerClient;
 use crate::codecs::MqttPacketCodec;
-use crate::packet_identifier::PacketIdentifierNonZero;
+use crate::packet_identifier::PacketIdentifier;
 use crate::packets::MqttPacket;
 use crate::packets::MqttWriter;
 use crate::packets::StableBytes;
@@ -148,7 +148,7 @@ async fn handle_pubcomp(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = PacketIdentifierNonZero::try_from(pubcomp.packet_identifier)
+            let pident = PacketIdentifier::try_from(pubcomp.packet_identifier)
                 .expect("zero PacketIdentifier not valid here");
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
@@ -189,7 +189,7 @@ async fn handle_puback(
                 todo!()
             };
 
-            let pident = PacketIdentifierNonZero::try_from(mpuback.packet_identifier)
+            let pident = PacketIdentifier::try_from(mpuback.packet_identifier)
                 .expect("Zero PacketIdentifier not valid here");
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
@@ -236,7 +236,7 @@ async fn handle_pubrec(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = PacketIdentifierNonZero::try_from(pubrec.packet_identifier)
+            let pident = PacketIdentifier::try_from(pubrec.packet_identifier)
                 .expect("zero PacketIdentifier not valid here");
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
