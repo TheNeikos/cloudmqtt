@@ -215,10 +215,10 @@ fn get_next_packet_ident(
 pub struct PacketIdentifierExhausted;
 
 pub(crate) struct ClientHandlers {
-    pub(crate) on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>,
+    pub(crate) on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
     pub(crate) handle_acknowledge: Box<dyn Fn(&crate::packets::MqttPacket) -> Acknowledge + Send>,
-    // on_receive: Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>,
-    // on_complete: Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>,
+    // on_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
+    // on_complete: Box<dyn Fn(&crate::packets::MqttPacket)+ Send>,
 }
 
 #[derive(Debug)]
@@ -302,7 +302,7 @@ pub struct Publish {
     pub qos: QualityOfService,
     pub retain: bool,
     pub payload: MqttPayload,
-    pub on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>>,
+    pub on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) + Send>>,
 }
 
 pub struct Published {
@@ -368,13 +368,13 @@ pub struct PublishQos1 {
     pub topic: crate::topic::MqttTopic,
     pub retain: bool,
     pub payload: MqttPayload,
-    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>>,
+    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) + Send>>,
 }
 
 impl PublishQos1 {
     pub fn with_on_packet_recv(
         mut self,
-        on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>,
+        on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
     ) -> Self {
         self.on_packet_recv = Some(on_packet_recv);
         self
@@ -385,13 +385,13 @@ pub struct PublishQos2 {
     pub topic: crate::topic::MqttTopic,
     pub retain: bool,
     pub payload: MqttPayload,
-    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>>,
+    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) + Send>>,
 }
 
 impl PublishQos2 {
     pub fn with_on_packet_recv(
         mut self,
-        on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) -> () + Send>,
+        on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
     ) -> Self {
         self.on_packet_recv = Some(on_packet_recv);
         self
