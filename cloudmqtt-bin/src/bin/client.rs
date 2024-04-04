@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::time::Duration;
+
 use clap::Parser;
 use cloudmqtt::client::connect::MqttClientConnector;
 use cloudmqtt::client::send::Publish;
@@ -47,7 +49,7 @@ async fn main() {
         connection,
         client_id,
         cloudmqtt::client::connect::CleanStart::Yes,
-        cloudmqtt::keep_alive::KeepAlive::Disabled,
+        cloudmqtt::keep_alive::KeepAlive::Seconds(5.try_into().unwrap()),
     );
 
     let client = MqttClient::new_with_default_handlers();
@@ -68,6 +70,21 @@ async fn main() {
         .await;
 
     client.ping().await.unwrap().response().await;
+
+    tokio::time::sleep(Duration::from_secs(3)).await;
+
+    client
+        .publish(Publish {
+            topic: "foo/bar".try_into().unwrap(),
+            qos: cloudmqtt::qos::QualityOfService::AtMostOnce,
+            retain: false,
+            payload: vec![123].try_into().unwrap(),
+            on_packet_recv: None,
+        })
+        .await
+        .unwrap();
+
+    tokio::time::sleep(Duration::from_secs(20)).await;
 
     println!("Sent message! Bye");
 }
