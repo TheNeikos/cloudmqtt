@@ -68,7 +68,7 @@ impl MqttClient {
             retain,
             topic_name: topic.as_ref(),
             packet_identifier: packet_identifier
-                .map(|nz| mqtt_format::v5::variable_header::PacketIdentifier(nz.get())),
+                .map(mqtt_format::v5::variable_header::PacketIdentifier::from),
             properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
             payload: payload.as_ref(),
         };
