@@ -51,9 +51,7 @@ pub(super) async fn handle_background_receiving(
             mqtt_format::v5::packets::MqttPacket::Auth(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Disconnect(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Pingreq(pingreq) => {
-                handle_pingreq(pingreq, &inner)
-                    .instrument(process_span)
-                    .await?
+                handle_pingreq(pingreq).instrument(process_span).await?
             }
             mqtt_format::v5::packets::MqttPacket::Pingresp(pingresp) => {
                 handle_pingresp(pingresp, &inner)
@@ -116,21 +114,8 @@ async fn handle_pingresp(
     Ok(())
 }
 
-async fn handle_pingreq(
-    _pingreq: &mqtt_format::v5::packets::pingreq::MPingreq,
-    inner: &Arc<Mutex<InnerClient>>,
-) -> Result<(), ()> {
-    let mut inner = inner.lock().await;
-    let inner = &mut *inner;
-    let Some(ref mut conn_state) = inner.connection_state else {
-        tracing::error!("No connection state found");
-        todo!()
-    };
-
-    let packet = mqtt_format::v5::packets::MqttPacket::Pingresp(
-        mqtt_format::v5::packets::pingresp::MPingresp,
-    );
-    conn_state.conn_write.send(packet).await.map_err(drop)?;
+async fn handle_pingreq(_pingreq: &mqtt_format::v5::packets::pingreq::MPingreq) -> Result<(), ()> {
+    tracing::warn!("Received an unwarranted PingReq from the server. This is unclear in the spec. Ignoring and continuing...");
 
     Ok(())
 }
