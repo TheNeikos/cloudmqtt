@@ -101,74 +101,9 @@ pub(super) async fn handle_background_receiving(
                     _ => todo!("Handle errors"),
                 }
             }
-            mqtt_format::v5::packets::MqttPacket::Pubrec(pubrec) => match pubrec.reason {
-                mqtt_format::v5::packets::pubrec::PubrecReasonCode::Success => {
-                    let mut inner = inner.lock().await;
-                    let inner = &mut *inner;
-                    let Some(ref mut session_state) = inner.session_state else {
-                        tracing::error!(parent: &process_span, "No session state found");
-                        todo!()
-                    };
-                    let Some(ref mut conn_state) = inner.connection_state else {
-                        tracing::error!(parent: &process_span, "No session state found");
-                        todo!()
-                    };
-                    let pident = NonZeroU16::try_from(pubrec.packet_identifier.0)
-                        .expect("zero PacketIdentifier not valid here");
-                    process_span.record("packet_identifier", pident);
-
-                    if session_state
-                        .outstanding_packets
-                        .exists_outstanding_packet(pident)
-                    {
-                        let pubrel = mqtt_format::v5::packets::MqttPacket::Pubrel(
-                            mqtt_format::v5::packets::pubrel::MPubrel {
-                                packet_identifier: pubrec.packet_identifier,
-                                reason: mqtt_format::v5::packets::pubrel::PubrelReasonCode::Success,
-                                properties: mqtt_format::v5::packets::pubrel::PubrelProperties::new(
-                                ),
-                            },
-                        );
-
-                        let mut bytes = tokio_util::bytes::BytesMut::new();
-                        bytes.reserve(pubrel.binary_size() as usize);
-                        pubrel.write(&mut MqttWriter(&mut bytes)).map_err(drop)?;
-                        let pubrel_packet = MqttPacket {
-                            packet: Yoke::try_attach_to_cart(
-                                StableBytes(bytes.freeze()),
-                                |bytes| mqtt_format::v5::packets::MqttPacket::parse_complete(bytes),
-                            )
-                            .unwrap(),
-                        };
-                        session_state
-                            .outstanding_packets
-                            .update_by_id(pident, pubrel_packet);
-                        tracing::trace!(parent: &process_span, "Update packet from outstanding packets");
-                        conn_state.conn_write.send(pubrel).await.map_err(drop)?;
-
-                        if let Some(callback) = inner
-                            .outstanding_completions
-                            .get_mut(&Id::PacketIdentifier(pident))
-                        {
-                            match callback {
-                                CallbackState::Qos2 { on_receive, .. } => {
-                                    if let Some(on_receive) = on_receive.take() {
-                                        if let Err(_) = on_receive.send(packet.clone()) {
-                                            tracing::trace!(
-                                                "Could not send ack, receiver was dropped."
-                                            )
-                                        }
-                                    } else {
-                                        todo!("Invariant broken: Double on_receive for a single pid: {pident}")
-                                    }
-                                }
-                                _ => todo!(),
-                            }
-                        }
-                    }
-                }
-                _ => todo!("Handle errors"),
-            },
+            mqtt_format::v5::packets::MqttPacket::Pubrec(pubrec) => {
+                handle_pubrec(pubrec, &inner, &process_span, &packet).await?
+            }
             mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => match pubcomp.reason {
                 mqtt_format::v5::packets::pubcomp::PubcompReasonCode::Success => {
                     let mut inner = inner.lock().await;
@@ -229,6 +164,80 @@ pub(super) async fn handle_background_receiving(
     if let Err(conn_read) = conn_read_sender.send(conn_read) {
         tracing::error!("Failed to return reader");
         todo!()
+    }
+
+    Ok(())
+}
+
+async fn handle_pubrec(
+    pubrec: &mqtt_format::v5::packets::pubrec::MPubrec<'_>,
+    inner: &Arc<Mutex<InnerClient>>,
+    process_span: &tracing::Span,
+    packet: &MqttPacket,
+) -> Result<(), ()> {
+    match pubrec.reason {
+        mqtt_format::v5::packets::pubrec::PubrecReasonCode::Success => {
+            let mut inner = inner.lock().await;
+            let inner = &mut *inner;
+            let Some(ref mut session_state) = inner.session_state else {
+                tracing::error!(parent: process_span, "No session state found");
+                todo!()
+            };
+            let Some(ref mut conn_state) = inner.connection_state else {
+                tracing::error!(parent: process_span, "No session state found");
+                todo!()
+            };
+            let pident = NonZeroU16::try_from(pubrec.packet_identifier.0)
+                .expect("zero PacketIdentifier not valid here");
+            process_span.record("packet_identifier", pident);
+
+            if session_state
+                .outstanding_packets
+                .exists_outstanding_packet(pident)
+            {
+                let pubrel = mqtt_format::v5::packets::MqttPacket::Pubrel(
+                    mqtt_format::v5::packets::pubrel::MPubrel {
+                        packet_identifier: pubrec.packet_identifier,
+                        reason: mqtt_format::v5::packets::pubrel::PubrelReasonCode::Success,
+                        properties: mqtt_format::v5::packets::pubrel::PubrelProperties::new(),
+                    },
+                );
+
+                let mut bytes = tokio_util::bytes::BytesMut::new();
+                bytes.reserve(pubrel.binary_size() as usize);
+                pubrel.write(&mut MqttWriter(&mut bytes)).map_err(drop)?;
+                let pubrel_packet = MqttPacket {
+                    packet: Yoke::try_attach_to_cart(StableBytes(bytes.freeze()), |bytes| {
+                        mqtt_format::v5::packets::MqttPacket::parse_complete(bytes)
+                    })
+                    .unwrap(),
+                };
+                session_state
+                    .outstanding_packets
+                    .update_by_id(pident, pubrel_packet);
+                tracing::trace!(parent: process_span, "Update packet from outstanding packets");
+                conn_state.conn_write.send(pubrel).await.map_err(drop)?;
+
+                if let Some(callback) = inner
+                    .outstanding_completions
+                    .get_mut(&Id::PacketIdentifier(pident))
+                {
+                    match callback {
+                        CallbackState::Qos2 { on_receive, .. } => {
+                            if let Some(on_receive) = on_receive.take() {
+                                if let Err(_) = on_receive.send(packet.clone()) {
+                                    tracing::trace!("Could not send ack, receiver was dropped.")
+                                }
+                            } else {
+                                todo!("Invariant broken: Double on_receive for a single pid: {pident}")
+                            }
+                        }
+                        _ => todo!(),
+                    }
+                }
+            }
+        }
+        _ => todo!("Handle errors"),
     }
 
     Ok(())
