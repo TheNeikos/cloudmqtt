@@ -59,48 +59,9 @@ pub(super) async fn handle_background_receiving(
             mqtt_format::v5::packets::MqttPacket::Pubrec(pubrec) => {
                 handle_pubrec(pubrec, &inner, &process_span, &packet).await?
             }
-            mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => match pubcomp.reason {
-                mqtt_format::v5::packets::pubcomp::PubcompReasonCode::Success => {
-                    let mut inner = inner.lock().await;
-                    let inner = &mut *inner;
-                    let Some(ref mut session_state) = inner.session_state else {
-                        tracing::error!(parent: &process_span, "No session state found");
-                        todo!()
-                    };
-                    let pident = NonZeroU16::try_from(pubcomp.packet_identifier.0)
-                        .expect("zero PacketIdentifier not valid here");
-                    process_span.record("packet_identifier", pident);
-
-                    if session_state
-                        .outstanding_packets
-                        .exists_outstanding_packet(pident)
-                    {
-                        session_state.outstanding_packets.remove_by_id(pident);
-                        tracing::trace!(parent: &process_span, "Removed packet id from outstanding packets");
-
-                        if let Some(callback) = inner
-                            .outstanding_completions
-                            .get_mut(&Id::PacketIdentifier(pident))
-                        {
-                            match callback {
-                                CallbackState::Qos2 { on_complete, .. } => {
-                                    if let Some(on_complete) = on_complete.take() {
-                                        if let Err(_) = on_complete.send(packet.clone()) {
-                                            tracing::trace!(
-                                                "Could not send ack, receiver was dropped."
-                                            )
-                                        }
-                                    } else {
-                                        todo!("Invariant broken: Double on_complete for a single pid: {pident}")
-                                    }
-                                }
-                                _ => todo!(),
-                            }
-                        }
-                    }
-                }
-                _ => todo!("Handle errors"),
-            },
+            mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => {
+                handle_pubcomp(pubcomp, &inner, &process_span, &packet).await?
+            }
             mqtt_format::v5::packets::MqttPacket::Publish(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Pubrel(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Suback(_) => todo!(),
@@ -119,6 +80,56 @@ pub(super) async fn handle_background_receiving(
     if let Err(conn_read) = conn_read_sender.send(conn_read) {
         tracing::error!("Failed to return reader");
         todo!()
+    }
+
+    Ok(())
+}
+
+async fn handle_pubcomp(
+    pubcomp: &mqtt_format::v5::packets::pubcomp::MPubcomp<'_>,
+    inner: &Arc<Mutex<InnerClient>>,
+    process_span: &tracing::Span,
+    packet: &MqttPacket,
+) -> Result<(), ()> {
+    match pubcomp.reason {
+        mqtt_format::v5::packets::pubcomp::PubcompReasonCode::Success => {
+            let mut inner = inner.lock().await;
+            let inner = &mut *inner;
+            let Some(ref mut session_state) = inner.session_state else {
+                tracing::error!(parent: process_span, "No session state found");
+                todo!()
+            };
+            let pident = NonZeroU16::try_from(pubcomp.packet_identifier.0)
+                .expect("zero PacketIdentifier not valid here");
+            process_span.record("packet_identifier", pident);
+
+            if session_state
+                .outstanding_packets
+                .exists_outstanding_packet(pident)
+            {
+                session_state.outstanding_packets.remove_by_id(pident);
+                tracing::trace!(parent: process_span, "Removed packet id from outstanding packets");
+
+                if let Some(callback) = inner
+                    .outstanding_completions
+                    .get_mut(&Id::PacketIdentifier(pident))
+                {
+                    match callback {
+                        CallbackState::Qos2 { on_complete, .. } => {
+                            if let Some(on_complete) = on_complete.take() {
+                                if let Err(_) = on_complete.send(packet.clone()) {
+                                    tracing::trace!("Could not send ack, receiver was dropped.")
+                                }
+                            } else {
+                                todo!("Invariant broken: Double on_complete for a single pid: {pident}")
+                            }
+                        }
+                        _ => todo!(),
+                    }
+                }
+            }
+        }
+        _ => todo!("Handle errors"),
     }
 
     Ok(())
