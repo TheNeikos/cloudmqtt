@@ -4,7 +4,6 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use std::num::NonZeroU16;
 use std::sync::Arc;
 
 use futures::lock::Mutex;
@@ -16,6 +15,7 @@ use yoke::Yoke;
 
 use super::InnerClient;
 use crate::codecs::MqttPacketCodec;
+use crate::packet_identifier::PacketIdentifierNonZero;
 use crate::packets::MqttPacket;
 use crate::packets::MqttWriter;
 use crate::packets::StableBytes;
@@ -148,9 +148,9 @@ async fn handle_pubcomp(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = NonZeroU16::try_from(pubcomp.packet_identifier.0)
+            let pident = PacketIdentifierNonZero::try_from(pubcomp.packet_identifier)
                 .expect("zero PacketIdentifier not valid here");
-            tracing::Span::current().record("packet_identifier", pident);
+            tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
                 .outstanding_packets
@@ -189,9 +189,9 @@ async fn handle_puback(
                 todo!()
             };
 
-            let pident = std::num::NonZeroU16::try_from(mpuback.packet_identifier.0)
+            let pident = PacketIdentifierNonZero::try_from(mpuback.packet_identifier)
                 .expect("Zero PacketIdentifier not valid here");
-            tracing::Span::current().record("packet_identifier", pident);
+            tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
                 .outstanding_packets
@@ -236,9 +236,9 @@ async fn handle_pubrec(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = NonZeroU16::try_from(pubrec.packet_identifier.0)
+            let pident = PacketIdentifierNonZero::try_from(pubrec.packet_identifier)
                 .expect("zero PacketIdentifier not valid here");
-            tracing::Span::current().record("packet_identifier", pident);
+            tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
                 .outstanding_packets
