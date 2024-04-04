@@ -4,27 +4,6 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-pub struct PacketIdentifier(u16);
-
-impl std::fmt::Display for PacketIdentifier {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.0.fmt(f)
-    }
-}
-
-impl From<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdentifier {
-    fn from(value: mqtt_format::v5::variable_header::PacketIdentifier) -> Self {
-        Self(value.0)
-    }
-}
-
-impl From<PacketIdentifier> for mqtt_format::v5::variable_header::PacketIdentifier {
-    fn from(value: PacketIdentifier) -> mqtt_format::v5::variable_header::PacketIdentifier {
-        mqtt_format::v5::variable_header::PacketIdentifier(value.0)
-    }
-}
-
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PacketIdentifierNonZero(std::num::NonZeroU16);
 
