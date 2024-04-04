@@ -5,18 +5,18 @@
 //
 
 pub mod connect;
-pub mod publish;
 mod receive;
+pub mod send;
 mod state;
 
 use std::sync::Arc;
 
 use futures::lock::Mutex;
 
-use self::publish::Acknowledge;
-use self::publish::CallbackState;
-use self::publish::ClientHandlers;
-use self::publish::Id;
+use self::send::Acknowledge;
+use self::send::CallbackState;
+use self::send::ClientHandlers;
+use self::send::Id;
 use self::state::ConnectState;
 use self::state::SessionState;
 
