@@ -34,7 +34,7 @@ impl TryFrom<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdent
 
 impl From<PacketIdentifierNonZero> for mqtt_format::v5::variable_header::PacketIdentifier {
     fn from(value: PacketIdentifierNonZero) -> mqtt_format::v5::variable_header::PacketIdentifier {
-        mqtt_format::v5::variable_header::PacketIdentifier(value.0.get())
+        mqtt_format::v5::variable_header::PacketIdentifier(value.0)
     }
 }
 
