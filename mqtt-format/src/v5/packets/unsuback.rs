@@ -106,7 +106,7 @@ mod test {
     #[test]
     fn test_roundtrip_unsuback_no_props() {
         crate::v5::test::make_roundtrip_test!(MUnsuback {
-            packet_identifier: PacketIdentifier(89),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(89).unwrap()),
             properties: UnsubackProperties {
                 reason_string: None,
                 user_properties: None
@@ -118,7 +118,7 @@ mod test {
     #[test]
     fn test_roundtrip_unsuback_props() {
         crate::v5::test::make_roundtrip_test!(MUnsuback {
-            packet_identifier: PacketIdentifier(89),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(89).unwrap()),
             properties: UnsubackProperties {
                 reason_string: Some(ReasonString("2345678")),
                 user_properties: Some(UserProperties(&[0x0, 0x1, b'f', 0x0, 0x2, b'h', b'j'])),

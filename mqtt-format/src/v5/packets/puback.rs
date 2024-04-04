@@ -101,7 +101,7 @@ mod test {
     #[test]
     fn test_roundtrip_puback_no_props() {
         crate::v5::test::make_roundtrip_test!(MPuback {
-            packet_identifier: PacketIdentifier(123),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(123).unwrap()),
             reason: PubackReasonCode::Success,
             properties: PubackProperties {
                 reason_string: None,
@@ -113,7 +113,7 @@ mod test {
     #[test]
     fn test_roundtrip_puback_with_props() {
         crate::v5::test::make_roundtrip_test!(MPuback {
-            packet_identifier: PacketIdentifier(123),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(123).unwrap()),
             reason: PubackReasonCode::Success,
             properties: PubackProperties {
                 reason_string: Some(ReasonString("fooooo")),

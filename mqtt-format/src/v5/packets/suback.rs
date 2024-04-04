@@ -110,7 +110,7 @@ mod test {
     #[test]
     fn test_roundtrip_suback_no_props() {
         crate::v5::test::make_roundtrip_test!(MSuback {
-            packet_identifier: PacketIdentifier(17),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(17).unwrap()),
             reasons: &[SubackReasonCode::GrantedQoS0],
             properties: SubackProperties {
                 reason_string: None,
@@ -122,7 +122,7 @@ mod test {
     #[test]
     fn test_roundtrip_suback_props() {
         crate::v5::test::make_roundtrip_test!(MSuback {
-            packet_identifier: PacketIdentifier(17),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(17).unwrap()),
             reasons: &[SubackReasonCode::GrantedQoS0],
             properties: SubackProperties {
                 reason_string: Some(ReasonString("sgjdhsbgjsghb")),

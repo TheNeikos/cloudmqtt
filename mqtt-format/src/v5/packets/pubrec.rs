@@ -101,7 +101,7 @@ mod test {
     #[test]
     fn test_roundtrip_mauth_no_props() {
         crate::v5::test::make_roundtrip_test!(MPubrec {
-            packet_identifier: PacketIdentifier(123),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(123).unwrap()),
             reason: PubrecReasonCode::Success,
             properties: PubrecProperties {
                 reason_string: None,
@@ -113,7 +113,7 @@ mod test {
     #[test]
     fn test_roundtrip_mauth_props() {
         crate::v5::test::make_roundtrip_test!(MPubrec {
-            packet_identifier: PacketIdentifier(123),
+            packet_identifier: PacketIdentifier(core::num::NonZeroU16::new(123).unwrap()),
             reason: PubrecReasonCode::Success,
             properties: PubrecProperties {
                 reason_string: Some(ReasonString("fooobasrbbarbabwer")),
