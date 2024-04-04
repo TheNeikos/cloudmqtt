@@ -54,7 +54,9 @@ pub(super) async fn handle_background_receiving(
             mqtt_format::v5::packets::MqttPacket::Pingreq(pingreq) => {
                 handle_pingreq(pingreq, &inner, &process_span).await?
             }
-            mqtt_format::v5::packets::MqttPacket::Pingresp(_) => todo!(),
+            mqtt_format::v5::packets::MqttPacket::Pingresp(pingresp) => {
+                handle_pingresp(pingresp, &inner, &process_span).await?
+            }
             mqtt_format::v5::packets::MqttPacket::Puback(mpuback) => {
                 handle_puback(mpuback, &inner, &process_span, &packet).await?
             }
@@ -87,8 +89,36 @@ pub(super) async fn handle_background_receiving(
     Ok(())
 }
 
+async fn handle_pingresp(
+    _pingresp: &mqtt_format::v5::packets::pingresp::MPingresp,
+    inner: &Arc<Mutex<InnerClient>>,
+    process_span: &tracing::Span,
+) -> Result<(), ()> {
+    let mut inner = inner.lock().await;
+    let inner = &mut *inner;
+
+    if let Some(callback) = inner.outstanding_completions.get_mut(&Id::PingReq) {
+        match callback {
+            CallbackState::PingReq { on_pingresp } => {
+                if let Some(cb) = on_pingresp.pop() {
+                    if cb.send(()).is_err() {
+                        tracing::debug!(
+                            "PingReq completion handler was dropped before receiving response"
+                        )
+                    }
+                } else {
+                    tracing::warn!("Received an unwarranted PingResp from the server, continuing")
+                }
+            }
+            _ => todo!("Had non pingreq in pingreq callback state"),
+        }
+    }
+
+    Ok(())
+}
+
 async fn handle_pingreq(
-    pingreq: &mqtt_format::v5::packets::pingreq::MPingreq,
+    _pingreq: &mqtt_format::v5::packets::pingreq::MPingreq,
     inner: &Arc<Mutex<InnerClient>>,
     process_span: &tracing::Span,
 ) -> Result<(), ()> {

@@ -230,10 +230,14 @@ pub(crate) enum Acknowledge {
 
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) enum Id {
+    PingReq,
     PacketIdentifier(NonZeroU16),
 }
 
 pub(crate) enum CallbackState {
+    PingReq {
+        on_pingresp: Vec<futures::channel::oneshot::Sender<()>>,
+    },
     Qos1 {
         on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
     },
