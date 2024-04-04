@@ -6,7 +6,7 @@
 
 use clap::Parser;
 use cloudmqtt::client::connect::MqttClientConnector;
-use cloudmqtt::client::publish::Publish;
+use cloudmqtt::client::send::Publish;
 use cloudmqtt::client::MqttClient;
 use cloudmqtt::transport::MqttConnectTransport;
 use tokio::net::TcpStream;
@@ -66,6 +66,8 @@ async fn main() {
         .unwrap()
         .acknowledged()
         .await;
+
+    client.ping().await.unwrap().response().await;
 
     println!("Sent message! Bye");
 }
