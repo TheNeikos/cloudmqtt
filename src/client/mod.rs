@@ -14,9 +14,8 @@ use std::sync::Arc;
 use futures::lock::Mutex;
 
 use self::send::Acknowledge;
-use self::send::CallbackState;
+use self::send::Callbacks;
 use self::send::ClientHandlers;
-use self::send::Id;
 use self::state::ConnectState;
 use self::state::SessionState;
 
@@ -24,7 +23,7 @@ struct InnerClient {
     connection_state: Option<ConnectState>,
     session_state: Option<SessionState>,
     default_handlers: ClientHandlers,
-    outstanding_completions: std::collections::HashMap<Id, CallbackState>,
+    outstanding_callbacks: Callbacks,
 }
 
 pub struct MqttClient {
@@ -41,7 +40,7 @@ impl MqttClient {
                     on_packet_recv: Box::new(|_| ()),
                     handle_acknowledge: Box::new(|_| Acknowledge::Yes),
                 },
-                outstanding_completions: std::collections::HashMap::new(),
+                outstanding_callbacks: Callbacks::new(),
             })),
         }
     }

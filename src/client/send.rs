@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::num::NonZeroU16;
 
@@ -104,18 +105,18 @@ impl MqttClient {
                 QualityOfService::AtMostOnce => unreachable!(),
                 QualityOfService::AtLeastOnce => {
                     let (on_acknowledge, recv) = futures::channel::oneshot::channel();
-                    inner.outstanding_completions.insert(
-                        Id::PacketIdentifier(pi),
-                        CallbackState::Qos1 { on_acknowledge },
-                    );
+                    inner
+                        .outstanding_callbacks
+                        .qos1
+                        .insert(pi, Qos1Callbacks { on_acknowledge });
                     published_recv = PublishedReceiver::Once(PublishedQos1 { recv });
                 }
                 QualityOfService::ExactlyOnce => {
                     let (on_receive, recv) = futures::channel::oneshot::channel();
                     let (on_complete, comp_recv) = futures::channel::oneshot::channel();
-                    inner.outstanding_completions.insert(
-                        Id::PacketIdentifier(pi),
-                        CallbackState::Qos2 {
+                    inner.outstanding_callbacks.qos2.insert(
+                        pi,
+                        Qos2Callbacks {
                             on_receive: Some(on_receive),
                             on_complete: Some(on_complete),
                         },
@@ -229,23 +230,29 @@ pub(crate) enum Acknowledge {
     YesWithProps {},
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub(crate) enum Id {
-    PingReq,
-    PacketIdentifier(NonZeroU16),
+pub(crate) struct Callbacks {
+    pub(crate) ping_req: VecDeque<futures::channel::oneshot::Sender<()>>,
+    pub(crate) qos1: HashMap<NonZeroU16, Qos1Callbacks>,
+    pub(crate) qos2: HashMap<NonZeroU16, Qos2Callbacks>,
 }
 
-pub(crate) enum CallbackState {
-    PingReq {
-        on_pingresp: VecDeque<futures::channel::oneshot::Sender<()>>,
-    },
-    Qos1 {
-        on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
-    },
-    Qos2 {
-        on_receive: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
-        on_complete: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
-    },
+impl Callbacks {
+    pub(crate) fn new() -> Callbacks {
+        Callbacks {
+            ping_req: Default::default(),
+            qos1: HashMap::default(),
+            qos2: HashMap::default(),
+        }
+    }
+}
+
+pub(crate) struct Qos1Callbacks {
+    pub(crate) on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
+}
+
+pub(crate) struct Qos2Callbacks {
+    pub(crate) on_receive: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
+    pub(crate) on_complete: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
 }
 
 pub struct Publish {
@@ -365,17 +372,7 @@ impl MqttClient {
 
         let (sender, recv) = futures::channel::oneshot::channel();
 
-        let cbs = inner
-            .outstanding_completions
-            .entry(Id::PingReq)
-            .or_insert_with(|| CallbackState::PingReq {
-                on_pingresp: Default::default(),
-            });
-
-        match cbs {
-            CallbackState::PingReq { on_pingresp } => on_pingresp.push_back(sender),
-            _ => unreachable!("Had a non-pingreq in a pingreq response"),
-        }
+        inner.outstanding_callbacks.ping_req.push_back(sender);
 
         conn_state.conn_write.send(packet).await.map_err(drop)?;
 
