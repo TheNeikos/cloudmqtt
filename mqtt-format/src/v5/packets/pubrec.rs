@@ -54,8 +54,19 @@ impl<'i> MPubrec<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<Self> {
         winnow::combinator::trace("MPubrec", |input: &mut &'i Bytes| {
             let packet_identifier = PacketIdentifier::parse(input)?;
-            let reason = PubrecReasonCode::parse(input)?;
-            let properties = PubrecProperties::parse(input)?;
+
+            let reason = if input.is_empty() {
+                PubrecReasonCode::Success
+            } else {
+                PubrecReasonCode::parse(input)?
+            };
+
+            let properties = if input.is_empty() {
+                PubrecProperties::new()
+            } else {
+                PubrecProperties::parse(input)?
+            };
+
             Ok(Self {
                 packet_identifier,
                 reason,

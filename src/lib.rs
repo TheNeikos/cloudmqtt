@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#![deny(clippy::future_not_send)]
+
 pub mod bytes;
 pub mod client;
 pub mod client_identifier;

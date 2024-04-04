@@ -5,8 +5,9 @@
 //
 
 use clap::Parser;
+use cloudmqtt::client::connect::MqttClientConnector;
+use cloudmqtt::client::send::Publish;
 use cloudmqtt::client::MqttClient;
-use cloudmqtt::client::MqttClientConnector;
 use cloudmqtt::transport::MqttConnectTransport;
 use tokio::net::TcpStream;
 use tracing_subscriber::layer::SubscriberExt;
@@ -45,24 +46,28 @@ async fn main() {
     let connector = MqttClientConnector::new(
         connection,
         client_id,
-        cloudmqtt::client::CleanStart::Yes,
+        cloudmqtt::client::connect::CleanStart::Yes,
         cloudmqtt::keep_alive::KeepAlive::Disabled,
     );
 
-    let client = MqttClient::new();
+    let client = MqttClient::new_with_default_handlers();
     let connected = client.connect(connector).await.unwrap();
     let background = tokio::task::spawn(connected.background_task);
 
     client
-        .publish(
-            "foo/bar".try_into().unwrap(),
-            cloudmqtt::qos::QualityOfService::AtLeastOnce,
-            false,
-            vec![123].try_into().unwrap(),
-        )
+        .publish(Publish {
+            topic: "foo/bar".try_into().unwrap(),
+            qos: cloudmqtt::qos::QualityOfService::ExactlyOnce,
+            retain: false,
+            payload: vec![123].try_into().unwrap(),
+            on_packet_recv: None,
+        })
         .await
-        .unwrap();
+        .unwrap()
+        .acknowledged()
+        .await;
 
-    let _ = background.await;
+    client.ping().await.unwrap().response().await;
+
     println!("Sent message! Bye");
 }

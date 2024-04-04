@@ -55,21 +55,23 @@ impl<'i> MPuback<'i> {
         winnow::combinator::trace("MPuback", |input: &mut &'i Bytes| {
             let packet_identifier = PacketIdentifier::parse(input)?;
 
-            if input.is_empty() {
-                Ok(Self {
-                    packet_identifier,
-                    reason: PubackReasonCode::Success,
-                    properties: PubackProperties::new(),
-                })
+            let reason = if input.is_empty() {
+                PubackReasonCode::Success
             } else {
-                let reason = PubackReasonCode::parse(input)?;
-                let properties = PubackProperties::parse(input)?;
-                Ok(Self {
-                    packet_identifier,
-                    reason,
-                    properties,
-                })
-            }
+                PubackReasonCode::parse(input)?
+            };
+
+            let properties = if input.is_empty() {
+                PubackProperties::new()
+            } else {
+                PubackProperties::parse(input)?
+            };
+
+            Ok(Self {
+                packet_identifier,
+                reason,
+                properties,
+            })
         })
         .parse_next(input)
     }
