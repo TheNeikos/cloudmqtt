@@ -348,3 +348,47 @@ impl PublishQos2 {
         self
     }
 }
+
+impl MqttClient {
+    pub async fn ping(&self) -> Result<Ping, ()> {
+        let mut inner = self.inner.lock().await;
+        let inner = &mut *inner;
+
+        let Some(conn_state) = &mut inner.connection_state else {
+            tracing::error!("No connection state found");
+            return Err(());
+        };
+
+        let packet = mqtt_format::v5::packets::MqttPacket::Pingreq(
+            mqtt_format::v5::packets::pingreq::MPingreq,
+        );
+
+        let (sender, recv) = futures::channel::oneshot::channel();
+
+        let cbs = inner
+            .outstanding_completions
+            .entry(Id::PingReq)
+            .or_insert_with(|| CallbackState::PingReq {
+                on_pingresp: Default::default(),
+            });
+
+        match cbs {
+            CallbackState::PingReq { on_pingresp } => on_pingresp.push_back(sender),
+            _ => unreachable!("Had a non-pingreq in a pingreq response"),
+        }
+
+        conn_state.conn_write.send(packet).await.map_err(drop)?;
+
+        Ok(Ping { recv })
+    }
+}
+
+pub struct Ping {
+    recv: futures::channel::oneshot::Receiver<()>,
+}
+
+impl Ping {
+    pub async fn response(self) {
+        self.recv.await.unwrap()
+    }
+}
