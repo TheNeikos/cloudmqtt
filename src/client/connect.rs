@@ -267,7 +267,7 @@ impl MqttClient {
                 crate::packets::connack::ConnackPropertiesView::try_from(maybe_connack)
                     .expect("An already matched value suddenly changed?");
 
-            let background_task = crate::client::background::handle_background_receiving(
+            let background_task = crate::client::receive::handle_background_receiving(
                 inner_clone,
                 conn_read,
                 conn_read_sender,

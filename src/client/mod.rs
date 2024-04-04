@@ -4,9 +4,9 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-mod background;
 pub mod connect;
 pub mod publish;
+mod receive;
 mod state;
 
 use std::sync::Arc;
