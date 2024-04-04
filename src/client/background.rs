@@ -11,6 +11,7 @@ use futures::lock::Mutex;
 use futures::SinkExt;
 use futures::StreamExt;
 use tokio_util::codec::FramedRead;
+use tracing::Instrument;
 use yoke::Yoke;
 
 use super::InnerClient;
@@ -52,19 +53,29 @@ pub(super) async fn handle_background_receiving(
             mqtt_format::v5::packets::MqttPacket::Auth(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Disconnect(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Pingreq(pingreq) => {
-                handle_pingreq(pingreq, &inner, &process_span).await?
+                handle_pingreq(pingreq, &inner)
+                    .instrument(process_span)
+                    .await?
             }
             mqtt_format::v5::packets::MqttPacket::Pingresp(pingresp) => {
-                handle_pingresp(pingresp, &inner, &process_span).await?
+                handle_pingresp(pingresp, &inner)
+                    .instrument(process_span)
+                    .await?
             }
             mqtt_format::v5::packets::MqttPacket::Puback(mpuback) => {
-                handle_puback(mpuback, &inner, &process_span, &packet).await?
+                handle_puback(mpuback, &inner, &packet)
+                    .instrument(process_span)
+                    .await?
             }
             mqtt_format::v5::packets::MqttPacket::Pubrec(pubrec) => {
-                handle_pubrec(pubrec, &inner, &process_span, &packet).await?
+                handle_pubrec(pubrec, &inner, &packet)
+                    .instrument(process_span)
+                    .await?
             }
             mqtt_format::v5::packets::MqttPacket::Pubcomp(pubcomp) => {
-                handle_pubcomp(pubcomp, &inner, &process_span, &packet).await?
+                handle_pubcomp(pubcomp, &inner, &packet)
+                    .instrument(process_span)
+                    .await?
             }
             mqtt_format::v5::packets::MqttPacket::Publish(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Pubrel(_) => todo!(),
@@ -92,7 +103,6 @@ pub(super) async fn handle_background_receiving(
 async fn handle_pingresp(
     _pingresp: &mqtt_format::v5::packets::pingresp::MPingresp,
     inner: &Arc<Mutex<InnerClient>>,
-    process_span: &tracing::Span,
 ) -> Result<(), ()> {
     let mut inner = inner.lock().await;
     let inner = &mut *inner;
@@ -120,12 +130,11 @@ async fn handle_pingresp(
 async fn handle_pingreq(
     _pingreq: &mqtt_format::v5::packets::pingreq::MPingreq,
     inner: &Arc<Mutex<InnerClient>>,
-    process_span: &tracing::Span,
 ) -> Result<(), ()> {
     let mut inner = inner.lock().await;
     let inner = &mut *inner;
     let Some(ref mut conn_state) = inner.connection_state else {
-        tracing::error!(parent: process_span, "No connection state found");
+        tracing::error!("No connection state found");
         todo!()
     };
 
@@ -140,7 +149,6 @@ async fn handle_pingreq(
 async fn handle_pubcomp(
     pubcomp: &mqtt_format::v5::packets::pubcomp::MPubcomp<'_>,
     inner: &Arc<Mutex<InnerClient>>,
-    process_span: &tracing::Span,
     packet: &MqttPacket,
 ) -> Result<(), ()> {
     match pubcomp.reason {
@@ -148,19 +156,19 @@ async fn handle_pubcomp(
             let mut inner = inner.lock().await;
             let inner = &mut *inner;
             let Some(ref mut session_state) = inner.session_state else {
-                tracing::error!(parent: process_span, "No session state found");
+                tracing::error!("No session state found");
                 todo!()
             };
             let pident = NonZeroU16::try_from(pubcomp.packet_identifier.0)
                 .expect("zero PacketIdentifier not valid here");
-            process_span.record("packet_identifier", pident);
+            tracing::Span::current().record("packet_identifier", pident);
 
             if session_state
                 .outstanding_packets
                 .exists_outstanding_packet(pident)
             {
                 session_state.outstanding_packets.remove_by_id(pident);
-                tracing::trace!(parent: process_span, "Removed packet id from outstanding packets");
+                tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner
                     .outstanding_completions
@@ -190,7 +198,6 @@ async fn handle_pubcomp(
 async fn handle_puback(
     mpuback: &mqtt_format::v5::packets::puback::MPuback<'_>,
     inner: &Arc<Mutex<InnerClient>>,
-    process_span: &tracing::Span,
     packet: &MqttPacket,
 ) -> Result<(), ()> {
     match mpuback.reason {
@@ -199,20 +206,20 @@ async fn handle_puback(
             let mut inner = inner.lock().await;
             let inner = &mut *inner;
             let Some(ref mut session_state) = inner.session_state else {
-                tracing::error!(parent: process_span, "No session state found");
+                tracing::error!("No session state found");
                 todo!()
             };
 
             let pident = std::num::NonZeroU16::try_from(mpuback.packet_identifier.0)
                 .expect("Zero PacketIdentifier not valid here");
-            process_span.record("packet_identifier", pident);
+            tracing::Span::current().record("packet_identifier", pident);
 
             if session_state
                 .outstanding_packets
                 .exists_outstanding_packet(pident)
             {
                 session_state.outstanding_packets.remove_by_id(pident);
-                tracing::trace!(parent: process_span, "Removed packet id from outstanding packets");
+                tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner
                     .outstanding_completions
@@ -228,7 +235,7 @@ async fn handle_puback(
                     }
                 }
             } else {
-                tracing::error!(parent: process_span, "Packet id does not exist in outstanding packets");
+                tracing::error!("Packet id does not exist in outstanding packets");
                 todo!()
             }
 
@@ -244,7 +251,6 @@ async fn handle_puback(
 async fn handle_pubrec(
     pubrec: &mqtt_format::v5::packets::pubrec::MPubrec<'_>,
     inner: &Arc<Mutex<InnerClient>>,
-    process_span: &tracing::Span,
     packet: &MqttPacket,
 ) -> Result<(), ()> {
     match pubrec.reason {
@@ -252,16 +258,16 @@ async fn handle_pubrec(
             let mut inner = inner.lock().await;
             let inner = &mut *inner;
             let Some(ref mut session_state) = inner.session_state else {
-                tracing::error!(parent: process_span, "No session state found");
+                tracing::error!("No session state found");
                 todo!()
             };
             let Some(ref mut conn_state) = inner.connection_state else {
-                tracing::error!(parent: process_span, "No session state found");
+                tracing::error!("No session state found");
                 todo!()
             };
             let pident = NonZeroU16::try_from(pubrec.packet_identifier.0)
                 .expect("zero PacketIdentifier not valid here");
-            process_span.record("packet_identifier", pident);
+            tracing::Span::current().record("packet_identifier", pident);
 
             if session_state
                 .outstanding_packets
@@ -287,7 +293,7 @@ async fn handle_pubrec(
                 session_state
                     .outstanding_packets
                     .update_by_id(pident, pubrel_packet);
-                tracing::trace!(parent: process_span, "Update packet from outstanding packets");
+                tracing::trace!("Update packet from outstanding packets");
                 conn_state.conn_write.send(pubrel).await.map_err(drop)?;
 
                 if let Some(callback) = inner
