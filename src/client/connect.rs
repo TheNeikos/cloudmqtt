@@ -4,6 +4,9 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::time::Duration;
+
+use futures::select;
 use futures::FutureExt;
 use futures::SinkExt;
 use futures::StreamExt;
@@ -13,6 +16,7 @@ use tokio_util::codec::FramedWrite;
 use super::MqttClient;
 use crate::bytes::MqttBytes;
 use crate::client::state::OutstandingPackets;
+use crate::client::state::TransportWriter;
 use crate::client::ConnectState;
 use crate::client::SessionState;
 use crate::client_identifier::ProposedClientIdentifier;
@@ -213,6 +217,9 @@ impl MqttClient {
                 });
             }
 
+            let (sender, heartbeat_receiver) = futures::channel::mpsc::channel(1);
+            let conn_write = TransportWriter::new(conn_write, sender);
+
             let (conn_read_sender, conn_read_recv) = futures::channel::oneshot::channel();
 
             let connect_client_state = ConnectState {
@@ -222,6 +229,15 @@ impl MqttClient {
                 retain_available: connack.properties.retain_available().map(|ra| ra.0),
                 maximum_packet_size: connack.properties.maximum_packet_size().map(|mps| mps.0),
                 topic_alias_maximum: connack.properties.topic_alias_maximum().map(|tam| tam.0),
+                keep_alive: connack
+                    .properties
+                    .server_keep_alive()
+                    .map(|ska| {
+                        std::num::NonZeroU16::try_from(ska.0)
+                            .map(KeepAlive::Seconds)
+                            .unwrap_or(KeepAlive::Disabled)
+                    })
+                    .unwrap_or(connector.keep_alive),
                 conn_write,
                 conn_read_recv,
                 next_packet_identifier: std::num::NonZeroU16::MIN,
@@ -257,6 +273,8 @@ impl MqttClient {
                 };
             }
 
+            let keep_alive = connect_client_state.keep_alive;
+
             inner.connection_state = Some(connect_client_state);
             inner.session_state = Some(SessionState {
                 client_identifier,
@@ -267,11 +285,34 @@ impl MqttClient {
                 crate::packets::connack::ConnackPropertiesView::try_from(maybe_connack)
                     .expect("An already matched value suddenly changed?");
 
-            let background_task = crate::client::receive::handle_background_receiving(
-                inner_clone,
-                conn_read,
-                conn_read_sender,
-            )
+            let background_task = async move {
+                let receiving_inner = inner_clone.clone();
+                let receiving = crate::client::receive::handle_background_receiving(
+                    receiving_inner,
+                    conn_read,
+                    conn_read_sender,
+                );
+
+                let heartbeat_inner = inner_clone;
+
+                let heartbeat = if let KeepAlive::Seconds(time) = keep_alive {
+                    handle_heartbeats(
+                        heartbeat_receiver,
+                        Duration::from_secs(time.get().into()),
+                        heartbeat_inner,
+                    )
+                    .left_future()
+                } else {
+                    tracing::info!(
+                        "Keep Alive is disabled, will not send PingReq packets automatically"
+                    );
+                    futures::future::ok(()).right_future()
+                };
+
+                tokio::try_join!(receiving, heartbeat)
+                    .map(drop)
+                    .map_err(drop)
+            }
             .boxed();
 
             return Ok(Connected {
@@ -284,4 +325,35 @@ impl MqttClient {
 
         todo!()
     }
+}
+
+async fn handle_heartbeats(
+    mut heartbeat_receiver: futures::channel::mpsc::Receiver<()>,
+    duration: Duration,
+    heartbeat_inner: std::sync::Arc<futures::lock::Mutex<super::InnerClient>>,
+) -> Result<(), ()> {
+    let mut timeout = futures_timer::Delay::new(duration).fuse();
+    loop {
+        select! {
+            heartbeat = heartbeat_receiver.next() => match heartbeat {
+                None => break,
+                Some(_) => {
+                    timeout = futures_timer::Delay::new(duration).fuse();
+                },
+            },
+            _ = timeout => {
+                let mut inner = heartbeat_inner.lock().await;
+                let inner = &mut *inner;
+                let Some(conn_state) = inner.connection_state.as_mut() else {
+                    todo!();
+                };
+
+                // We make sure that this won't deadlock in the send method
+                conn_state.conn_write.send(
+                    mqtt_format::v5::packets::MqttPacket::Pingreq(mqtt_format::v5::packets::pingreq::MPingreq)
+                ).await.unwrap();
+            }
+        }
+    }
+    Ok(())
 }
