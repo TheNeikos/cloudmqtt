@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::collections::VecDeque;
 use std::num::NonZeroU16;
 
 use futures::SinkExt;
@@ -236,7 +237,7 @@ pub(crate) enum Id {
 
 pub(crate) enum CallbackState {
     PingReq {
-        on_pingresp: Vec<futures::channel::oneshot::Sender<()>>,
+        on_pingresp: VecDeque<futures::channel::oneshot::Sender<()>>,
     },
     Qos1 {
         on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,

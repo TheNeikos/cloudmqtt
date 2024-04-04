@@ -110,7 +110,7 @@ async fn handle_pingresp(
     if let Some(callback) = inner.outstanding_completions.get_mut(&Id::PingReq) {
         match callback {
             CallbackState::PingReq { on_pingresp } => {
-                if let Some(cb) = on_pingresp.pop() {
+                if let Some(cb) = on_pingresp.pop_front() {
                     if cb.send(()).is_err() {
                         tracing::debug!(
                             "PingReq completion handler was dropped before receiving response"
