@@ -51,7 +51,9 @@ pub(super) async fn handle_background_receiving(
         match packet.get() {
             mqtt_format::v5::packets::MqttPacket::Auth(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Disconnect(_) => todo!(),
-            mqtt_format::v5::packets::MqttPacket::Pingreq(_) => todo!(),
+            mqtt_format::v5::packets::MqttPacket::Pingreq(pingreq) => {
+                handle_pingreq(pingreq, &inner, &process_span).await?
+            }
             mqtt_format::v5::packets::MqttPacket::Pingresp(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Puback(mpuback) => {
                 handle_puback(mpuback, &inner, &process_span, &packet).await?
@@ -81,6 +83,26 @@ pub(super) async fn handle_background_receiving(
         tracing::error!("Failed to return reader");
         todo!()
     }
+
+    Ok(())
+}
+
+async fn handle_pingreq(
+    pingreq: &mqtt_format::v5::packets::pingreq::MPingreq,
+    inner: &Arc<Mutex<InnerClient>>,
+    process_span: &tracing::Span,
+) -> Result<(), ()> {
+    let mut inner = inner.lock().await;
+    let inner = &mut *inner;
+    let Some(ref mut conn_state) = inner.connection_state else {
+        tracing::error!(parent: process_span, "No connection state found");
+        todo!()
+    };
+
+    let packet = mqtt_format::v5::packets::MqttPacket::Pingresp(
+        mqtt_format::v5::packets::pingresp::MPingresp,
+    );
+    conn_state.conn_write.send(packet).await.map_err(drop)?;
 
     Ok(())
 }
