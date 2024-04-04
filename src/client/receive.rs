@@ -15,8 +15,6 @@ use tracing::Instrument;
 use yoke::Yoke;
 
 use super::InnerClient;
-use crate::client::CallbackState;
-use crate::client::Id;
 use crate::codecs::MqttPacketCodec;
 use crate::packets::MqttPacket;
 use crate::packets::MqttWriter;
@@ -107,21 +105,12 @@ async fn handle_pingresp(
     let mut inner = inner.lock().await;
     let inner = &mut *inner;
 
-    if let Some(callback) = inner.outstanding_completions.get_mut(&Id::PingReq) {
-        match callback {
-            CallbackState::PingReq { on_pingresp } => {
-                if let Some(cb) = on_pingresp.pop_front() {
-                    if cb.send(()).is_err() {
-                        tracing::debug!(
-                            "PingReq completion handler was dropped before receiving response"
-                        )
-                    }
-                } else {
-                    tracing::warn!("Received an unwarranted PingResp from the server, continuing")
-                }
-            }
-            _ => todo!("Had non pingreq in pingreq callback state"),
+    if let Some(cb) = inner.outstanding_callbacks.take_ping_req() {
+        if cb.send(()).is_err() {
+            tracing::debug!("PingReq completion handler was dropped before receiving response")
         }
+    } else {
+        tracing::warn!("Received an unwarranted PingResp from the server, continuing")
     }
 
     Ok(())
@@ -170,22 +159,12 @@ async fn handle_pubcomp(
                 session_state.outstanding_packets.remove_by_id(pident);
                 tracing::trace!("Removed packet id from outstanding packets");
 
-                if let Some(callback) = inner
-                    .outstanding_completions
-                    .get_mut(&Id::PacketIdentifier(pident))
-                {
-                    match callback {
-                        CallbackState::Qos2 { on_complete, .. } => {
-                            if let Some(on_complete) = on_complete.take() {
-                                if let Err(_) = on_complete.send(packet.clone()) {
-                                    tracing::trace!("Could not send ack, receiver was dropped.")
-                                }
-                            } else {
-                                todo!("Invariant broken: Double on_complete for a single pid: {pident}")
-                            }
-                        }
-                        _ => todo!(),
+                if let Some(callback) = inner.outstanding_callbacks.take_qos2_complete(pident) {
+                    if let Err(_) = callback.on_complete.send(packet.clone()) {
+                        tracing::trace!("Could not send ack, receiver was dropped.")
                     }
+                } else {
+                    todo!("Invariant broken: Received on_complete for unknown packet")
                 }
             }
         }
@@ -221,17 +200,9 @@ async fn handle_puback(
                 session_state.outstanding_packets.remove_by_id(pident);
                 tracing::trace!("Removed packet id from outstanding packets");
 
-                if let Some(callback) = inner
-                    .outstanding_completions
-                    .remove(&Id::PacketIdentifier(pident))
-                {
-                    match callback {
-                        CallbackState::Qos1 { on_acknowledge } => {
-                            if let Err(_) = on_acknowledge.send(packet.clone()) {
-                                tracing::trace!("Could not send ack, receiver was dropped.")
-                            }
-                        }
-                        _ => todo!(),
+                if let Some(callback) = inner.outstanding_callbacks.take_qos1(pident) {
+                    if let Err(_) = callback.on_acknowledge.send(packet.clone()) {
+                        tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 }
             } else {
@@ -296,22 +267,12 @@ async fn handle_pubrec(
                 tracing::trace!("Update packet from outstanding packets");
                 conn_state.conn_write.send(pubrel).await.map_err(drop)?;
 
-                if let Some(callback) = inner
-                    .outstanding_completions
-                    .get_mut(&Id::PacketIdentifier(pident))
-                {
-                    match callback {
-                        CallbackState::Qos2 { on_receive, .. } => {
-                            if let Some(on_receive) = on_receive.take() {
-                                if let Err(_) = on_receive.send(packet.clone()) {
-                                    tracing::trace!("Could not send ack, receiver was dropped.")
-                                }
-                            } else {
-                                todo!("Invariant broken: Double on_receive for a single pid: {pident}")
-                            }
-                        }
-                        _ => todo!(),
+                if let Some(callback) = inner.outstanding_callbacks.take_qos2_receive(pident) {
+                    if let Err(_) = callback.on_receive.send(packet.clone()) {
+                        tracing::trace!("Could not send ack, receiver was dropped.")
                     }
+                } else {
+                    todo!("Invariant broken: Receive PubRec for unawaited {pident}")
                 }
             }
         }

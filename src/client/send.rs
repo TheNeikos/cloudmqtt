@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::num::NonZeroU16;
 
@@ -104,21 +105,18 @@ impl MqttClient {
                 QualityOfService::AtMostOnce => unreachable!(),
                 QualityOfService::AtLeastOnce => {
                     let (on_acknowledge, recv) = futures::channel::oneshot::channel();
-                    inner.outstanding_completions.insert(
-                        Id::PacketIdentifier(pi),
-                        CallbackState::Qos1 { on_acknowledge },
-                    );
+                    inner
+                        .outstanding_callbacks
+                        .add_qos1(pi, Qos1Callbacks { on_acknowledge });
                     published_recv = PublishedReceiver::Once(PublishedQos1 { recv });
                 }
                 QualityOfService::ExactlyOnce => {
                     let (on_receive, recv) = futures::channel::oneshot::channel();
                     let (on_complete, comp_recv) = futures::channel::oneshot::channel();
-                    inner.outstanding_completions.insert(
-                        Id::PacketIdentifier(pi),
-                        CallbackState::Qos2 {
-                            on_receive: Some(on_receive),
-                            on_complete: Some(on_complete),
-                        },
+                    inner.outstanding_callbacks.add_qos2(
+                        pi,
+                        Qos2ReceiveCallback { on_receive },
+                        Qos2CompleteCallback { on_complete },
                     );
                     published_recv =
                         PublishedReceiver::Twice(PublishedQos2Received { recv, comp_recv });
@@ -229,23 +227,67 @@ pub(crate) enum Acknowledge {
     YesWithProps {},
 }
 
-#[derive(Debug, Hash, PartialEq, Eq)]
-pub(crate) enum Id {
-    PingReq,
-    PacketIdentifier(NonZeroU16),
+pub(crate) struct Callbacks {
+    ping_req: VecDeque<futures::channel::oneshot::Sender<()>>,
+    qos1: HashMap<NonZeroU16, Qos1Callbacks>,
+    qos2_receive: HashMap<NonZeroU16, Qos2ReceiveCallback>,
+    qos2_complete: HashMap<NonZeroU16, Qos2CompleteCallback>,
 }
 
-pub(crate) enum CallbackState {
-    PingReq {
-        on_pingresp: VecDeque<futures::channel::oneshot::Sender<()>>,
-    },
-    Qos1 {
-        on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
-    },
-    Qos2 {
-        on_receive: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
-        on_complete: Option<futures::channel::oneshot::Sender<crate::packets::MqttPacket>>,
-    },
+impl Callbacks {
+    pub(crate) fn new() -> Callbacks {
+        Callbacks {
+            ping_req: Default::default(),
+            qos1: HashMap::default(),
+            qos2_receive: HashMap::default(),
+            qos2_complete: HashMap::default(),
+        }
+    }
+
+    pub(crate) fn add_ping_req(&mut self, cb: futures::channel::oneshot::Sender<()>) {
+        self.ping_req.push_back(cb);
+    }
+
+    pub(crate) fn add_qos1(&mut self, id: NonZeroU16, cb: Qos1Callbacks) {
+        self.qos1.insert(id, cb);
+    }
+
+    pub(crate) fn add_qos2(
+        &mut self,
+        id: NonZeroU16,
+        rec: Qos2ReceiveCallback,
+        comp: Qos2CompleteCallback,
+    ) {
+        self.qos2_receive.insert(id, rec);
+        self.qos2_complete.insert(id, comp);
+    }
+
+    pub(crate) fn take_ping_req(&mut self) -> Option<futures::channel::oneshot::Sender<()>> {
+        self.ping_req.pop_front()
+    }
+
+    pub(crate) fn take_qos1(&mut self, id: NonZeroU16) -> Option<Qos1Callbacks> {
+        self.qos1.remove(&id)
+    }
+
+    pub(crate) fn take_qos2_receive(&mut self, id: NonZeroU16) -> Option<Qos2ReceiveCallback> {
+        self.qos2_receive.remove(&id)
+    }
+
+    pub(crate) fn take_qos2_complete(&mut self, id: NonZeroU16) -> Option<Qos2CompleteCallback> {
+        self.qos2_complete.remove(&id)
+    }
+}
+
+pub(crate) struct Qos1Callbacks {
+    pub(crate) on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
+}
+
+pub(crate) struct Qos2ReceiveCallback {
+    pub(crate) on_receive: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
+}
+pub(crate) struct Qos2CompleteCallback {
+    pub(crate) on_complete: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
 }
 
 pub struct Publish {
@@ -365,17 +407,7 @@ impl MqttClient {
 
         let (sender, recv) = futures::channel::oneshot::channel();
 
-        let cbs = inner
-            .outstanding_completions
-            .entry(Id::PingReq)
-            .or_insert_with(|| CallbackState::PingReq {
-                on_pingresp: Default::default(),
-            });
-
-        match cbs {
-            CallbackState::PingReq { on_pingresp } => on_pingresp.push_back(sender),
-            _ => unreachable!("Had a non-pingreq in a pingreq response"),
-        }
+        inner.outstanding_callbacks.add_ping_req(sender);
 
         conn_state.conn_write.send(packet).await.map_err(drop)?;
 
