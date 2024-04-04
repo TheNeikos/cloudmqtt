@@ -7,6 +7,7 @@
 use std::num::NonZeroU16;
 use std::time::Duration;
 
+#[derive(Debug, Clone, Copy)]
 pub enum KeepAlive {
     Disabled,
     Seconds(NonZeroU16),
