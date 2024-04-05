@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+pub mod builder;
 pub mod connect;
 mod receive;
 pub mod send;
@@ -40,6 +41,10 @@ impl MqttClient {
                 outstanding_callbacks: Callbacks::new(),
             })),
         }
+    }
+
+    pub fn builder() -> builder::MqttClientBuilder {
+        builder::MqttClientBuilder::new()
     }
 }
 
