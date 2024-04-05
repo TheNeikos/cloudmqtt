@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+pub mod builder;
 pub mod connect;
 mod receive;
 pub mod send;
@@ -36,13 +37,14 @@ impl MqttClient {
             inner: Arc::new(Mutex::new(InnerClient {
                 connection_state: None,
                 session_state: None,
-                default_handlers: ClientHandlers {
-                    on_packet_recv: Box::new(|_| ()),
-                    handle_acknowledge: Box::new(|_| Acknowledge::Yes),
-                },
+                default_handlers: ClientHandlers::default(),
                 outstanding_callbacks: Callbacks::new(),
             })),
         }
+    }
+
+    pub fn builder() -> builder::MqttClientBuilder {
+        builder::MqttClientBuilder::new()
     }
 }
 

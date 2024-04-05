@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use futures::FutureExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
 use tracing::Instrument;
@@ -213,14 +214,29 @@ fn get_next_packet_ident(
 pub struct PacketIdentifierExhausted;
 
 pub(crate) struct ClientHandlers {
-    pub(crate) on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    pub(crate) handle_acknowledge: Box<dyn Fn(&crate::packets::MqttPacket) -> Acknowledge + Send>,
-    // on_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    // on_complete: Box<dyn Fn(&crate::packets::MqttPacket)+ Send>,
+    pub(crate) on_packet_recv: OnPacketRecvFn,
+    pub(crate) handle_qos1_acknowledge: HandleQos1AcknowledgeFn,
+    // handle_qos2_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
+    // handle_qos2_complete: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
+}
+
+pub type OnPacketRecvFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
+pub type HandleQos1AcknowledgeFn = Box<
+    dyn for<'p> Fn(&'p crate::packets::MqttPacket) -> futures::future::BoxFuture<'p, Acknowledge>
+        + Send,
+>;
+
+impl Default for ClientHandlers {
+    fn default() -> Self {
+        Self {
+            on_packet_recv: Box::new(|_| ()),
+            handle_qos1_acknowledge: Box::new(|_| async move { Acknowledge::Yes }.boxed()),
+        }
+    }
 }
 
 #[derive(Debug)]
-pub(crate) enum Acknowledge {
+pub enum Acknowledge {
     No,
     Yes,
     YesWithProps {},
