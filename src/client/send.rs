@@ -216,12 +216,12 @@ pub struct PacketIdentifierExhausted;
 pub(crate) struct ClientHandlers {
     pub(crate) on_packet_recv: OnPacketRecvFn,
     pub(crate) on_qos1_acknowledge: OnQos1AcknowledgeFn,
-    // on_qos2_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    // on_qos2_complete: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
+    // on_qos2_receive: Box<dyn Fn(crate::packets::MqttPacket) + Send>,
+    // on_qos2_complete: Box<dyn Fn(crate::packets::MqttPacket) + Send>,
 }
 
-pub type OnPacketRecvFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
-pub type OnQos1AcknowledgeFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
+pub type OnPacketRecvFn = Box<dyn Fn(crate::packets::MqttPacket) + Send>;
+pub type OnQos1AcknowledgeFn = Box<dyn Fn(crate::packets::Puback) + Send>;
 
 impl Default for ClientHandlers {
     fn default() -> Self {
@@ -298,7 +298,7 @@ impl Callbacks {
 }
 
 pub(crate) struct Qos1Callbacks {
-    pub(crate) on_acknowledge: futures::channel::oneshot::Sender<crate::packets::MqttPacket>,
+    pub(crate) on_acknowledge: futures::channel::oneshot::Sender<crate::packets::Puback>,
 }
 
 pub(crate) struct Qos2ReceiveCallback {
@@ -341,7 +341,7 @@ enum PublishedReceiver {
 }
 
 pub struct PublishedQos1 {
-    recv: futures::channel::oneshot::Receiver<MqttPacket>,
+    recv: futures::channel::oneshot::Receiver<crate::packets::Puback>,
 }
 
 impl PublishedQos1 {

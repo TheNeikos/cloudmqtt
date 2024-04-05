@@ -57,8 +57,8 @@ pub(super) async fn handle_background_receiving(
                     .instrument(process_span)
                     .await?
             }
-            mqtt_format::v5::packets::MqttPacket::Puback(mpuback) => {
-                handle_puback(mpuback, &inner, &packet)
+            mqtt_format::v5::packets::MqttPacket::Puback(_mpuback) => {
+                handle_puback(&packet.try_into().unwrap(), &inner)
                     .instrument(process_span)
                     .await?
             }
@@ -159,10 +159,13 @@ async fn handle_pubcomp(
 }
 
 async fn handle_puback(
-    mpuback: &mqtt_format::v5::packets::puback::MPuback<'_>,
+    puback: &crate::packets::Puback,
     inner: &Arc<Mutex<InnerClient>>,
-    packet: &MqttPacket,
 ) -> Result<(), ()> {
+    tracing::trace!("Calling on_qos1_acknowledge handler");
+    (inner.lock().await.default_handlers.on_qos1_acknowledge)(puback.clone());
+    let mpuback = puback.get();
+
     match mpuback.reason {
         mqtt_format::v5::packets::puback::PubackReasonCode::Success
         | mqtt_format::v5::packets::puback::PubackReasonCode::NoMatchingSubscribers => {
@@ -185,7 +188,7 @@ async fn handle_puback(
                 tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos1(pident) {
-                    if let Err(_) = callback.on_acknowledge.send(packet.clone()) {
+                    if let Err(_) = callback.on_acknowledge.send(puback.clone()) {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 }
