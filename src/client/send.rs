@@ -7,6 +7,7 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
+use futures::FutureExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
 use tracing::Instrument;
@@ -224,6 +225,15 @@ pub type HandleAcknowledgeFn = Box<
     dyn for<'p> Fn(&'p crate::packets::MqttPacket) -> futures::future::BoxFuture<'p, Acknowledge>
         + Send,
 >;
+
+impl Default for ClientHandlers {
+    fn default() -> Self {
+        Self {
+            on_packet_recv: Box::new(|_| ()),
+            handle_acknowledge: Box::new(|_| async move { Acknowledge::Yes }.boxed()),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum Acknowledge {
