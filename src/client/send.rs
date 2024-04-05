@@ -215,22 +215,19 @@ pub struct PacketIdentifierExhausted;
 
 pub(crate) struct ClientHandlers {
     pub(crate) on_packet_recv: OnPacketRecvFn,
-    pub(crate) handle_qos1_acknowledge: HandleQos1AcknowledgeFn,
-    // handle_qos2_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    // handle_qos2_complete: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
+    pub(crate) on_qos1_acknowledge: OnQos1AcknowledgeFn,
+    // on_qos2_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
+    // on_qos2_complete: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
 }
 
 pub type OnPacketRecvFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
-pub type HandleQos1AcknowledgeFn = Box<
-    dyn for<'p> Fn(&'p crate::packets::MqttPacket) -> futures::future::BoxFuture<'p, Acknowledge>
-        + Send,
->;
+pub type OnQos1AcknowledgeFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
 
 impl Default for ClientHandlers {
     fn default() -> Self {
         Self {
             on_packet_recv: Box::new(|_| ()),
-            handle_qos1_acknowledge: Box::new(|_| async move { Acknowledge::Yes }.boxed()),
+            on_qos1_acknowledge: Box::new(|_| ()),
         }
     }
 }
