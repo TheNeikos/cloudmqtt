@@ -7,7 +7,6 @@
 use std::sync::Arc;
 
 use futures::lock::Mutex;
-use futures::SinkExt;
 use futures::StreamExt;
 use tokio_util::codec::FramedRead;
 use tracing::Instrument;
@@ -88,7 +87,7 @@ pub(super) async fn handle_background_receiving(
     }
 
     tracing::debug!("Finished processing, returning reader");
-    if let Err(conn_read) = conn_read_sender.send(conn_read) {
+    if let Err(_conn_read) = conn_read_sender.send(conn_read) {
         tracing::error!("Failed to return reader");
         todo!()
     }

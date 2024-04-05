@@ -6,9 +6,7 @@
 
 use std::collections::HashMap;
 use std::collections::VecDeque;
-use std::num::NonZeroU16;
 
-use futures::SinkExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
 use tracing::Instrument;
@@ -312,7 +310,7 @@ pub struct Published {
 impl Published {
     pub async fn acknowledged(self) {
         match self.recv {
-            PublishedReceiver::None => return,
+            PublishedReceiver::None => (),
             PublishedReceiver::Once(qos1) => {
                 qos1.acknowledged().await;
             }
