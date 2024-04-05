@@ -32,6 +32,8 @@ pub mod subscribe;
 pub mod unsuback;
 pub mod unsubscribe;
 
+pub use self::puback::Puback;
+
 #[derive(Debug, thiserror::Error)]
 #[error("Could not convert into the required packet type")]
 pub struct InvalidPacketType;
