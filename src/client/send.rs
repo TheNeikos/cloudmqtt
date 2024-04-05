@@ -213,14 +213,20 @@ fn get_next_packet_ident(
 pub struct PacketIdentifierExhausted;
 
 pub(crate) struct ClientHandlers {
-    pub(crate) on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    pub(crate) handle_acknowledge: Box<dyn Fn(&crate::packets::MqttPacket) -> Acknowledge + Send>,
+    pub(crate) on_packet_recv: OnPacketRecvFn,
+    pub(crate) handle_acknowledge: HandleAcknowledgeFn,
     // on_receive: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
     // on_complete: Box<dyn Fn(&crate::packets::MqttPacket)+ Send>,
 }
 
+pub type OnPacketRecvFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
+pub type HandleAcknowledgeFn = Box<
+    dyn for<'p> Fn(&'p crate::packets::MqttPacket) -> futures::future::BoxFuture<'p, Acknowledge>
+        + Send,
+>;
+
 #[derive(Debug)]
-pub(crate) enum Acknowledge {
+pub enum Acknowledge {
     No,
     Yes,
     YesWithProps {},
