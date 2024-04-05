@@ -224,7 +224,9 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "cloudmqtt",
+ "futures",
  "tokio",
+ "tracing",
  "tracing-subscriber",
 ]
 
