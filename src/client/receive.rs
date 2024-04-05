@@ -132,8 +132,7 @@ async fn handle_pubcomp(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = PacketIdentifier::try_from(pubcomp.packet_identifier)
-                .expect("zero PacketIdentifier not valid here");
+            let pident = PacketIdentifier::from(pubcomp.packet_identifier);
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
