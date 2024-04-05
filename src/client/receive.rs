@@ -46,6 +46,9 @@ pub(super) async fn handle_background_receiving(
             tracing::field::debug(packet.get().get_kind()),
         );
 
+        tracing::trace!("Calling on_packet_recv() handler");
+        (inner.lock().await.default_handlers.on_packet_recv)(packet.clone());
+
         match packet.get() {
             mqtt_format::v5::packets::MqttPacket::Auth(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Disconnect(_) => todo!(),
