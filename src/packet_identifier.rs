@@ -20,15 +20,9 @@ impl std::fmt::Display for PacketIdentifier {
     }
 }
 
-impl TryFrom<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdentifier {
-    type Error = (); // TODO
-
-    fn try_from(
-        value: mqtt_format::v5::variable_header::PacketIdentifier,
-    ) -> Result<Self, Self::Error> {
-        std::num::NonZeroU16::try_from(value.0)
-            .map(Self)
-            .map_err(drop) // TODO
+impl From<mqtt_format::v5::variable_header::PacketIdentifier> for PacketIdentifier {
+    fn from(value: mqtt_format::v5::variable_header::PacketIdentifier) -> Self {
+        Self(value.0)
     }
 }
 
