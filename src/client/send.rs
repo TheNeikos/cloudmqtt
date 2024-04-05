@@ -310,7 +310,7 @@ pub struct Published {
 impl Published {
     pub async fn acknowledged(self) {
         match self.recv {
-            PublishedReceiver::None => return,
+            PublishedReceiver::None => (),
             PublishedReceiver::Once(qos1) => {
                 qos1.acknowledged().await;
             }
