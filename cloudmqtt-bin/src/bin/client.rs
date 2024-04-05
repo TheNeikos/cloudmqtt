@@ -57,7 +57,7 @@ async fn main() {
         .with_on_packet_recv(Box::new(|packet| {
             tracing::trace!(?packet, "Received packet")
         }))
-        .with_handle_acknowledge(Box::new(|packet| {
+        .with_handle_qos1_acknowledge(Box::new(|packet| {
             async move {
                 tracing::trace!(?packet, "Acknowledging packet");
                 cloudmqtt::client::send::Acknowledge::Yes

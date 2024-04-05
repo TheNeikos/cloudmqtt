@@ -10,7 +10,7 @@ use futures::lock::Mutex;
 
 use super::send::Callbacks;
 use super::send::ClientHandlers;
-use super::send::HandleAcknowledgeFn;
+use super::send::HandleQos1AcknowledgeFn;
 use super::send::OnPacketRecvFn;
 use super::InnerClient;
 use super::MqttClient;
@@ -31,8 +31,8 @@ impl MqttClientBuilder {
         self
     }
 
-    pub fn with_handle_acknowledge(mut self, f: HandleAcknowledgeFn) -> Self {
-        self.handlers.handle_acknowledge = f;
+    pub fn with_handle_qos1_acknowledge(mut self, f: HandleQos1AcknowledgeFn) -> Self {
+        self.handlers.handle_qos1_acknowledge = f;
         self
     }
 
