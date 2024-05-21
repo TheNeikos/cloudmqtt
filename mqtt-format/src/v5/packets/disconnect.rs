@@ -82,15 +82,15 @@ impl<'i> MDisconnect<'i> {
         winnow::combinator::trace("MDisconnect", |input: &mut &'i Bytes| {
             // The Reason Code and Property Length can be omitted if the Reason Code is 0x00 (Normal disconnecton)
             // and there are no Properties. In this case the DISCONNECT has a Remaining Length of 0.
-            let reason_code = if input.len() >= 1 {
-                DisconnectReasonCode::parse(input)?
-            } else {
+            let reason_code = if input.is_empty() {
                 DisconnectReasonCode::NormalDisconnection
-            };
-            let properties = if input.len() >= 2 {
-                DisconnectProperties::parse(input)?
             } else {
+                DisconnectReasonCode::parse(input)?
+            };
+            let properties = if input.is_empty() {
                 DisconnectProperties::new()
+            } else {
+                DisconnectProperties::parse(input)?
             };
 
             Ok(MDisconnect {
