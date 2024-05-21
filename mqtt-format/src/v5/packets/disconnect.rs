@@ -157,7 +157,34 @@ mod test {
             reason_code: DisconnectReasonCode::NormalDisconnection,
             properties: DisconnectProperties::new(),
         });
-
         assert_eq!(parsed, reference);
+    }
+
+    #[test]
+    fn test_short_disconnect_encoding() {
+        let reference = MqttPacket::Disconnect(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties::new(),
+        });
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+        reference.write(&mut writer).unwrap();
+        let buf = [0xe0, 0x00];
+        assert_eq!(writer.buffer, buf);
+    }
+
+    #[test]
+    fn test_short_disconnect_long_encoding() {
+        let reference = MqttPacket::Disconnect(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties {
+                session_expiry_interval: Some(SessionExpiryInterval(123)),
+                reason_string: None,
+                user_properties: None,
+                server_reference: None,
+            },
+        });
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+        reference.write(&mut writer).unwrap();
+        assert!(writer.buffer.len() > 2, "the extra rule for short NormalDisconnect should not influence more complex disconnects");
     }
 }
