@@ -80,8 +80,18 @@ pub struct MDisconnect<'i> {
 impl<'i> MDisconnect<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<MDisconnect<'i>> {
         winnow::combinator::trace("MDisconnect", |input: &mut &'i Bytes| {
-            let (reason_code, properties) =
-                (DisconnectReasonCode::parse, DisconnectProperties::parse).parse_next(input)?;
+            // The Reason Code and Property Length can be omitted if the Reason Code is 0x00 (Normal disconnecton)
+            // and there are no Properties. In this case the DISCONNECT has a Remaining Length of 0.
+            let reason_code = if input.len() >= 1 {
+                DisconnectReasonCode::parse(input)?
+            } else {
+                DisconnectReasonCode::NormalDisconnection
+            };
+            let properties = if input.len() >= 2 {
+                DisconnectProperties::parse(input)?
+            } else {
+                DisconnectProperties::new()
+            };
 
             Ok(MDisconnect {
                 reason_code,
@@ -106,6 +116,7 @@ mod test {
     use super::DisconnectProperties;
     use super::MDisconnect;
     use crate::v5::packets::disconnect::DisconnectReasonCode;
+    use crate::v5::packets::MqttPacket;
     use crate::v5::variable_header::ReasonString;
     use crate::v5::variable_header::ServerReference;
     use crate::v5::variable_header::SessionExpiryInterval;
@@ -135,5 +146,18 @@ mod test {
                 server_reference: Some(ServerReference("barbarbar")),
             },
         });
+    }
+
+    #[test]
+    fn test_short_disconnect_packet() {
+        // handle special case https://github.com/TheNeikos/cloudmqtt/issues/291
+        let buf = [0xe0, 0x00];
+        let parsed = MqttPacket::parse_complete(&buf).unwrap();
+        let reference = MqttPacket::Disconnect(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties::new(),
+        });
+
+        assert_eq!(parsed, reference);
     }
 }
