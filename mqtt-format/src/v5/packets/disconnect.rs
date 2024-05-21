@@ -102,10 +102,21 @@ impl<'i> MDisconnect<'i> {
     }
 
     pub fn binary_size(&self) -> u32 {
+        if self.is_short_packet() {
+            return 0;
+        }
         self.reason_code.binary_size() + self.properties.binary_size()
     }
-
+    #[inline]
+    fn is_short_packet(&self) -> bool {
+        // if reason code is NormalDisconnection AND properties are empty, we can skip writing the payload
+        self.reason_code == DisconnectReasonCode::NormalDisconnection
+            && self.properties == DisconnectProperties::new()
+    }
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        if self.is_short_packet() {
+            return Ok(());
+        }
         self.reason_code.write(buffer)?;
         self.properties.write(buffer)
     }

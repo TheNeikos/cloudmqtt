@@ -29,7 +29,6 @@ use super::write::WResult;
 use super::write::WriteMqttPacket;
 use crate::v5::fixed_header::MFixedHeader;
 use crate::v5::packets::connack::MConnack;
-use crate::v5::packets::disconnect::{DisconnectProperties, DisconnectReasonCode};
 use crate::v5::MResult;
 
 pub mod auth;
@@ -163,14 +162,6 @@ impl<'i> MqttPacket<'i> {
                     packet_type: PacketType::Disconnect,
                 };
                 fixed_header.write(buffer)?;
-                // if reason code is NormalDisconnection AND properties are empty, we can skip writing the payload
-                if p.reason_code == DisconnectReasonCode::NormalDisconnection
-                    && p.properties == DisconnectProperties::new()
-                {
-                    // writing length of packet 0
-                    crate::v5::integers::write_variable_u32(buffer, 0)?;
-                    return Ok(());
-                }
                 crate::v5::integers::write_variable_u32(buffer, p.binary_size())?;
                 p.write(buffer)?;
             }
