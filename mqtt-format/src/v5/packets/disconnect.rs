@@ -19,7 +19,6 @@ use crate::v5::MResult;
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum DisconnectReasonCode {
         AdministrativeAction = crate::v5::reason_code::AdministrativeAction,
-        BadAuthenticationMethod = crate::v5::reason_code::BadAuthenticationMethod,
         ConnectionRateExceeded = crate::v5::reason_code::ConnectionRateExceeded,
         DisconnectWithWillMessage = crate::v5::reason_code::DisconnectWithWillMessage,
         ImplementationSpecificError = crate::v5::reason_code::ImplementationSpecificError,
