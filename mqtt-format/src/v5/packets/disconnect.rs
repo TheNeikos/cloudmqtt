@@ -80,8 +80,18 @@ pub struct MDisconnect<'i> {
 impl<'i> MDisconnect<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<MDisconnect<'i>> {
         winnow::combinator::trace("MDisconnect", |input: &mut &'i Bytes| {
-            let (reason_code, properties) =
-                (DisconnectReasonCode::parse, DisconnectProperties::parse).parse_next(input)?;
+            // The Reason Code and Property Length can be omitted if the Reason Code is 0x00 (Normal disconnecton)
+            // and there are no Properties. In this case the DISCONNECT has a Remaining Length of 0.
+            let reason_code = if input.is_empty() {
+                DisconnectReasonCode::NormalDisconnection
+            } else {
+                DisconnectReasonCode::parse(input)?
+            };
+            let properties = if input.is_empty() {
+                DisconnectProperties::new()
+            } else {
+                DisconnectProperties::parse(input)?
+            };
 
             Ok(MDisconnect {
                 reason_code,
@@ -92,10 +102,21 @@ impl<'i> MDisconnect<'i> {
     }
 
     pub fn binary_size(&self) -> u32 {
+        if self.is_short_packet() {
+            return 0;
+        }
         self.reason_code.binary_size() + self.properties.binary_size()
     }
-
+    #[inline]
+    fn is_short_packet(&self) -> bool {
+        // if reason code is NormalDisconnection AND properties are empty, we can skip writing the payload
+        self.reason_code == DisconnectReasonCode::NormalDisconnection
+            && self.properties == DisconnectProperties::new()
+    }
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+        if self.is_short_packet() {
+            return Ok(());
+        }
         self.reason_code.write(buffer)?;
         self.properties.write(buffer)
     }
@@ -106,6 +127,7 @@ mod test {
     use super::DisconnectProperties;
     use super::MDisconnect;
     use crate::v5::packets::disconnect::DisconnectReasonCode;
+    use crate::v5::packets::MqttPacket;
     use crate::v5::variable_header::ReasonString;
     use crate::v5::variable_header::ServerReference;
     use crate::v5::variable_header::SessionExpiryInterval;
@@ -135,5 +157,45 @@ mod test {
                 server_reference: Some(ServerReference("barbarbar")),
             },
         });
+    }
+
+    #[test]
+    fn test_short_disconnect_packet() {
+        // handle special case https://github.com/TheNeikos/cloudmqtt/issues/291
+        let buf = [0xe0, 0x00];
+        let parsed = MqttPacket::parse_complete(&buf).unwrap();
+        let reference = MqttPacket::Disconnect(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties::new(),
+        });
+        assert_eq!(parsed, reference);
+    }
+
+    #[test]
+    fn test_short_disconnect_encoding() {
+        let reference = MqttPacket::Disconnect(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties::new(),
+        });
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+        reference.write(&mut writer).unwrap();
+        let buf = [0xe0, 0x00];
+        assert_eq!(writer.buffer, buf);
+    }
+
+    #[test]
+    fn test_short_disconnect_long_encoding() {
+        let reference = MqttPacket::Disconnect(MDisconnect {
+            reason_code: DisconnectReasonCode::NormalDisconnection,
+            properties: DisconnectProperties {
+                session_expiry_interval: Some(SessionExpiryInterval(123)),
+                reason_string: None,
+                user_properties: None,
+                server_reference: None,
+            },
+        });
+        let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
+        reference.write(&mut writer).unwrap();
+        assert!(writer.buffer.len() > 2, "the extra rule for short NormalDisconnect should not influence more complex disconnects");
     }
 }
