@@ -4,6 +4,10 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use yoke::Yoke;
+
+use super::{MqttPacket, StableBytes};
+
 crate::properties::define_properties! {
     properties_type: mqtt_format::v5::packets::publish::PublishProperties,
     anker: "_Toc3901109",
@@ -31,5 +35,29 @@ crate::properties::define_properties! {
 
         (anker: "_Toc3901118")
         content_type: ContentType<'i> with setter = String,
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Publish {
+    packet: Yoke<mqtt_format::v5::packets::publish::MPublish<'static>, StableBytes>,
+}
+
+impl Publish {
+    pub(crate) fn get(&self) -> &mqtt_format::v5::packets::publish::MPublish<'_> {
+        self.packet.get()
+    }
+}
+
+impl TryFrom<MqttPacket> for Publish {
+    type Error = ();
+
+    fn try_from(value: MqttPacket) -> Result<Self, Self::Error> {
+        let packet = value.packet.try_map_project(|p, _| match p {
+            mqtt_format::v5::packets::MqttPacket::Publish(puback) => Ok(puback),
+            _ => Err(()),
+        })?;
+
+        Ok(Publish { packet })
     }
 }

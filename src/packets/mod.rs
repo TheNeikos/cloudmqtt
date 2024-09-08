@@ -33,6 +33,7 @@ pub mod unsuback;
 pub mod unsubscribe;
 
 pub use self::puback::Puback;
+pub use self::publish::Publish;
 
 #[derive(Debug, thiserror::Error)]
 #[error("Could not convert into the required packet type")]

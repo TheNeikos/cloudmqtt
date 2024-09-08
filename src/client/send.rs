@@ -214,6 +214,7 @@ pub struct PacketIdentifierExhausted;
 
 pub(crate) struct ClientHandlers {
     pub(crate) on_packet_recv: OnPacketRecvFn,
+    pub(crate) on_publish_recv: OnPublishRecvFn,
     pub(crate) on_qos1_acknowledge: OnQos1AcknowledgeFn,
     // on_qos2_receive: Box<dyn Fn(crate::packets::MqttPacket) + Send>,
     // on_qos2_complete: Box<dyn Fn(crate::packets::MqttPacket) + Send>,
@@ -221,12 +222,14 @@ pub(crate) struct ClientHandlers {
 
 pub type OnPacketRecvFn = Box<dyn Fn(crate::packets::MqttPacket) + Send>;
 pub type OnPacketRefRecvFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
+pub type OnPublishRecvFn = Box<dyn Fn(crate::packets::Publish) + Send>;
 pub type OnQos1AcknowledgeFn = Box<dyn Fn(crate::packets::Puback) + Send>;
 
 impl Default for ClientHandlers {
     fn default() -> Self {
         Self {
             on_packet_recv: Box::new(|_| ()),
+            on_publish_recv: Box::new(|_| ()),
             on_qos1_acknowledge: Box::new(|_| ()),
         }
     }
