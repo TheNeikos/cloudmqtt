@@ -64,7 +64,7 @@ async fn main() {
         .await
         .unwrap();
     let connected = client.connect(connector).await.unwrap();
-    let background = tokio::task::spawn(connected.background_task);
+    let _background = tokio::task::spawn(connected.background_task);
 
     client
         .publish(Publish {
