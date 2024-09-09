@@ -11,6 +11,7 @@ use futures::lock::Mutex;
 use super::send::Callbacks;
 use super::send::ClientHandlers;
 use super::send::OnPacketRecvFn;
+use super::send::OnPublishRecvFn;
 use super::send::OnQos1AcknowledgeFn;
 use super::InnerClient;
 use super::MqttClient;
@@ -28,6 +29,11 @@ impl MqttClientBuilder {
 
     pub fn with_on_packet_recv(mut self, f: OnPacketRecvFn) -> Self {
         self.handlers.on_packet_recv = f;
+        self
+    }
+
+    pub fn with_on_publish_recv(mut self, f: OnPublishRecvFn) -> Self {
+        self.handlers.on_publish_recv = f;
         self
     }
 

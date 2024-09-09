@@ -75,7 +75,11 @@ pub(super) async fn handle_background_receiving(
                     .instrument(process_span)
                     .await?
             }
-            mqtt_format::v5::packets::MqttPacket::Publish(_) => todo!(),
+            mqtt_format::v5::packets::MqttPacket::Publish(_publish) => {
+                handle_publish(&packet.try_into().unwrap(), &inner)
+                    .instrument(process_span)
+                    .await?
+            }
             mqtt_format::v5::packets::MqttPacket::Pubrel(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Suback(_) => todo!(),
             mqtt_format::v5::packets::MqttPacket::Unsuback(_) => todo!(),
@@ -266,5 +270,14 @@ async fn handle_pubrec(
         _ => todo!("Handle errors"),
     }
 
+    Ok(())
+}
+
+async fn handle_publish(
+    publish: &crate::packets::Publish,
+    inner: &Arc<Mutex<InnerClient>>,
+) -> Result<(), ()> {
+    tracing::trace!("Calling on_publish_recv handler");
+    (inner.lock().await.default_handlers.on_publish_recv)(publish.clone());
     Ok(())
 }
