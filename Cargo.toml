@@ -33,7 +33,7 @@ tokio-util = { version = "0.7.10", features = ["codec", "compat"] }
 tracing = "0.1.40"
 typed-builder = "0.18"
 winnow = "0.6.5"
-yoke = "0.7.3"
+yoke = "0.7.4"
 
 [dev-dependencies]
 static_assertions = "1.1.0"
