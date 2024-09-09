@@ -11,7 +11,6 @@ use cloudmqtt::client::connect::MqttClientConnector;
 use cloudmqtt::client::send::Publish;
 use cloudmqtt::client::MqttClient;
 use cloudmqtt::transport::MqttConnectTransport;
-use futures::FutureExt;
 use tokio::net::TcpStream;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
@@ -64,7 +63,7 @@ async fn main() {
         .await
         .unwrap();
     let connected = client.connect(connector).await.unwrap();
-    let background = tokio::task::spawn(connected.background_task);
+    let _background = tokio::task::spawn(connected.background_task);
 
     client
         .publish(Publish {

@@ -146,7 +146,7 @@ async fn handle_pubcomp(
                 tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos2_complete(pident) {
-                    if let Err(_) = callback.on_complete.send(packet.clone()) {
+                    if callback.on_complete.send(packet.clone()).is_err() {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 } else {
@@ -178,8 +178,7 @@ async fn handle_puback(
                 todo!()
             };
 
-            let pident = PacketIdentifier::try_from(mpuback.packet_identifier)
-                .expect("Zero PacketIdentifier not valid here");
+            let pident = PacketIdentifier::from(mpuback.packet_identifier);
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
@@ -190,7 +189,7 @@ async fn handle_puback(
                 tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos1(pident) {
-                    if let Err(_) = callback.on_acknowledge.send(puback.clone()) {
+                    if callback.on_acknowledge.send(puback.clone()).is_err() {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 }
@@ -225,8 +224,7 @@ async fn handle_pubrec(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = PacketIdentifier::try_from(pubrec.packet_identifier)
-                .expect("zero PacketIdentifier not valid here");
+            let pident = PacketIdentifier::from(pubrec.packet_identifier);
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
@@ -257,7 +255,7 @@ async fn handle_pubrec(
                 conn_state.conn_write.send(pubrel).await.map_err(drop)?;
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos2_receive(pident) {
-                    if let Err(_) = callback.on_receive.send(packet.clone()) {
+                    if callback.on_receive.send(packet.clone()).is_err() {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 } else {

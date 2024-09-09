@@ -7,7 +7,6 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-use futures::FutureExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
 use tracing::Instrument;
@@ -221,6 +220,7 @@ pub(crate) struct ClientHandlers {
 }
 
 pub type OnPacketRecvFn = Box<dyn Fn(crate::packets::MqttPacket) + Send>;
+pub type OnPacketRefRecvFn = Box<dyn Fn(&crate::packets::MqttPacket) + Send>;
 pub type OnQos1AcknowledgeFn = Box<dyn Fn(crate::packets::Puback) + Send>;
 
 impl Default for ClientHandlers {
@@ -313,7 +313,7 @@ pub struct Publish {
     pub qos: QualityOfService,
     pub retain: bool,
     pub payload: MqttPayload,
-    pub on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) + Send>>,
+    pub on_packet_recv: Option<OnPacketRefRecvFn>,
 }
 
 pub struct Published {
@@ -379,14 +379,11 @@ pub struct PublishQos1 {
     pub topic: crate::topic::MqttTopic,
     pub retain: bool,
     pub payload: MqttPayload,
-    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) + Send>>,
+    on_packet_recv: Option<OnPacketRefRecvFn>,
 }
 
 impl PublishQos1 {
-    pub fn with_on_packet_recv(
-        mut self,
-        on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    ) -> Self {
+    pub fn with_on_packet_recv(mut self, on_packet_recv: OnPacketRefRecvFn) -> Self {
         self.on_packet_recv = Some(on_packet_recv);
         self
     }
@@ -396,14 +393,11 @@ pub struct PublishQos2 {
     pub topic: crate::topic::MqttTopic,
     pub retain: bool,
     pub payload: MqttPayload,
-    on_packet_recv: Option<Box<dyn Fn(&crate::packets::MqttPacket) + Send>>,
+    on_packet_recv: Option<OnPacketRefRecvFn>,
 }
 
 impl PublishQos2 {
-    pub fn with_on_packet_recv(
-        mut self,
-        on_packet_recv: Box<dyn Fn(&crate::packets::MqttPacket) + Send>,
-    ) -> Self {
+    pub fn with_on_packet_recv(mut self, on_packet_recv: OnPacketRefRecvFn) -> Self {
         self.on_packet_recv = Some(on_packet_recv);
         self
     }

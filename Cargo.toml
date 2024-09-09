@@ -15,8 +15,8 @@ categories = ["embedded"]
 [workspace]
 members = ["cloudmqtt-bin", "mqtt-format"]
 
-[features]
-debug = ["winnow/debug"]
+#[features]
+#debug = ["winnow/debug"]
 
 [dependencies]
 futures = "0.3.30"
