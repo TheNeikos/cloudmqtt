@@ -178,8 +178,7 @@ async fn handle_puback(
                 todo!()
             };
 
-            let pident = PacketIdentifier::try_from(mpuback.packet_identifier)
-                .expect("Zero PacketIdentifier not valid here");
+            let pident = PacketIdentifier::from(mpuback.packet_identifier);
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
@@ -225,8 +224,7 @@ async fn handle_pubrec(
                 tracing::error!("No session state found");
                 todo!()
             };
-            let pident = PacketIdentifier::try_from(pubrec.packet_identifier)
-                .expect("zero PacketIdentifier not valid here");
+            let pident = PacketIdentifier::from(pubrec.packet_identifier);
             tracing::Span::current().record("packet_identifier", tracing::field::display(pident));
 
             if session_state
