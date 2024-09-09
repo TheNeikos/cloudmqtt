@@ -7,7 +7,6 @@
 use std::collections::HashMap;
 use std::collections::VecDeque;
 
-use futures::FutureExt;
 use mqtt_format::v5::integers::VARIABLE_INTEGER_MAX;
 use mqtt_format::v5::packets::publish::MPublish;
 use tracing::Instrument;

@@ -14,7 +14,6 @@ use std::sync::Arc;
 
 use futures::lock::Mutex;
 
-use self::send::Acknowledge;
 use self::send::Callbacks;
 use self::send::ClientHandlers;
 use self::state::ConnectState;
