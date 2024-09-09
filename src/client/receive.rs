@@ -146,7 +146,7 @@ async fn handle_pubcomp(
                 tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos2_complete(pident) {
-                    if let Err(_) = callback.on_complete.send(packet.clone()) {
+                    if callback.on_complete.send(packet.clone()).is_err() {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 } else {
@@ -190,7 +190,7 @@ async fn handle_puback(
                 tracing::trace!("Removed packet id from outstanding packets");
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos1(pident) {
-                    if let Err(_) = callback.on_acknowledge.send(puback.clone()) {
+                    if callback.on_acknowledge.send(puback.clone()).is_err() {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 }
@@ -257,7 +257,7 @@ async fn handle_pubrec(
                 conn_state.conn_write.send(pubrel).await.map_err(drop)?;
 
                 if let Some(callback) = inner.outstanding_callbacks.take_qos2_receive(pident) {
-                    if let Err(_) = callback.on_receive.send(packet.clone()) {
+                    if callback.on_receive.send(packet.clone()).is_err() {
                         tracing::trace!("Could not send ack, receiver was dropped.")
                     }
                 } else {
