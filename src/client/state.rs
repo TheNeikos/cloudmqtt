@@ -48,6 +48,7 @@ impl TransportWriter {
     }
 }
 
+#[allow(unused)]
 pub(super) struct ConnectState {
     pub(super) session_present: bool,
     pub(super) receive_maximum: Option<NonZeroU16>,
@@ -66,6 +67,7 @@ pub(super) struct ConnectState {
 }
 
 pub(super) struct SessionState {
+    #[allow(unused)]
     pub(super) client_identifier: MqttString,
     pub(super) outstanding_packets: OutstandingPackets,
 }
@@ -111,6 +113,7 @@ impl OutstandingPackets {
         self.outstanding_packets.contains_key(&ident)
     }
 
+    #[allow(unused)]
     pub fn iter_in_send_order(
         &self,
     ) -> impl Iterator<Item = (PacketIdentifier, &crate::packets::MqttPacket)> {
