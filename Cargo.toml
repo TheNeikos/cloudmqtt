@@ -27,7 +27,7 @@ mqtt-format = { version = "0.5.0", path = "mqtt-format", features = [
 ] }
 paste = "1.0.14"
 stable_deref_trait = "1.2.0"
-thiserror = "1.0.64"
+thiserror = "1.0.66"
 tokio = { version = "1.41.0", features = ["macros", "full"] }
 tokio-util = { version = "0.7.12", features = ["codec", "compat"] }
 tracing = "0.1.40"
