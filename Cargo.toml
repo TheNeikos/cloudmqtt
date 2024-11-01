@@ -19,7 +19,7 @@ members = ["cloudmqtt-bin", "mqtt-format"]
 #debug = ["winnow/debug"]
 
 [dependencies]
-futures = "0.3.30"
+futures = "0.3.31"
 futures-timer = "3.0.3"
 mqtt-format = { version = "0.5.0", path = "mqtt-format", features = [
     "yoke",
