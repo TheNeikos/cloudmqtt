@@ -32,4 +32,4 @@ yoke = { version = "0.7.5", features = [
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
-tokio = { version = "1.41.0", features = ["test-util", "macros"] }
+tokio = { version = "1.41.1", features = ["test-util", "macros"] }
