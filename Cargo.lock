@@ -190,7 +190,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "typed-builder",
- "winnow 0.6.8",
+ "winnow 0.6.21",
  "yoke",
 ]
 
@@ -453,7 +453,7 @@ dependencies = [
  "pretty_assertions",
  "thiserror",
  "tokio",
- "winnow 0.6.8",
+ "winnow 0.6.21",
  "yoke",
 ]
 
@@ -1079,9 +1079,9 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.6.8"
+version = "0.6.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3c52e9c97a68071b23e836c9380edae937f17b9c4667bd021973efc689f618d"
+checksum = "e6f5bb5257f2407a5425c6e749bfd9692192a73e70a6060516ac04f889087d68"
 dependencies = [
  "memchr",
 ]
