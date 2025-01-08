@@ -13,6 +13,12 @@ pub const MAXIMUM_TOPIC_BYTE_LENGTH: usize = 65535;
 #[derive(Debug, Clone, Hash, PartialEq)]
 pub struct TopicPath(String);
 
+impl PartialEq<str> for TopicPath {
+    fn eq(&self, other: &str) -> bool {
+        self.0.eq(other)
+    }
+}
+
 impl TryFrom<String> for TopicPath {
     type Error = TopicError;
     fn try_from(value: String) -> Result<Self, Self::Error> {
@@ -170,6 +176,14 @@ impl TopicFilterBuf {
     pub fn len(&self) -> usize {
         self.levels.len() + self.levels.iter().map(|l| l.as_str().len()).sum::<usize>()
     }
+
+    pub fn first(&self) -> &TopicFilterLevel {
+        self.levels.first().unwrap()
+    }
+
+    pub fn last(&self) -> &TopicFilterLevel {
+        self.levels.last().unwrap()
+    }
 }
 
 /// An owned MQTT Topic Name
@@ -220,6 +234,35 @@ impl TopicNameBuf {
     pub fn len(&self) -> usize {
         self.levels.len() + self.levels.iter().map(|l| l.as_str().len()).sum::<usize>()
     }
+
+    pub fn matches(&self, filter: &TopicFilterBuf) -> bool {
+        if filter.first().is_multi_level_seperator() {
+            return true;
+        }
+
+        if filter.has_end_wildcard && self.levels.len() < filter.levels.len() {
+            return false;
+        }
+
+        for (filter, path) in filter.levels.iter().zip(&self.levels) {
+            match filter {
+                TopicFilterLevel::Path(topic_path) => {
+                    if topic_path != path {
+                        return false;
+                    }
+                }
+                TopicFilterLevel::Empty => {
+                    if path != "" {
+                        return false;
+                    }
+                }
+                TopicFilterLevel::TopicLevelSeperator => {}
+                TopicFilterLevel::MultiLevelSeperator => return true,
+            }
+        }
+
+        true
+    }
 }
 
 #[cfg(test)]
@@ -241,6 +284,28 @@ mod tests {
 
         for topic in topics {
             TopicNameBuf::new(topic).unwrap_err();
+        }
+    }
+
+    #[test]
+    fn check_matching() {
+        let matches = [
+            ("foo/bar", "foo/bar"),
+            ("foo/bar", "foo/+"),
+            ("foo/bar", "+/+"),
+            ("foo/bar", "foo/#"),
+            ("foo/bar", "#"),
+            ("foo/bar", "foo/bar/#"),
+        ];
+
+        for (name, filter) in matches {
+            let name = TopicNameBuf::new(name).unwrap();
+            let filter = TopicFilterBuf::new(filter).unwrap();
+
+            assert!(
+                name.matches(&filter),
+                "{name:?} and {filter:?} did not match"
+            );
         }
     }
 }
