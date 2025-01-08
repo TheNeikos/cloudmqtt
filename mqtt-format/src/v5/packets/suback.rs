@@ -64,7 +64,7 @@ impl<'i> MSuback<'i> {
                 SubackReasonCode::parse,
                 winnow::combinator::eof,
             )
-            .recognize()
+            .take()
             .parse_next(input)?;
 
             // SAFETY: We verified above that the payload slice only contains valid SubackReasonCode

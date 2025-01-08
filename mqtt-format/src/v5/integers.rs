@@ -90,7 +90,7 @@ where
                 .verify(|b: &u8| b & 0b1000_0000 == 0)
                 .context(winnow::error::StrContext::Label("last byte")),
         );
-        let bytes = var_bytes.recognize().parse_next(input)?;
+        let bytes = var_bytes.take().parse_next(input)?;
 
         let mut output: u32 = 0;
 
