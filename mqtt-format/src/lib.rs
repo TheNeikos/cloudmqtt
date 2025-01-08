@@ -4,7 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 #![cfg_attr(all(not(feature = "std"), not(test)), no_std)]
-#![deny(clippy::disallowed_methods)]
+#![cfg_attr(not(test), deny(clippy::disallowed_methods))]
+#![cfg_attr(test, allow(clippy::disallowed_methods))]
 #![deny(clippy::disallowed_types)]
 
 #[cfg(feature = "mqttv3")]
