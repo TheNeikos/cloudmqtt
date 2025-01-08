@@ -12,7 +12,7 @@ categories = ["embedded", "parsing"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-default = ["mqttv5", "mqttv3"]
+default = ["mqttv5", "mqttv3", "std"]
 std = ["num_enum/std"]
 yoke = ["dep:yoke"]
 mqttv3 = ["std", "dep:futures", "dep:nom", "dep:nom-supreme", "dep:thiserror"]
