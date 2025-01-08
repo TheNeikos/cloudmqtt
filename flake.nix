@@ -1,7 +1,7 @@
 {
   description = "The CloudMQTT Rust library";
   inputs = {
-    nixpkgs.url = "nixpkgs/nixos-23.11";
+    nixpkgs.url = "nixpkgs/nixos-24.11";
     flake-utils = {
       url = "github:numtide/flake-utils";
     };
