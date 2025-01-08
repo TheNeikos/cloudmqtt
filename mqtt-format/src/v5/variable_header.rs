@@ -360,7 +360,7 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
             let slice = *input;
 
             // We only need to verify there is a correct string pair
-            let _prop = UserProperty::parse.recognize().parse_next(input)?;
+            let _prop = UserProperty::parse.take().parse_next(input)?;
 
             Ok(Self(slice))
         })

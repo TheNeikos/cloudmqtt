@@ -59,7 +59,7 @@ impl<'i> MUnsuback<'i> {
                 UnsubackReasonCode::parse,
                 winnow::combinator::eof,
             )
-            .recognize()
+            .take()
             .parse_next(input)?;
 
             // SAFETY: We verified above that the payload slice only contains valid UnsubackReasonCode

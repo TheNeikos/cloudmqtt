@@ -143,7 +143,7 @@ impl<'i> Subscriptions<'i> {
                 Subscription::parse,
                 winnow::combinator::eof,
             )
-            .recognize()
+            .take()
             .parse_next(input)?;
 
             Ok(Subscriptions { start })

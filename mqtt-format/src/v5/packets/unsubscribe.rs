@@ -55,7 +55,7 @@ impl<'i> Unsubscriptions<'i> {
                 Unsubscription::parse,
                 winnow::combinator::eof,
             )
-            .recognize()
+            .take()
             .parse_next(input)?;
 
             Ok(Unsubscriptions { start })
