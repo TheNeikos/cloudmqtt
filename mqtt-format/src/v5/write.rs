@@ -11,6 +11,7 @@ pub enum MqttWriteError {
     Invariant,
 }
 
+#[cfg_attr(test, allow(clippy::len_without_is_empty))]
 pub trait WriteMqttPacket: Send {
     type Error: From<MqttWriteError>;
 
