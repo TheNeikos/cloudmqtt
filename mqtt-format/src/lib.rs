@@ -13,3 +13,6 @@ pub mod v3;
 
 #[cfg(feature = "mqttv5")]
 pub mod v5;
+
+#[cfg(feature = "std")]
+pub mod topic;
