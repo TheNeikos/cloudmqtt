@@ -5,6 +5,7 @@
 //
 
 mod codec;
+mod topic;
 
 use std::time::Instant;
 
