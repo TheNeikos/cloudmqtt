@@ -26,7 +26,7 @@ num_enum = { version = "0.7.3", default-features = false }
 paste = "1.0.14"
 winnow = { version = "0.6.5", optional = true, default-features = false }
 thiserror = { version = "2.0.11", optional = true }
-yoke = { version = "0.7.5", features = [
+yoke = { version = "0.8.0", features = [
     "derive",
 ], optional = true, default-features = false }
 
