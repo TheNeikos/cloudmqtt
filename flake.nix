@@ -2,17 +2,11 @@
   description = "The CloudMQTT Rust library";
   inputs = {
     nixpkgs.url = "nixpkgs/nixos-24.11";
-    flake-utils = {
-      url = "github:numtide/flake-utils";
-    };
-    crane = {
-      url = "github:ipetkov/crane";
-    };
+    flake-utils.url = "github:numtide/flake-utils";
+    crane.url = "github:ipetkov/crane";
     rust-overlay = {
       url = "github:oxalica/rust-overlay";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-      };
+      inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
