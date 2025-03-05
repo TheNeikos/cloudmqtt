@@ -26,8 +26,7 @@ pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
     winnow::combinator::trace("mqtt_string", |input: &mut &'i Bytes| {
         let maybe_str = length_take(parse_u16).parse_next(input)?;
 
-        core::str::from_utf8(maybe_str)
-            .map_err(|e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e))
+        core::str::from_utf8(maybe_str).map_err(|e| ErrMode::from_external_error(input, e))
     })
     .parse_next(input)
 }

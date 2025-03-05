@@ -22,9 +22,8 @@ pub enum QualityOfService {
 
 pub fn parse_qos(input: &mut &Bytes) -> MResult<QualityOfService> {
     winnow::binary::u8(input).and_then(|byte| {
-        QualityOfService::try_from(byte).map_err(|e| {
-            winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
-        })
+        QualityOfService::try_from(byte)
+            .map_err(|e| winnow::error::ErrMode::from_external_error(input, e))
     })
 }
 
@@ -43,9 +42,8 @@ pub enum MaximumQualityOfService {
 
 pub fn parse_maximum_quality_of_service(input: &mut &Bytes) -> MResult<MaximumQualityOfService> {
     winnow::binary::u8(input).and_then(|byte| {
-        MaximumQualityOfService::try_from(byte).map_err(|e| {
-            winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
-        })
+        MaximumQualityOfService::try_from(byte)
+            .map_err(|e| winnow::error::ErrMode::from_external_error(input, e))
     })
 }
 

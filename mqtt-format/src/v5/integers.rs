@@ -41,9 +41,8 @@ pub fn parse_u16_nonzero(input: &mut &Bytes) -> MResult<core::num::NonZeroU16> {
     )
     .parse_next(input)?;
 
-    core::num::NonZeroU16::try_from(u).map_err(|e| {
-        winnow::error::ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e)
-    })
+    core::num::NonZeroU16::try_from(u)
+        .map_err(|e| winnow::error::ErrMode::from_external_error(input, e))
 }
 
 #[inline]

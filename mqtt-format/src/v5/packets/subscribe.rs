@@ -55,7 +55,7 @@ impl SubscriptionOptions {
     fn parse(input: &mut &Bytes) -> MResult<SubscriptionOptions> {
         winnow::combinator::trace("SubscriptionOptions", |input: &mut &Bytes| {
             let (_reserved, retain_handling, retain_as_published, no_local, quality_of_service) =
-                bits::<_, _, InputError<(_, usize)>, _, _>((
+                bits::<_, _, ErrMode<InputError<(_, usize)>>, _, _>((
                     winnow::binary::bits::pattern(0x0, 2usize),
                     winnow::binary::bits::take(2usize)
                         .try_map(<RetainHandling as TryFrom<u8>>::try_from),
@@ -65,9 +65,7 @@ impl SubscriptionOptions {
                         .try_map(<QualityOfService as TryFrom<u8>>::try_from),
                 ))
                 .parse_next(input)
-                .map_err(|_: ErrMode<InputError<_>>| {
-                    ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-                })?;
+                .map_err(|_: ErrMode<InputError<_>>| ErrMode::from_input(input))?;
 
             Ok(SubscriptionOptions {
                 quality_of_service,

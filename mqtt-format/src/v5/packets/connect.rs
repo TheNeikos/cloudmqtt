@@ -102,7 +102,7 @@ impl<'i> MConnect<'i> {
                 will_flag,
                 clean_start,
                 _reserved,
-            ) = winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
+            ) = winnow::binary::bits::bits::<_, _, ErrMode<InputError<(_, usize)>>, _, _>((
                 winnow::binary::bits::bool,
                 winnow::binary::bits::bool,
                 winnow::binary::bits::bool,
@@ -113,9 +113,7 @@ impl<'i> MConnect<'i> {
                 winnow::binary::bits::pattern(0x0, 1usize),
             ))
             .parse_next(input)
-            .map_err(|_: ErrMode<InputError<_>>| {
-                ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-            })?;
+            .map_err(|_: ErrMode<InputError<_>>| ErrMode::from_input(input))?;
 
             let keep_alive = parse_u16(input)?;
 
@@ -277,10 +275,7 @@ impl ProtocolLevel {
         match winnow::binary::u8(input)? {
             3 => Ok(Self::V3),
             5 => Ok(Self::V5),
-            _ => Err(ErrMode::from_error_kind(
-                input,
-                winnow::error::ErrorKind::Verify,
-            )),
+            _ => Err(ErrMode::from_input(input)),
         }
     }
 

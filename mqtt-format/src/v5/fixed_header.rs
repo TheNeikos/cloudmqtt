@@ -47,29 +47,22 @@ pub struct MFixedHeader {
 
 impl MFixedHeader {
     pub fn parse(input: &mut &Bytes) -> MResult<MFixedHeader> {
-        let (packet_type, packet_flags): (u8, u8) = bits::<_, _, InputError<(_, usize)>, _, _>((
-            winnow::binary::bits::take(4usize),
-            winnow::binary::bits::take(4usize),
-        ))
-        .parse_next(input)
-        .map_err(|_: ErrMode<InputError<_>>| {
-            ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-        })?;
+        let (packet_type, packet_flags): (u8, u8) =
+            bits::<_, _, ErrMode<InputError<(_, usize)>>, _, _>((
+                winnow::binary::bits::take(4usize),
+                winnow::binary::bits::take(4usize),
+            ))
+            .parse_next(input)
+            .map_err(|_: ErrMode<InputError<_>>| ErrMode::from_input(input))?;
 
         let packet_type = match (packet_type, packet_flags) {
-            (0, _) => {
-                return Err(ErrMode::from_error_kind(
-                    input,
-                    winnow::error::ErrorKind::Verify,
-                ))
-            }
+            (0, _) => return Err(ErrMode::from_input(input)),
             (1, 0) => PacketType::Connect,
             (2, 0) => PacketType::Connack,
             (3, flags) => PacketType::Publish {
                 dup: (0b1000 & flags) != 0,
-                qos: crate::v5::qos::QualityOfService::try_from((flags & 0b0110) >> 1).map_err(
-                    |e| ErrMode::from_external_error(input, winnow::error::ErrorKind::Verify, e),
-                )?,
+                qos: crate::v5::qos::QualityOfService::try_from((flags & 0b0110) >> 1)
+                    .map_err(|e| ErrMode::from_external_error(input, e))?,
                 retain: (0b0001 & flags) != 0,
             },
             (4, 0) => PacketType::Puback,
@@ -84,12 +77,7 @@ impl MFixedHeader {
             (13, 0) => PacketType::Pingresp,
             (14, 0) => PacketType::Disconnect,
             (15, 0) => PacketType::Auth,
-            _ => {
-                return Err(ErrMode::from_error_kind(
-                    input,
-                    winnow::error::ErrorKind::Verify,
-                ))
-            }
+            _ => return Err(ErrMode::from_input(input)),
         };
 
         Ok(MFixedHeader { packet_type })

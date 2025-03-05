@@ -29,10 +29,7 @@ impl<T> MqttPropertySlot<T> {
             if self.allow_repeat {
                 return Ok(());
             } else {
-                return Err(ErrMode::from_error_kind(
-                    input,
-                    winnow::error::ErrorKind::Verify,
-                ));
+                return Err(ErrMode::from_input(input));
             }
         } else {
             self.slot = Some(new_slot);
@@ -112,9 +109,8 @@ macro_rules! define_properties {
                         )*
 
                         input.reset(&checkpoint);
-                        return Err(ErrMode::from_error_kind(
+                        return Err(ErrMode::from_input(
                             input,
-                            winnow::error::ErrorKind::Verify,
                         ));
                     }
 
