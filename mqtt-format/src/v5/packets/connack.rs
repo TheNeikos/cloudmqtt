@@ -128,14 +128,12 @@ impl<'i> MConnack<'i> {
     pub fn parse(input: &mut &'i Bytes) -> MResult<MConnack<'i>> {
         winnow::combinator::trace("MConnack", |input: &mut &'i Bytes| {
             let (session_present, _) =
-                winnow::binary::bits::bits::<_, _, InputError<(_, usize)>, _, _>((
+                winnow::binary::bits::bits::<_, _, ErrMode<InputError<(_, usize)>>, _, _>((
                     winnow::binary::bits::take(1usize).map(|b: u8| b == 1),
                     winnow::binary::bits::pattern(0b000_0000, 7usize),
                 ))
                 .parse_next(input)
-                .map_err(|_: ErrMode<InputError<_>>| {
-                    ErrMode::from_error_kind(input, winnow::error::ErrorKind::Slice)
-                })?;
+                .map_err(|_: ErrMode<InputError<_>>| ErrMode::from_input(input))?;
 
             let reason_code = ConnackReasonCode::parse(input)?;
             let properties = ConnackProperties::parse(input)?;

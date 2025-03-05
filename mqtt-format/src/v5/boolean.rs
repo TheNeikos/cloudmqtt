@@ -15,9 +15,7 @@ pub fn parse_bool(input: &mut &Bytes) -> MResult<bool> {
     winnow::binary::u8(input).and_then(|byte| match byte {
         0 => Ok(false),
         1 => Ok(true),
-        _ => Err({
-            winnow::error::ErrMode::from_error_kind(input, winnow::error::ErrorKind::Verify)
-        }),
+        _ => Err(winnow::error::ErrMode::from_input(input)),
     })
 }
 

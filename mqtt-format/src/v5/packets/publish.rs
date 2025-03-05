@@ -78,10 +78,7 @@ impl<'i> MPublish<'i> {
         winnow::combinator::trace("MPublish", |input: &mut &'i Bytes| {
             let topic_name = crate::v5::strings::parse_string(input)?;
             if !sanity_check_topic_name(topic_name) {
-                return Err(ErrMode::from_error_kind(
-                    input,
-                    winnow::error::ErrorKind::Verify,
-                ));
+                return Err(ErrMode::from_input(input));
             }
 
             let packet_identifier = if quality_of_service != QualityOfService::AtMostOnce {

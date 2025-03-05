@@ -51,4 +51,4 @@ pub mod write;
 #[cfg(test)]
 pub mod test;
 
-pub type MResult<O> = winnow::PResult<O>;
+pub type MResult<O> = winnow::ModalResult<O>;
