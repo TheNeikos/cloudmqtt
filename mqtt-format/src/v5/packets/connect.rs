@@ -228,7 +228,7 @@ pub struct Will<'i> {
     pub will_retain: bool,
 }
 
-impl<'i> Will<'i> {
+impl Will<'_> {
     pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
         self.properties.write(buffer)?;
         crate::v5::strings::write_string(buffer, self.topic)?;

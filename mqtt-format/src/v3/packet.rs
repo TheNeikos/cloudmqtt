@@ -211,7 +211,7 @@ impl_conversion_packet!(Pingreq => MPingreq);
 impl_conversion_packet!(Pingresp => MPingresp);
 impl_conversion_packet!(Disconnect => MDisconnect);
 
-impl<'message> MPacket<'message> {
+impl MPacket<'_> {
     pub async fn write_to<W: futures::AsyncWrite>(
         &self,
         mut writer: Pin<&mut W>,
@@ -494,13 +494,13 @@ impl<'message> MPacket<'message> {
 }
 
 fn bools_to_u8(bools: [bool; 8]) -> u8 {
-    (bools[0] as u8) << 7
-        | (bools[1] as u8) << 6
-        | (bools[2] as u8) << 5
-        | (bools[3] as u8) << 4
-        | (bools[4] as u8) << 3
-        | (bools[5] as u8) << 2
-        | (bools[6] as u8) << 1
+    ((bools[0] as u8) << 7)
+        | ((bools[1] as u8) << 6)
+        | ((bools[2] as u8) << 5)
+        | ((bools[3] as u8) << 4)
+        | ((bools[4] as u8) << 3)
+        | ((bools[5] as u8) << 2)
+        | ((bools[6] as u8) << 1)
         | (bools[7] as u8)
 }
 

@@ -17,7 +17,7 @@ use super::MSResult;
 pub struct MSubscriptionAcks<'message> {
     pub acks: &'message [MSubscriptionAck],
 }
-impl<'message> MSubscriptionAcks<'message> {
+impl MSubscriptionAcks<'_> {
     pub(crate) async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,

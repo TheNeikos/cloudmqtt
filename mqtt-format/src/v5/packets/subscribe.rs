@@ -121,13 +121,13 @@ pub struct Subscriptions<'i> {
     start: &'i [u8],
 }
 
-impl<'i> core::cmp::PartialEq for Subscriptions<'i> {
+impl core::cmp::PartialEq for Subscriptions<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
     }
 }
 
-impl<'i> core::fmt::Debug for Subscriptions<'i> {
+impl core::fmt::Debug for Subscriptions<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Subscriptions").finish()
     }

@@ -312,7 +312,7 @@ pub enum MqttPacketKind {
     Unsubscribe,
 }
 
-impl<'i> MqttPacket<'i> {
+impl MqttPacket<'_> {
     pub fn get_kind(&self) -> MqttPacketKind {
         match self {
             MqttPacket::Auth(_) => MqttPacketKind::Auth,

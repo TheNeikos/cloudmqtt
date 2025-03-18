@@ -20,7 +20,7 @@ pub struct MString<'message> {
     pub value: &'message str,
 }
 
-impl<'message> std::ops::Deref for MString<'message> {
+impl std::ops::Deref for MString<'_> {
     type Target = str;
 
     fn deref(&self) -> &Self::Target {
@@ -28,7 +28,7 @@ impl<'message> std::ops::Deref for MString<'message> {
     }
 }
 
-impl<'message> MString<'message> {
+impl MString<'_> {
     pub fn get_len(mstr: &MString<'_>) -> usize {
         2 + mstr.value.len()
     }

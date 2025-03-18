@@ -336,13 +336,13 @@ define_properties! {[
 #[derive(Clone)]
 pub struct UserProperties<'i>(pub &'i [u8]);
 
-impl<'i> core::cmp::PartialEq for UserProperties<'i> {
+impl core::cmp::PartialEq for UserProperties<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
     }
 }
 
-impl<'i> core::fmt::Debug for UserProperties<'i> {
+impl core::fmt::Debug for UserProperties<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("UserProperties").finish()
     }
