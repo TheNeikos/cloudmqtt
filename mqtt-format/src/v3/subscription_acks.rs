@@ -4,8 +4,11 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use bytemuck::CheckedBitPattern;
+use bytemuck::NoUninit;
 use futures::AsyncWrite;
 use futures::AsyncWriteExt;
+use nom::combinator::recognize;
 use nom::error::FromExternalError;
 use nom::multi::many1_count;
 
@@ -17,18 +20,12 @@ use super::MSResult;
 pub struct MSubscriptionAcks<'message> {
     pub acks: &'message [MSubscriptionAck],
 }
-impl<'message> MSubscriptionAcks<'message> {
+impl MSubscriptionAcks<'_> {
     pub(crate) async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,
     ) -> Result<(), MPacketWriteError> {
-        writer
-            .write_all(unsafe {
-                // SAFETY: We know that MSubscriptionAck is repr u8, so we can safely transmute one
-                // slice into the other
-                std::mem::transmute(self.acks)
-            })
-            .await?;
+        writer.write_all(bytemuck::cast_slice(self.acks)).await?;
         Ok(())
     }
     pub(crate) fn get_len(&self) -> usize {
@@ -37,7 +34,7 @@ impl<'message> MSubscriptionAcks<'message> {
 }
 
 #[repr(u8)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, CheckedBitPattern, NoUninit)]
 pub enum MSubscriptionAck {
     MaximumQualityAtMostOnce = 0x00,
     MaximumQualityAtLeastOnce = 0x01,
@@ -69,17 +66,9 @@ fn msubscriptionack(input: &[u8]) -> MSResult<'_, MSubscriptionAck> {
 pub fn msubscriptionacks<'message>(
     input: &'message [u8],
 ) -> MSResult<'message, MSubscriptionAcks<'message>> {
-    let acks = input;
-    let (input, acks_len) = many1_count(msubscriptionack)(input)?;
+    let (input, acks) = recognize(many1_count(msubscriptionack))(input)?;
 
-    assert!(acks_len <= acks.len());
-
-    let ack_ptr: *const MSubscriptionAck = acks.as_ptr() as *const MSubscriptionAck;
-    let acks: &'message [MSubscriptionAck] = unsafe {
-        // SAFETY: The array has been checked and is of the correct len, as well as
-        // MSubscriptionAck is the same repr and has no padding
-        std::slice::from_raw_parts(ack_ptr, acks_len)
-    };
+    let acks: &'message [MSubscriptionAck] = bytemuck::checked::cast_slice(acks);
 
     Ok((input, MSubscriptionAcks { acks }))
 }

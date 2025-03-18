@@ -136,7 +136,7 @@ pub(crate) trait FormatProperty {
     fn get(inner: &Self::Inner) -> Self::Outer<'_>;
 }
 
-impl<'i> FormatProperty for mqtt_format::v5::variable_header::UserProperties<'i> {
+impl FormatProperty for mqtt_format::v5::variable_header::UserProperties<'_> {
     type Inner = Vec<u8>;
     type Setter = UserProperty;
     type Outer<'a> = &'a [u8];

@@ -15,7 +15,7 @@ pub struct MLastWill<'message> {
     pub retain: bool,
 }
 
-impl<'message> MLastWill<'message> {
+impl MLastWill<'_> {
     pub fn get_len(&self) -> usize {
         MString::get_len(&self.topic) + (2 + self.payload.len())
     }

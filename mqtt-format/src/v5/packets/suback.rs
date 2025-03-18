@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use winnow::error::ParserError;
 use winnow::Bytes;
 use winnow::Parser;
 
@@ -67,9 +68,10 @@ impl<'i> MSuback<'i> {
             .take()
             .parse_next(input)?;
 
-            // SAFETY: We verified above that the payload slice only contains valid SubackReasonCode
-            // bytes
-            let reasons: &[SubackReasonCode] = unsafe { core::mem::transmute(payload) };
+            let reasons: &[SubackReasonCode] =
+                bytemuck::checked::try_cast_slice(payload).map_err(|_e| {
+                    winnow::error::ErrMode::Cut(winnow::error::ContextError::from_input(input))
+                })?;
 
             Ok(Self {
                 packet_identifier,
@@ -90,9 +92,7 @@ impl<'i> MSuback<'i> {
         self.packet_identifier.write(buffer)?;
         self.properties.write(buffer)?;
 
-        // SAFETY: We know SubackReasonCode is a valid u8
-        let reasons: &[u8] =
-            unsafe { core::mem::transmute::<&[SubackReasonCode], &[u8]>(self.reasons) };
+        let reasons: &[u8] = bytemuck::cast_slice(self.reasons);
 
         buffer.write_slice(reasons)
     }

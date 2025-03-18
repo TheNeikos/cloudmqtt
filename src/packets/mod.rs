@@ -86,7 +86,7 @@ impl From<mqtt_format::v5::write::MqttWriteError> for MqttWriterError {
 
 pub struct VecWriter<'a>(pub &'a mut Vec<u8>);
 
-impl<'a> WriteMqttPacket for VecWriter<'a> {
+impl WriteMqttPacket for VecWriter<'_> {
     type Error = MqttWriteError;
 
     fn write_byte(&mut self, u: u8) -> mqtt_format::v5::write::WResult<Self> {
@@ -103,7 +103,7 @@ impl<'a> WriteMqttPacket for VecWriter<'a> {
 
 pub struct MqttWriter<'a>(pub &'a mut BytesMut);
 
-impl<'a> WriteMqttPacket for MqttWriter<'a> {
+impl WriteMqttPacket for MqttWriter<'_> {
     type Error = MqttWriterError;
 
     fn write_byte(&mut self, u: u8) -> mqtt_format::v5::write::WResult<Self> {

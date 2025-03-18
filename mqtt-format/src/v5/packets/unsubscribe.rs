@@ -35,13 +35,13 @@ pub struct Unsubscriptions<'i> {
     start: &'i [u8],
 }
 
-impl<'i> core::cmp::PartialEq for Unsubscriptions<'i> {
+impl core::cmp::PartialEq for Unsubscriptions<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.iter().eq(other.iter())
     }
 }
 
-impl<'i> core::fmt::Debug for Unsubscriptions<'i> {
+impl core::fmt::Debug for Unsubscriptions<'_> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("Unsubscriptions").finish()
     }

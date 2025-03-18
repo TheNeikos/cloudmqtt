@@ -23,7 +23,7 @@ pub struct MSubscriptionRequests<'message> {
     pub data: &'message [u8],
 }
 
-impl<'message> MSubscriptionRequests<'message> {
+impl MSubscriptionRequests<'_> {
     pub(crate) async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,
@@ -89,7 +89,7 @@ pub struct MSubscriptionRequest<'message> {
     pub qos: MQualityOfService,
 }
 
-impl<'message> MSubscriptionRequest<'message> {
+impl MSubscriptionRequest<'_> {
     pub async fn write_to<W: AsyncWrite>(
         &self,
         writer: &mut std::pin::Pin<&mut W>,
