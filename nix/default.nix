@@ -25,6 +25,7 @@ let
         ../Cargo.toml
         (craneLib.fileset.commonCargoSources ../crates/hakari)
         (craneLib.fileset.commonCargoSources ../crates/mqtt-format)
+        (craneLib.fileset.commonCargoSources ../crates/cloudmqtt-core)
         (craneLib.fileset.commonCargoSources crate)
       ];
     };

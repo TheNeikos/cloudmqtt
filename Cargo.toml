@@ -1,6 +1,6 @@
 [workspace]
 members = ["crates/*","crates/hakari"]
-resolver = "3"
+resolver = "2"
 
 [workspace.package]
 version = "0.5.0" # This version is purely for the main cloudmqtt library, and should not be used by any others

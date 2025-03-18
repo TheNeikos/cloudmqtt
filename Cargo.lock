@@ -90,6 +90,7 @@ dependencies = [
 name = "cloudmqtt-core"
 version = "0.5.0"
 dependencies = [
+ "hakari",
  "mqtt-format",
  "rustc-hash",
  "tracing",

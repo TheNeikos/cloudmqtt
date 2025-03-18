@@ -10,3 +10,4 @@ license.workspace = true
 mqtt-format = { workspace = true, features = ["mqttv5"] }
 rustc-hash.workspace = true
 tracing.workspace = true
+hakari = { version = "0.1", path = "../hakari" }
