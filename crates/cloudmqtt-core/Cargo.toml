@@ -7,3 +7,6 @@ repository.workspace = true
 license.workspace = true
 
 [dependencies]
+mqtt-format = { workspace = true, features = ["mqttv5"] }
+rustc-hash.workspace = true
+tracing.workspace = true

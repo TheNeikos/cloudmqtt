@@ -27,8 +27,8 @@ nom-supreme = { workspace = true, optional = true }
 num_enum = { workspace = true }
 paste.workspace = true
 thiserror = { workspace = true, optional = true }
-winnow = { workspace = true, optional = true, default-features = false }
-yoke = { workspace = true, features = ["derive"], optional = true, default-features = false }
+winnow = { workspace = true, optional = true }
+yoke = { workspace = true, features = ["derive"], optional = true }
 hakari.workspace = true
 
 [dev-dependencies]
