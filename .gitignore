@@ -1,2 +1,8 @@
+# envrc
+.direnv
+
+# Cargo
 /target
+
+# Nix
 /result*
