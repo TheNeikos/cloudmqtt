@@ -15,20 +15,12 @@ publish = false
 
 ### BEGIN HAKARI SECTION
 [dependencies]
-futures-core = { version = "0.3" }
-futures-io = { version = "0.3" }
-futures-sink = { version = "0.3" }
 num_enum = { version = "0.7", default-features = false, features = ["std"] }
-stable_deref_trait = { version = "1" }
-tokio = { version = "1", features = ["full", "test-util"] }
-tracing-core = { version = "0.1" }
 winnow = { version = "0.7" }
-yoke = { version = "0.8", features = ["derive"] }
-zerofrom = { version = "0.1", default-features = false, features = ["alloc", "derive"] }
 
 [build-dependencies]
 num_enum_derive = { version = "0.7", default-features = false, features = ["std"] }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn = { version = "2", features = ["extra-traits", "fold", "full", "visit"] }
 winnow = { version = "0.7" }
 
 ### END HAKARI SECTION

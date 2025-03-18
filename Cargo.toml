@@ -2,9 +2,26 @@
 members = ["crates/*","crates/hakari"]
 resolver = "3"
 
+[workspace.package]
+version = "0.5.0" # This version is purely for the main cloudmqtt library, and should not be used by any others
+authors = ["Marcel Müller <neikos@neikos.email>"]
+repository = "https://github.com/TheNeikos/cloudmqtt"
+license = "MPL-2.0"
+
 [workspace.dependencies]
+bytemuck = { version = "1.22.0", features = ["derive"] }
 futures = "0.3.31"
+nom = { version = "7.1.3" }
+nom-supreme = { version = "0.8.0" }
+num_enum = { version = "0.7.3", default-features = false }
 paste = "1.0.14"
+pretty_assertions = "1.4.1"
 thiserror = "2.0.11"
+tokio = { version = "1.43.0" }
 winnow = { version = "0.7", default-features = false }
 yoke = { version = "0.8.0", default-features = false }
+hakari = { version = "0.1.0", path = "crates/hakari" }
+
+
+[workspace.metadata.crane]
+name = "cloudmqtt"
