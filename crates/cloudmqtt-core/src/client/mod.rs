@@ -116,14 +116,17 @@ impl<'p> MqttClientFSM<'p> {
                         None
                     };
 
+                    self.current_state = ClientState::Connected;
                     potential_client_id.map(ExpectedAction::SaveClientIdentifier)
                 }
                 None => match &self.current_state {
                     ClientState::Disconnected => None,
                     ClientState::ConnectingWithoutAuth => None,
+                    ClientState::Connected => None,
                 },
                 p => panic!("Unexpected packet received: {p:?}"),
             },
+            ClientState::Connected => None,
         }
     }
 }
@@ -143,4 +146,5 @@ pub struct ClientData {
 enum ClientState {
     Disconnected,
     ConnectingWithoutAuth,
+    Connected,
 }
