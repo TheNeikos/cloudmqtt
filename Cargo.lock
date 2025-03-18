@@ -87,6 +87,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "cloudmqtt-core"
+version = "0.5.0"
+
+[[package]]
 name = "diff"
 version = "0.1.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
