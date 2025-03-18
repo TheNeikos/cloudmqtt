@@ -77,56 +77,60 @@ impl<'p> MqttClientFSM<'p> {
             ClientState::Disconnected => {
                 panic!("Should prepare connecting before consuming messages")
             }
-            ClientState::ConnectingWithoutAuth => match self.to_consume_packet.take() {
-                Some(MqttPacket::Connack(connack)) => {
-                    if connack.reason_code != ConnackReasonCode::Success {
-                        panic!("Connection unsuccessful");
-                    }
-
-                    // TODO: Handle session_present flag
-
-                    let _server_receive_maximum = connack
-                        .properties
-                        .receive_maximum()
-                        .map(|rm| rm.0.get())
-                        .unwrap_or(65_535);
-
-                    // TODO: Handle _server_receive_maximum above
-
-                    // TODO: Handle maximum QoS
-
-                    // TODO: Handle retain available
-
-                    // TODO: Handle max packet size
-
-                    // TODO: Handle max packet size
-
-                    if let Some(keep_alive) = connack.properties.server_keep_alive() {
-                        self.data.keep_alive = keep_alive.0;
-                    }
-
-                    let potential_client_id = if let Some(client_identifier) =
-                        connack.properties.assigned_client_identifier()
-                    {
-                        let mut hasher = FxHasher::default();
-                        client_identifier.0.hash(&mut hasher);
-                        self.data.client_id_hash = Some(hasher.finish());
-                        Some(client_identifier.0)
-                    } else {
-                        None
-                    };
-
-                    self.current_state = ClientState::Connected;
-                    potential_client_id.map(ExpectedAction::SaveClientIdentifier)
-                }
-                None => match &self.current_state {
-                    ClientState::Disconnected => None,
-                    ClientState::ConnectingWithoutAuth => None,
-                    ClientState::Connected => None,
-                },
-                p => panic!("Unexpected packet received: {p:?}"),
-            },
+            ClientState::ConnectingWithoutAuth => self.handle_connecting_without_auth(),
             ClientState::Connected => None,
+        }
+    }
+
+    fn handle_connecting_without_auth(&mut self) -> Option<ExpectedAction<'p>> {
+        match self.to_consume_packet.take() {
+            Some(MqttPacket::Connack(connack)) => {
+                if connack.reason_code != ConnackReasonCode::Success {
+                    panic!("Connection unsuccessful");
+                }
+
+                // TODO: Handle session_present flag
+
+                let _server_receive_maximum = connack
+                    .properties
+                    .receive_maximum()
+                    .map(|rm| rm.0.get())
+                    .unwrap_or(65_535);
+
+                // TODO: Handle _server_receive_maximum above
+
+                // TODO: Handle maximum QoS
+
+                // TODO: Handle retain available
+
+                // TODO: Handle max packet size
+
+                // TODO: Handle max packet size
+
+                if let Some(keep_alive) = connack.properties.server_keep_alive() {
+                    self.data.keep_alive = keep_alive.0;
+                }
+
+                let potential_client_id = if let Some(client_identifier) =
+                    connack.properties.assigned_client_identifier()
+                {
+                    let mut hasher = FxHasher::default();
+                    client_identifier.0.hash(&mut hasher);
+                    self.data.client_id_hash = Some(hasher.finish());
+                    Some(client_identifier.0)
+                } else {
+                    None
+                };
+
+                self.current_state = ClientState::Connected;
+                potential_client_id.map(ExpectedAction::SaveClientIdentifier)
+            }
+            None => match &self.current_state {
+                ClientState::Disconnected => None,
+                ClientState::ConnectingWithoutAuth => None,
+                ClientState::Connected => None,
+            },
+            p => panic!("Unexpected packet received: {p:?}"),
         }
     }
 }
