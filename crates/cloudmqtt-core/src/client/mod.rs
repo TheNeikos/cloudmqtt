@@ -78,7 +78,17 @@ impl<'p> MqttClientFSM<'p> {
                 panic!("Should prepare connecting before consuming messages")
             }
             ClientState::ConnectingWithoutAuth => self.handle_connecting_without_auth(),
-            ClientState::Connected => None,
+            ClientState::Connected => self.handle_connected(),
+        }
+    }
+
+    fn handle_connected(&mut self) -> Option<ExpectedAction<'p>> {
+        let incoming_packet = self.to_consume_packet.take()?;
+
+        match incoming_packet {
+            MqttPacket::Publish(_) => todo!(),
+            MqttPacket::Disconnect(_) => todo!(),
+            _ => panic!("Invalid packet received"),
         }
     }
 
@@ -151,4 +161,38 @@ enum ClientState {
     Disconnected,
     ConnectingWithoutAuth,
     Connected,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::MqttClientFSM;
+    use crate::client::ClientState;
+
+    #[test]
+    fn check_simple_connect() {
+        let mut fsm = MqttClientFSM::new();
+
+        fsm.handle_connect(mqtt_format::v5::packets::connect::MConnect {
+            client_identifier: "testing",
+            username: None,
+            password: None,
+            clean_start: false,
+            will: None,
+            properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+            keep_alive: 0,
+        });
+
+        fsm.consume(mqtt_format::v5::packets::MqttPacket::Connack(
+            mqtt_format::v5::packets::connack::MConnack {
+                session_present: false,
+                reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+            },
+        ));
+
+        let action = fsm.run();
+        assert!(action.is_none());
+
+        assert!(matches!(fsm.current_state, ClientState::Connected));
+    }
 }
