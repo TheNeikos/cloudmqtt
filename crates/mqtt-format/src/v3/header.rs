@@ -4,19 +4,19 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use nom::IResult;
+use nom::Parser;
 use nom::bits;
 use nom::bytes::complete::take_while_m_n;
 use nom::error::Error;
 use nom::error::ErrorKind;
 use nom::error::FromExternalError;
 use nom::sequence::tuple;
-use nom::IResult;
-use nom::Parser;
 use nom_supreme::ParserExt;
 
 use super::errors::MPacketHeaderError;
-use super::qos::mquality_of_service;
 use super::qos::MQualityOfService;
+use super::qos::mquality_of_service;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MPacketHeader {
@@ -119,7 +119,7 @@ fn mpacketkind(input: &[u8]) -> IResult<&[u8], MPacketKind> {
                 input,
                 ErrorKind::MapRes,
                 MPacketHeaderError::InvalidPacketType(inv_type),
-            )))
+            )));
         }
     };
 

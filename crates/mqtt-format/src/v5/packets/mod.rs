@@ -5,10 +5,10 @@
 //
 //! Handling of MQTT Control Packets
 
-use winnow::error::ContextError;
-use winnow::error::ErrMode;
 use winnow::Bytes;
 use winnow::Parser;
+use winnow::error::ContextError;
+use winnow::error::ErrMode;
 
 use self::auth::MAuth;
 use self::connect::MConnect;
@@ -27,9 +27,9 @@ use self::unsubscribe::MUnsubscribe;
 use super::fixed_header::PacketType;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
+use crate::v5::MResult;
 use crate::v5::fixed_header::MFixedHeader;
 use crate::v5::packets::connack::MConnack;
-use crate::v5::MResult;
 
 pub mod auth;
 pub mod connack;

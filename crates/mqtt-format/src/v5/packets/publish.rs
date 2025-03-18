@@ -4,12 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use winnow::Bytes;
+use winnow::Parser;
 use winnow::error::ErrMode;
 use winnow::error::ParserError;
 use winnow::stream::Stream;
-use winnow::Bytes;
-use winnow::Parser;
 
+use crate::v5::MResult;
 use crate::v5::qos::QualityOfService;
 use crate::v5::strings::write_string;
 use crate::v5::variable_header::ContentType;
@@ -23,7 +24,6 @@ use crate::v5::variable_header::UserProperties;
 use crate::v5::write::MqttWriteError;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
-use crate::v5::MResult;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Clone, Debug, PartialEq)]

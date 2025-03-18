@@ -1,7 +1,7 @@
 [package]
 name = "cloudmqtt"
 version.workspace = true
-edition = "2021"
+edition = "2024"
 description = "A pure Rust MQTT client and server library"
 readme = "README.md"
 keywords = ["mqtt", "cloud"]

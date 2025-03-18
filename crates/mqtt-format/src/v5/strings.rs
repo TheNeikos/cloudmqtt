@@ -5,17 +5,17 @@
 //
 //! Various ways to parse MQTT Strings
 
+use winnow::Bytes;
+use winnow::Parser;
 use winnow::binary::length_take;
 use winnow::error::ErrMode;
 use winnow::error::FromExternalError;
-use winnow::Bytes;
-use winnow::Parser;
 
+use super::MResult;
 use super::integers::parse_u16;
 use super::write::MqttWriteError;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 
 /// Parse an UTF-8 String
 ///

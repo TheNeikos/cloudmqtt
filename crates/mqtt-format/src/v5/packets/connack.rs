@@ -4,12 +4,13 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use winnow::Bytes;
+use winnow::Parser;
 use winnow::error::ErrMode;
 use winnow::error::InputError;
 use winnow::error::ParserError;
-use winnow::Bytes;
-use winnow::Parser;
 
+use crate::v5::MResult;
 use crate::v5::properties::define_properties;
 use crate::v5::variable_header::AssignedClientIdentifier;
 use crate::v5::variable_header::AuthenticationData;
@@ -30,7 +31,6 @@ use crate::v5::variable_header::UserProperties;
 use crate::v5::variable_header::WildcardSubscriptionAvailable;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
-use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum ConnackReasonCode {

@@ -5,13 +5,13 @@
 //
 //! Ways to parse MQTT byte data
 
-use winnow::binary::length_take;
 use winnow::Bytes;
 use winnow::Parser;
+use winnow::binary::length_take;
 
+use super::MResult;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 
 pub fn parse_binary_data<'i>(input: &mut &'i Bytes) -> MResult<&'i [u8]> {
     winnow::combinator::trace("mqtt_binary_data", |input: &mut &'i Bytes| {

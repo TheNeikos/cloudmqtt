@@ -4,12 +4,12 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use nom::multi::many1_count;
 use nom::Parser;
+use nom::multi::many1_count;
 
-use super::strings::mstring;
-use super::strings::MString;
 use super::MSResult;
+use super::strings::MString;
+use super::strings::mstring;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MUnsubscriptionRequests<'message> {

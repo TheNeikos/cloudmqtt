@@ -4,14 +4,15 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use winnow::Bytes;
+use winnow::Parser;
 use winnow::binary::bits::bits;
 use winnow::combinator::repeat_till;
 use winnow::error::ErrMode;
 use winnow::error::InputError;
 use winnow::error::ParserError;
-use winnow::Bytes;
-use winnow::Parser;
 
+use crate::v5::MResult;
 use crate::v5::properties::define_properties;
 use crate::v5::qos::QualityOfService;
 use crate::v5::strings::parse_string;
@@ -21,7 +22,6 @@ use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::UserProperties;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
-use crate::v5::MResult;
 
 define_properties! {
     packet_type: MSubscribe,

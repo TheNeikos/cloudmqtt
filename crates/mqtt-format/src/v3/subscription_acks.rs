@@ -12,9 +12,9 @@ use nom::combinator::recognize;
 use nom::error::FromExternalError;
 use nom::multi::many1_count;
 
+use super::MSResult;
 use super::errors::MPacketHeaderError;
 use super::errors::MPacketWriteError;
-use super::MSResult;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MSubscriptionAcks<'message> {
@@ -57,7 +57,7 @@ fn msubscriptionack(input: &[u8]) -> MSResult<'_, MSubscriptionAck> {
                     input,
                     nom::error::ErrorKind::MapRes,
                     MPacketHeaderError::InvalidSubscriptionAck(invalid_ack),
-                )))
+                )));
             }
         },
     ))

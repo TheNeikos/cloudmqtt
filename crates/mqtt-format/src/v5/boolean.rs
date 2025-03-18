@@ -4,12 +4,12 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::error::ParserError;
 use winnow::Bytes;
+use winnow::error::ParserError;
 
+use super::MResult;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 
 pub fn parse_bool(input: &mut &Bytes) -> MResult<bool> {
     winnow::binary::u8(input).and_then(|byte| match byte {

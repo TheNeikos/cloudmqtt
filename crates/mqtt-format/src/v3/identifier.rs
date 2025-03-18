@@ -6,11 +6,11 @@
 
 use futures::AsyncWrite;
 use futures::AsyncWriteExt;
-use nom::number::complete::be_u16;
 use nom::Parser;
+use nom::number::complete::be_u16;
 
-use super::errors::MPacketWriteError;
 use super::MSResult;
+use super::errors::MPacketWriteError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct MPacketIdentifier(pub u16);

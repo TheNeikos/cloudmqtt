@@ -7,15 +7,15 @@
 //!
 //! All integers in MQTT are big-endian
 
+use winnow::Bytes;
+use winnow::Parser;
 use winnow::combinator::trace;
 use winnow::error::FromExternalError;
 use winnow::token::take_while;
-use winnow::Bytes;
-use winnow::Parser;
 
+use super::MResult;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 
 /// Parse a u16
 ///
@@ -158,9 +158,9 @@ mod tests {
     use core::num::NonZeroUsize;
 
     use pretty_assertions::assert_eq;
-    use winnow::error::ErrMode;
     use winnow::Bytes;
     use winnow::Partial;
+    use winnow::error::ErrMode;
 
     use crate::v5::integers::parse_u16;
     use crate::v5::integers::parse_u32;

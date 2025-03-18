@@ -6,8 +6,8 @@
 
 use nom::error::FromExternalError;
 
-use super::errors::MPacketHeaderError;
 use super::MSResult;
+use super::errors::MPacketHeaderError;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -37,7 +37,7 @@ pub fn mconnectreturn(input: &[u8]) -> MSResult<'_, MConnectReturnCode> {
                     input,
                     nom::error::ErrorKind::MapRes,
                     MPacketHeaderError::InvalidConnectReturnCode(invalid_code),
-                )))
+                )));
             }
         },
     ))

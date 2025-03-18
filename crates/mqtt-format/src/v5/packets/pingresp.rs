@@ -7,9 +7,9 @@
 use winnow::Bytes;
 use winnow::Parser;
 
+use crate::v5::MResult;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
-use crate::v5::MResult;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Clone, Debug, PartialEq)]

@@ -7,6 +7,7 @@
 use winnow::Bytes;
 use winnow::Parser;
 
+use crate::v5::MResult;
 use crate::v5::properties::define_properties;
 use crate::v5::variable_header::ReasonString;
 use crate::v5::variable_header::ServerReference;
@@ -14,7 +15,6 @@ use crate::v5::variable_header::SessionExpiryInterval;
 use crate::v5::variable_header::UserProperties;
 use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
-use crate::v5::MResult;
 
 crate::v5::reason_code::make_combined_reason_code! {
     pub enum DisconnectReasonCode {
@@ -125,8 +125,8 @@ impl<'i> MDisconnect<'i> {
 mod test {
     use super::DisconnectProperties;
     use super::MDisconnect;
-    use crate::v5::packets::disconnect::DisconnectReasonCode;
     use crate::v5::packets::MqttPacket;
+    use crate::v5::packets::disconnect::DisconnectReasonCode;
     use crate::v5::variable_header::ReasonString;
     use crate::v5::variable_header::ServerReference;
     use crate::v5::variable_header::SessionExpiryInterval;
@@ -195,6 +195,9 @@ mod test {
         });
         let mut writer = crate::v5::test::TestWriter { buffer: Vec::new() };
         reference.write(&mut writer).unwrap();
-        assert!(writer.buffer.len() > 2, "the extra rule for short NormalDisconnect should not influence more complex disconnects");
+        assert!(
+            writer.buffer.len() > 2,
+            "the extra rule for short NormalDisconnect should not influence more complex disconnects"
+        );
     }
 }

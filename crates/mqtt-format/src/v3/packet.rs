@@ -8,35 +8,35 @@
 use std::pin::Pin;
 
 use futures::AsyncWriteExt;
+use nom::IResult;
+use nom::Parser;
 use nom::bits;
 use nom::bytes::complete::take;
 use nom::error::FromExternalError;
 use nom::number::complete::be_u16;
 use nom::sequence::tuple;
-use nom::IResult;
-use nom::Parser;
 
-use super::connect_return::mconnectreturn;
+use super::MSResult;
 use super::connect_return::MConnectReturnCode;
+use super::connect_return::mconnectreturn;
 use super::errors::MPacketHeaderError;
 use super::errors::MPacketWriteError;
-use super::header::mfixedheader;
 use super::header::MPacketHeader;
 use super::header::MPacketKind;
-use super::identifier::mpacketidentifier;
+use super::header::mfixedheader;
 use super::identifier::MPacketIdentifier;
-use super::qos::mquality_of_service;
+use super::identifier::mpacketidentifier;
 use super::qos::MQualityOfService;
-use super::strings::mstring;
+use super::qos::mquality_of_service;
 use super::strings::MString;
-use super::subscription_acks::msubscriptionacks;
+use super::strings::mstring;
 use super::subscription_acks::MSubscriptionAcks;
-use super::subscription_request::msubscriptionrequests;
+use super::subscription_acks::msubscriptionacks;
 use super::subscription_request::MSubscriptionRequests;
-use super::unsubscription_request::munsubscriptionrequests;
+use super::subscription_request::msubscriptionrequests;
 use super::unsubscription_request::MUnsubscriptionRequests;
+use super::unsubscription_request::munsubscriptionrequests;
 use super::will::MLastWill;
-use super::MSResult;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -687,7 +687,7 @@ fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPac
                         input,
                         nom::error::ErrorKind::MapRes,
                         MPacketHeaderError::InvalidPacketLength,
-                    )))
+                    )));
                 }
             };
             let (input, payload) = take(payload_length)(input)?;

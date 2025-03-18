@@ -4,12 +4,12 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use winnow::error::FromExternalError;
 use winnow::Bytes;
+use winnow::error::FromExternalError;
 
+use super::MResult;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 
 #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
 #[repr(u8)]

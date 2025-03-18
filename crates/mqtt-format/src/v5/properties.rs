@@ -5,9 +5,9 @@
 //
 //! Handling of MQTT Properties that are present in some packets
 
+use winnow::Bytes;
 use winnow::error::ErrMode;
 use winnow::error::ParserError;
-use winnow::Bytes;
 
 use super::MResult;
 

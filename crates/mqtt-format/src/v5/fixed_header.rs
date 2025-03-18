@@ -5,17 +5,17 @@
 //
 //! Everything around parsing the fixed MQTT Header
 
+use winnow::Bytes;
+use winnow::Parser;
 use winnow::binary::bits::bits;
 use winnow::error::ErrMode;
 use winnow::error::FromExternalError;
 use winnow::error::InputError;
 use winnow::error::ParserError;
-use winnow::Bytes;
-use winnow::Parser;
 
+use super::MResult;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum PacketType {

@@ -8,13 +8,13 @@
 use winnow::Bytes;
 use winnow::Parser;
 
+use super::MResult;
 use super::integers::parse_u16;
 use super::integers::parse_u16_nonzero;
 use super::integers::parse_u32;
 use super::integers::write_variable_u32;
 use super::write::WResult;
 use super::write::WriteMqttPacket;
-use super::MResult;
 use crate::v5::integers::parse_variable_u32;
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -469,7 +469,7 @@ impl<'i> Iterator for UserPropertyIterator<'i> {
                     return Some(
                         UserProperty::parse(&mut Bytes::new(prop.0))
                             .expect("This has already been parsed and should be valid"),
-                    )
+                    );
                 }
                 _ => continue,
             }

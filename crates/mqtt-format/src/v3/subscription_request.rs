@@ -6,16 +6,16 @@
 
 use futures::AsyncWrite;
 use futures::AsyncWriteExt;
-use nom::multi::many1_count;
 use nom::Parser;
+use nom::multi::many1_count;
 use nom_supreme::ParserExt;
 
-use super::errors::MPacketWriteError;
-use super::qos::mquality_of_service;
-use super::qos::MQualityOfService;
-use super::strings::mstring;
-use super::strings::MString;
 use super::MSResult;
+use super::errors::MPacketWriteError;
+use super::qos::MQualityOfService;
+use super::qos::mquality_of_service;
+use super::strings::MString;
+use super::strings::mstring;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MSubscriptionRequests<'message> {
