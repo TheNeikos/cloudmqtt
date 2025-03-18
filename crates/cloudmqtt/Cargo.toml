@@ -29,6 +29,7 @@ paste.workspace = true
 thiserror.workspace = true
 winnow = { workspace = true, default-features = true }
 yoke = { workspace = true, default-features = true }
+hakari = { version = "0.1", path = "../hakari" }
 
 [dev-dependencies]
 static_assertions = "1.1.0"

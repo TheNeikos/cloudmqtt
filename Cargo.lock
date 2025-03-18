@@ -225,6 +225,7 @@ version = "0.5.0"
 dependencies = [
  "futures",
  "futures-timer",
+ "hakari",
  "mqtt-format",
  "paste",
  "stable_deref_trait",
@@ -236,18 +237,6 @@ dependencies = [
  "typed-builder",
  "winnow",
  "yoke",
-]
-
-[[package]]
-name = "cloudmqtt-bin"
-version = "0.1.0"
-dependencies = [
- "clap",
- "cloudmqtt",
- "futures",
- "tokio",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
@@ -378,6 +367,24 @@ name = "gimli"
 version = "0.31.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
+
+[[package]]
+name = "hakari"
+version = "0.1.0"
+dependencies = [
+ "futures-core",
+ "futures-io",
+ "futures-sink",
+ "num_enum",
+ "num_enum_derive",
+ "stable_deref_trait",
+ "syn",
+ "tokio",
+ "tracing-core",
+ "winnow",
+ "yoke",
+ "zerofrom",
+]
 
 [[package]]
 name = "hashbrown"
@@ -537,6 +544,7 @@ version = "0.5.0"
 dependencies = [
  "bytemuck",
  "futures",
+ "hakari",
  "nom",
  "nom-supreme",
  "num_enum",
@@ -557,6 +565,7 @@ dependencies = [
  "bytes",
  "clap",
  "futures",
+ "hakari",
  "miette",
  "mqtt-format",
  "nom",
