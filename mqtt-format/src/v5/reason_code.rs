@@ -11,9 +11,22 @@ macro_rules! make_combined_reason_code {
     }) => {
         #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
         #[repr(u8)]
-        #[derive(Debug, Copy, Clone, PartialEq)]
+        #[derive(Debug, Copy, Clone, PartialEq, bytemuck::NoUninit)]
         pub enum $name {
             $( $reason_code_name = <$reason_code_type>::CODE ),*
+        }
+
+        unsafe impl bytemuck::CheckedBitPattern for $name {
+            type Bits = u8;
+
+            fn is_valid_bit_pattern(bits: &u8) -> bool {
+                $(
+                    if *bits == <$reason_code_type>::CODE {
+                        return true;
+                    }
+                )*
+                false
+            }
         }
 
         impl $name {
