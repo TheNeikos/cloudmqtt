@@ -76,7 +76,7 @@ impl CloudmqttClient {
 
             {
                 let fsm: &mut MqttClientFSM = &mut fsm;
-                if let Some(action) = fsm.consume(packet.get_packet()).run(since(start)) {
+                if let Some(action) = fsm.consume(packet.get_packet().clone()).run(since(start)) {
                     match action {
                         ExpectedAction::SendPacket(mqtt_packet) => {
                             writer

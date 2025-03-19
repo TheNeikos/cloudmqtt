@@ -22,7 +22,7 @@ pub struct MqttClientFSM {
 #[must_use = "Without being run, this will drop the incoming packet"]
 pub struct MqttClientConsumer<'c, 'p> {
     client: &'c mut MqttClientFSM,
-    packet: &'p MqttPacket<'p>,
+    packet: MqttPacket<'p>,
 }
 
 impl<'p> MqttClientConsumer<'_, 'p> {
@@ -99,7 +99,7 @@ impl MqttClientFSM {
         ExpectedAction::SendPacket(connect.into())
     }
 
-    pub fn consume<'c, 'p>(&'c mut self, packet: &'p MqttPacket<'p>) -> MqttClientConsumer<'c, 'p> {
+    pub fn consume<'c, 'p>(&'c mut self, packet: MqttPacket<'p>) -> MqttClientConsumer<'c, 'p> {
         MqttClientConsumer {
             client: self,
             packet,
@@ -123,7 +123,7 @@ impl MqttClientFSM {
     fn inner_run<'p>(
         &mut self,
         current_time: MqttInstant,
-        to_consume_packet: Option<&'p MqttPacket<'p>>,
+        to_consume_packet: Option<MqttPacket<'p>>,
         to_publish_packet: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
     ) -> Option<ExpectedAction<'p>> {
         let action = match &self.connection_state {
@@ -147,7 +147,7 @@ impl MqttClientFSM {
     fn handle_connected<'p>(
         &mut self,
         current_time: MqttInstant,
-        mut to_consume_packet: Option<&'p MqttPacket<'p>>,
+        mut to_consume_packet: Option<MqttPacket<'p>>,
         mut to_publish_packet: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
     ) -> Option<ExpectedAction<'p>> {
         let ConnectionState::Connected(con) = &mut self.connection_state else {
@@ -209,7 +209,7 @@ impl MqttClientFSM {
     fn handle_connecting_without_auth<'p>(
         &mut self,
         _current_time: MqttInstant,
-        mut to_consume_packet: Option<&'p MqttPacket<'p>>,
+        mut to_consume_packet: Option<MqttPacket<'p>>,
     ) -> Option<ExpectedAction<'p>> {
         let ConnectionState::ConnectingWithoutAuth(conn_without_auth) = &mut self.connection_state
         else {
