@@ -19,13 +19,15 @@ pretty_assertions = "1.4.1"
 rustc-hash = { version = "2.1.1", default-features = false }
 thiserror = "2.0.11"
 tokio = { version = "1.43.0" }
+tokio-util = { version = " 0.7.14" }
 tracing = { version = "0.1.41", default-features = false }
 winnow = { version = "0.7", default-features = false }
 yoke = { version = "0.8.0", default-features = false }
+
+
 hakari = { version = "0.1.0", path = "crates/hakari" }
 mqtt-format = { version = "0.5.0", path = "crates/mqtt-format", default-features = false }
-
-
+cloudmqtt-core = { version = "0.5.0", path = "crates/cloudmqtt-core" }
 
 [workspace.metadata.crane]
 name = "cloudmqtt"
