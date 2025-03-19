@@ -22,3 +22,6 @@ tokio = { workspace = true, features = ["io-util", "net", "rt"] }
 tokio-util = { workspace = true, features = ["codec"] }
 winnow.workspace = true
 yoke = { workspace = true, features = ["alloc"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
