@@ -11,12 +11,14 @@ use core::ops::Not;
 use mqtt_format::v5::packets::MqttPacket;
 use mqtt_format::v5::packets::connack::ConnackReasonCode;
 use mqtt_format::v5::packets::connect::MConnect;
+use mqtt_format::v5::qos::QualityOfService;
 use rustc_hash::FxHasher;
 
 pub struct MqttClientFSM<'p> {
     data: ClientData,
     connection_state: ConnectionState,
     to_consume_packet: Option<MqttPacket<'p>>,
+    to_publish: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
 }
 
 impl Default for MqttClientFSM<'_> {
@@ -31,6 +33,7 @@ impl<'p> MqttClientFSM<'p> {
             data: ClientData::default(),
             connection_state: ConnectionState::Disconnected,
             to_consume_packet: None,
+            to_publish: None,
         }
     }
 
@@ -81,6 +84,14 @@ impl<'p> MqttClientFSM<'p> {
         self.to_consume_packet = Some(message);
     }
 
+    pub fn publish(&mut self, publish: mqtt_format::v5::packets::publish::MPublish<'p>) {
+        if publish.quality_of_service != QualityOfService::AtMostOnce {
+            todo!()
+        }
+
+        self.to_publish = Some(publish);
+    }
+
     pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
         let action = match &self.connection_state {
             ConnectionState::Disconnected => {
@@ -110,6 +121,7 @@ impl<'p> MqttClientFSM<'p> {
                         >= self.data.keep_alive as u64
                     {
                         con.ping_state = PingState::WaitingForPingrespSince(current_time);
+                        con.last_time_sent = current_time;
 
                         return Some(ExpectedAction::SendPacket(MqttPacket::Pingreq(
                             mqtt_format::v5::packets::pingreq::MPingreq,
@@ -119,25 +131,39 @@ impl<'p> MqttClientFSM<'p> {
                 PingState::WaitingForPingrespSince(_mqtt_instant) => {}
             }
         }
-
-        let incoming_packet = self.to_consume_packet.take()?;
-
-        match incoming_packet {
-            MqttPacket::Publish(_) => todo!(),
-            MqttPacket::Disconnect(_) => todo!(),
-            MqttPacket::Pingresp(mqtt_format::v5::packets::pingresp::MPingresp) => {
-                match &con.ping_state {
-                    PingState::WaitingForPingrespSince(_since) => {
-                        con.ping_state = PingState::WaitingForElapsed;
-                        None
-                    }
-                    PingState::WaitingForElapsed => {
-                        panic!("Protocol error, got PingResp without a req");
+        if let Some(incoming_packet) = self.to_consume_packet.take() {
+            match incoming_packet {
+                MqttPacket::Publish(_) => todo!(),
+                MqttPacket::Disconnect(_) => todo!(),
+                MqttPacket::Pingresp(mqtt_format::v5::packets::pingresp::MPingresp) => {
+                    match &con.ping_state {
+                        PingState::WaitingForPingrespSince(_since) => {
+                            con.ping_state = PingState::WaitingForElapsed;
+                        }
+                        PingState::WaitingForElapsed => {
+                            panic!("Protocol error, got PingResp without a req");
+                        }
                     }
                 }
+                _ => panic!("Invalid packet received"),
             }
-            _ => panic!("Invalid packet received"),
+        };
+
+        if let Some(outgoing_publish) = self.to_publish.take() {
+            assert_eq!(
+                outgoing_publish.quality_of_service,
+                QualityOfService::AtMostOnce,
+                "Only QoS 0 is implemented currently"
+            );
+
+            con.last_time_sent = current_time;
+
+            return Some(ExpectedAction::SendPacket(MqttPacket::Publish(
+                outgoing_publish,
+            )));
         }
+
+        None
     }
 
     fn handle_connecting_without_auth(
@@ -356,6 +382,59 @@ mod tests {
         ));
 
         let action = fsm.run(crate::client::MqttInstant::new(22));
+        assert!(action.is_none());
+    }
+
+    #[test]
+    fn check_simple_publish() {
+        let mut fsm = MqttClientFSM::new();
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 10,
+            },
+        );
+
+        fsm.consume(mqtt_format::v5::packets::MqttPacket::Connack(
+            mqtt_format::v5::packets::connack::MConnack {
+                session_present: false,
+                reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+            },
+        ));
+
+        let action = fsm.run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Connected { .. }
+        ));
+
+        fsm.publish(mqtt_format::v5::packets::publish::MPublish {
+            duplicate: false,
+            quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+            retain: false,
+            topic_name: "foo/bar",
+            packet_identifier: None,
+            properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+            payload: b"Hello World",
+        });
+
+        let action = fsm.run(crate::client::MqttInstant::new(11));
+        assert!(action.is_some());
+
+        let action = fsm.run(crate::client::MqttInstant::new(12));
+        assert!(action.is_some());
+
+        let action = fsm.run(crate::client::MqttInstant::new(13));
         assert!(action.is_none());
     }
 }
