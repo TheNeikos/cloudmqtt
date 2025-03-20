@@ -88,7 +88,7 @@ where
             PublishingState::Send => {
                 self.state = PublishingState::Done;
                 self.client
-                    .inner_run(current_time, None, self.packet.take())
+                    .inner_run(current_time, None, self.packet.take().map(Into::into))
             }
             PublishingState::Done => None,
         }
@@ -189,7 +189,7 @@ where
         fields(
             current_time = ?current_time,
             to_consume_packet = to_consume_packet.is_some(),
-            to_publish_packet = to_publish_packet.is_some()
+            to_publish_packet = to_send_packet.is_some()
         ),
         ret
     )]
@@ -197,7 +197,7 @@ where
         &mut self,
         current_time: MqttInstant,
         to_consume_packet: Option<MqttPacket<'p>>,
-        to_publish_packet: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
+        to_send_packet: Option<MqttPacket<'p>>,
     ) -> Option<ExpectedAction<'p>> {
         trace!("Doing one state machine step");
         let action = match &self.connection_state {
@@ -209,7 +209,7 @@ where
                 self.handle_connecting_without_auth(current_time, to_consume_packet)
             }
             ConnectionState::Connected { .. } => {
-                self.handle_connected(current_time, to_consume_packet, to_publish_packet)
+                self.handle_connected(current_time, to_consume_packet, to_send_packet)
             }
         };
 
@@ -222,7 +222,7 @@ where
         &mut self,
         current_time: MqttInstant,
         mut to_consume_packet: Option<MqttPacket<'p>>,
-        mut to_publish_packet: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
+        mut to_send_packet: Option<MqttPacket<'p>>,
     ) -> Option<ExpectedAction<'p>> {
         let ConnectionState::Connected(con) = &mut self.connection_state else {
             unreachable!()
@@ -255,11 +255,9 @@ where
             }
         };
 
-        if let Some(outgoing_publish) = to_publish_packet.take() {
+        if let Some(outgoing_publish) = to_send_packet.take() {
             con.last_time_sent = current_time;
-            return Some(ExpectedAction::SendPacket(MqttPacket::Publish(
-                outgoing_publish,
-            )));
+            return Some(ExpectedAction::SendPacket(outgoing_publish));
         }
 
         if self.data.keep_alive > 0 {
