@@ -13,7 +13,7 @@ use tokio_util::codec::Encoder;
 use winnow::Partial;
 use yoke::Yoke;
 
-struct BytesMutWriter<'b>(&'b mut tokio_util::bytes::BytesMut);
+pub(crate) struct BytesMutWriter<'b>(pub(crate) &'b mut tokio_util::bytes::BytesMut);
 
 #[derive(Debug, thiserror::Error)]
 pub enum MqttWriterError {
