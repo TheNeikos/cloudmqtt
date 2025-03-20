@@ -10,5 +10,7 @@ use cloudmqtt::CloudmqttClient;
 async fn main() {
     let mut client = CloudmqttClient::new("localhost:1883".to_string()).await;
 
+    client.publish(b"What's up", "foo/bar").await;
+
     client.wait_for_shutdown().await;
 }
