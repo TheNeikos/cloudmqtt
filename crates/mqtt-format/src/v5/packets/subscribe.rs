@@ -8,6 +8,7 @@ use winnow::Bytes;
 use winnow::Parser;
 use winnow::binary::bits::bits;
 use winnow::combinator::repeat_till;
+use winnow::error::ContextError;
 use winnow::error::ErrMode;
 use winnow::error::InputError;
 use winnow::error::ParserError;
@@ -147,6 +148,10 @@ impl<'i> Subscriptions<'i> {
             Ok(Subscriptions { start })
         })
         .parse_next(input)
+    }
+
+    pub fn parse_complete(input: &[u8]) -> Result<Subscriptions<'_>, ErrMode<ContextError>> {
+        Subscriptions::parse(&mut Bytes::new(input))
     }
 
     pub fn binary_size(&self) -> u32 {
