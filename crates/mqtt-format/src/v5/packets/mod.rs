@@ -48,7 +48,7 @@ pub mod unsuback;
 pub mod unsubscribe;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, derive_more::From, derive_more::TryInto)]
 pub enum MqttPacket<'i> {
     Auth(MAuth<'i>),
     Connack(MConnack<'i>),
@@ -262,36 +262,6 @@ impl<'i> MqttPacket<'i> {
         Ok(())
     }
 }
-
-macro_rules! impl_try_from_packet {
-    ($($kind:ty => $name:ident),*) => {
-        $(
-            impl<'i> From<$kind> for MqttPacket<'i> {
-                fn from(from: $kind) -> Self {
-                    MqttPacket::$name(from)
-                }
-            }
-        )*
-    };
-}
-
-impl_try_from_packet!(
-    MAuth<'i> => Auth,
-    MConnack<'i> => Connack,
-    MConnect<'i> => Connect,
-    MDisconnect<'i> => Disconnect,
-    MPingreq => Pingreq,
-    MPingresp => Pingresp,
-    MPuback<'i> => Puback,
-    MPubcomp<'i> => Pubcomp,
-    MPublish<'i> => Publish,
-    MPubrec<'i> => Pubrec,
-    MPubrel<'i> => Pubrel,
-    MSuback<'i> => Suback,
-    MSubscribe<'i> => Subscribe,
-    MUnsuback<'i> => Unsuback,
-    MUnsubscribe<'i> => Unsubscribe
-);
 
 #[derive(Debug)]
 pub enum MqttPacketKind {

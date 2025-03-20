@@ -21,7 +21,9 @@ mqttv5 = ["dep:winnow"]
 
 [dependencies]
 bytemuck = { workspace = true, features = ["derive"] }
+derive_more = { workspace = true, features = ["from", "try_into"] }
 futures = { workspace = true, optional = true }
+hakari.workspace = true
 nom = { workspace = true, optional = true }
 nom-supreme = { workspace = true, optional = true }
 num_enum = { workspace = true }
@@ -29,7 +31,6 @@ paste.workspace = true
 thiserror = { workspace = true, optional = true }
 winnow = { workspace = true, optional = true }
 yoke = { workspace = true, features = ["derive"], optional = true }
-hakari.workspace = true
 
 [dev-dependencies]
 pretty_assertions.workspace = true
