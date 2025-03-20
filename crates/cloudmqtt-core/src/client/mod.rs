@@ -180,6 +180,20 @@ where
         }
     }
 
+    pub fn subscribe<'p>(
+        &mut self,
+        current_time: MqttInstant,
+        mut packet: mqtt_format::v5::packets::subscribe::MSubscribe<'p>,
+    ) -> ExpectedAction<'p> {
+        packet.packet_identifier = self
+            .client_pis
+            .get_next_free(PacketIdentifierUsage::NonPublish)
+            .expect("could not get a free packet identifier");
+
+        self.inner_run(current_time, None, Some(packet.into()))
+            .expect("inner_run did not return packet as expected")
+    }
+
     pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'static>> {
         self.inner_run(current_time, None, None)
     }
@@ -250,6 +264,13 @@ where
                             panic!("Protocol error, got PingResp without a req");
                         }
                     }
+                }
+                MqttPacket::Suback(suback) => {
+                    assert!(self.client_pis.contains(suback.packet_identifier));
+
+                    self.client_pis.release(suback.packet_identifier);
+
+                    // TODO: Verify that subscriptions don't use QoS higher than we set as maximum
                 }
                 _ => panic!("Invalid packet received"),
             }
