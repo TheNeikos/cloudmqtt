@@ -15,10 +15,58 @@ use mqtt_format::v5::qos::QualityOfService;
 use rustc_hash::FxHasher;
 use tracing::trace;
 
+pub trait PacketIdentifierStore {
+    fn get_next_free(&mut self) -> Option<mqtt_format::v5::variable_header::PacketIdentifier>;
+    fn release(&mut self, id: mqtt_format::v5::variable_header::PacketIdentifier);
+
+    fn contains(&self, id: mqtt_format::v5::variable_header::PacketIdentifier) -> bool;
+}
+
+impl PacketIdentifierStore for usize {
+    fn get_next_free(&mut self) -> Option<mqtt_format::v5::variable_header::PacketIdentifier> {
+        for bit_index in 0..(usize::BITS as usize) {
+            let mask = 0b1 << bit_index;
+            if (*self & mask) == 0 {
+                trace!(?bit_index, "Found a slot");
+                *self |= mask;
+                trace!("usize store is now {:0b}", *self);
+                return Some(mqtt_format::v5::variable_header::PacketIdentifier(
+                    (bit_index as u16 + 1)
+                        .try_into()
+                        .expect("usize had more bits than fits into u16::MAX-1??"),
+                ));
+            }
+        }
+        None
+    }
+
+    fn release(&mut self, id: mqtt_format::v5::variable_header::PacketIdentifier) {
+        let id = id.0.get() as usize;
+        assert!((id as u32 - 1) < usize::BITS);
+
+        let mask = 0b1 << (id - 1);
+        trace!(bit_index = (id - 1), "Releasing index");
+        *self &= !mask;
+    }
+
+    fn contains(&self, id: mqtt_format::v5::variable_header::PacketIdentifier) -> bool {
+        let id = id.0.get() as usize;
+        if (id as u32 - 1) >= usize::BITS {
+            return false;
+        }
+
+        let mask = 0b1 << (id - 1);
+        trace!(bit_index = (id - 1), "Checking if contained");
+
+        *self & mask != 0
+    }
+}
+
 #[derive(Debug)]
-pub struct MqttClientFSM {
+pub struct MqttClientFSM<ClientPacketIdentifierStore = usize> {
     data: ClientData,
     connection_state: ConnectionState,
+    client_pis: ClientPacketIdentifierStore,
 }
 
 impl MqttClientFSM {
@@ -28,40 +76,78 @@ impl MqttClientFSM {
 }
 
 #[must_use = "Without being run, this will drop the incoming packet"]
-pub struct MqttClientConsumer<'c, 'p> {
-    client: &'c mut MqttClientFSM,
+pub struct MqttClientConsumer<'c, 'p, CPIS> {
+    client: &'c mut MqttClientFSM<CPIS>,
     packet: MqttPacket<'p>,
 }
 
-impl<'p> MqttClientConsumer<'_, 'p> {
+impl<'p, CPIS> MqttClientConsumer<'_, 'p, CPIS>
+where
+    CPIS: PacketIdentifierStore,
+{
     pub fn run(self, current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
         self.client.inner_run(current_time, Some(self.packet), None)
     }
 }
 
+enum PublishingState {
+    Store,
+    Send,
+    Done,
+}
+
 #[must_use = "Without being run, this will drop the publishing packet"]
-pub struct MqttClientPublisher<'c, 'p> {
-    client: &'c mut MqttClientFSM,
-    packet: mqtt_format::v5::packets::publish::MPublish<'p>,
+pub struct MqttClientPublisher<'c, 'p, CPIS> {
+    client: &'c mut MqttClientFSM<CPIS>,
+    packet: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
+    state: PublishingState,
 }
 
-impl<'p> MqttClientPublisher<'_, 'p> {
-    pub fn run(self, current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
-        self.client.inner_run(current_time, None, Some(self.packet))
+impl<'p, CPIS> MqttClientPublisher<'_, 'p, CPIS>
+where
+    CPIS: PacketIdentifierStore,
+{
+    pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
+        match &mut self.state {
+            PublishingState::Store => {
+                if let Some(packet) = &mut self.packet {
+                    if packet.quality_of_service != QualityOfService::AtMostOnce {
+                        let id = self.client.client_pis.get_next_free().unwrap();
+                        packet.packet_identifier = Some(id);
+
+                        self.state = PublishingState::Send;
+                        return Some(ExpectedAction::StorePacket {
+                            id: packet.packet_identifier.unwrap(),
+                        });
+                    }
+                }
+                None
+            }
+            PublishingState::Send => {
+                self.state = PublishingState::Done;
+                self.client
+                    .inner_run(current_time, None, self.packet.take())
+            }
+            PublishingState::Done => None,
+        }
     }
 }
 
-impl Default for MqttClientFSM {
+impl Default for MqttClientFSM<usize> {
     fn default() -> Self {
-        Self::new()
+        Self::new(0usize)
     }
 }
 
-impl MqttClientFSM {
-    pub fn new() -> MqttClientFSM {
+impl<CPIS> MqttClientFSM<CPIS>
+where
+    CPIS: PacketIdentifierStore,
+{
+    pub fn new(client_pis: CPIS) -> MqttClientFSM<CPIS> {
         MqttClientFSM {
             data: ClientData::default(),
             connection_state: ConnectionState::Disconnected,
+            client_pis,
         }
     }
 
@@ -107,7 +193,10 @@ impl MqttClientFSM {
         ExpectedAction::SendPacket(connect.into())
     }
 
-    pub fn consume<'c, 'p>(&'c mut self, packet: MqttPacket<'p>) -> MqttClientConsumer<'c, 'p> {
+    pub fn consume<'c, 'p>(
+        &'c mut self,
+        packet: MqttPacket<'p>,
+    ) -> MqttClientConsumer<'c, 'p, CPIS> {
         MqttClientConsumer {
             client: self,
             packet,
@@ -117,10 +206,15 @@ impl MqttClientFSM {
     pub fn publish<'c, 'p>(
         &'c mut self,
         packet: mqtt_format::v5::packets::publish::MPublish<'p>,
-    ) -> MqttClientPublisher<'c, 'p> {
+    ) -> MqttClientPublisher<'c, 'p, CPIS> {
         MqttClientPublisher {
             client: self,
-            packet,
+            state: if packet.quality_of_service == QualityOfService::AtMostOnce {
+                PublishingState::Send
+            } else {
+                PublishingState::Store
+            },
+            packet: Some(packet),
         }
     }
 
@@ -176,6 +270,15 @@ impl MqttClientFSM {
             match incoming_packet {
                 MqttPacket::Publish(_) => todo!(),
                 MqttPacket::Disconnect(_) => todo!(),
+                MqttPacket::Puback(puback) => {
+                    assert!(self.client_pis.contains(puback.packet_identifier));
+
+                    self.client_pis.release(puback.packet_identifier);
+
+                    return Some(ExpectedAction::ReleasePacket {
+                        id: puback.packet_identifier,
+                    });
+                }
                 MqttPacket::Pingresp(mqtt_format::v5::packets::pingresp::MPingresp) => {
                     match &con.ping_state {
                         PingState::WaitingForPingrespSince(_since) => {
@@ -191,12 +294,6 @@ impl MqttClientFSM {
         };
 
         if let Some(outgoing_publish) = to_publish_packet.take() {
-            assert_eq!(
-                outgoing_publish.quality_of_service,
-                QualityOfService::AtMostOnce,
-                "Only QoS 0 is implemented currently"
-            );
-
             con.last_time_sent = current_time;
             return Some(ExpectedAction::SendPacket(MqttPacket::Publish(
                 outgoing_publish,
@@ -301,6 +398,12 @@ impl MqttClientFSM {
 pub enum ExpectedAction<'p> {
     SendPacket(MqttPacket<'p>),
     SaveClientIdentifier(&'p str),
+    StorePacket {
+        id: mqtt_format::v5::variable_header::PacketIdentifier,
+    },
+    ReleasePacket {
+        id: mqtt_format::v5::variable_header::PacketIdentifier,
+    },
 }
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
@@ -365,7 +468,7 @@ mod tests {
 
     #[test]
     fn check_simple_connect() {
-        let mut fsm = MqttClientFSM::new();
+        let mut fsm = MqttClientFSM::default();
 
         fsm.handle_connect(
             crate::client::MqttInstant::new(0),
@@ -399,7 +502,7 @@ mod tests {
 
     #[test]
     fn check_ping_request() {
-        let mut fsm = MqttClientFSM::new();
+        let mut fsm = MqttClientFSM::default();
 
         fsm.handle_connect(
             crate::client::MqttInstant::new(0),
@@ -473,7 +576,7 @@ mod tests {
             .pretty()
             .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
             .init();
-        let mut fsm = MqttClientFSM::new();
+        let mut fsm = MqttClientFSM::default();
 
         fsm.handle_connect(
             crate::client::MqttInstant::new(0),
@@ -504,24 +607,120 @@ mod tests {
             ConnectionState::Connected { .. }
         ));
 
-        let action = fsm
-            .publish(mqtt_format::v5::packets::publish::MPublish {
-                duplicate: false,
-                quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
-                retain: false,
-                topic_name: "foo/bar",
-                packet_identifier: None,
-                properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
-                payload: b"Hello World",
-            })
-            .run(crate::client::MqttInstant::new(11));
+        let mut publisher = fsm.publish(mqtt_format::v5::packets::publish::MPublish {
+            duplicate: false,
+            quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+            retain: false,
+            topic_name: "foo/bar",
+            packet_identifier: None,
+            properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+            payload: b"Hello World",
+        });
 
+        let action = publisher.run(crate::client::MqttInstant::new(11));
         assert!(
             matches!(
                 action,
                 Some(ExpectedAction::SendPacket(
                     mqtt_format::v5::packets::MqttPacket::Publish(..)
                 ))
+            ),
+            "Got action: {action:?}"
+        );
+
+        let action = publisher.run(crate::client::MqttInstant::new(11));
+        assert!(action.is_none(), "Got action: {action:?}");
+
+        let action = fsm.run(crate::client::MqttInstant::new(12));
+        assert!(action.is_none(), "Got action: {action:?}");
+    }
+
+    #[test]
+    fn check_qos1_publish() {
+        tracing_subscriber::fmt()
+            .with_test_writer()
+            .pretty()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .init();
+        let mut fsm = MqttClientFSM::default();
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 10,
+            },
+        );
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Connected { .. }
+        ));
+
+        let mut publisher = fsm.publish(mqtt_format::v5::packets::publish::MPublish {
+            duplicate: false,
+            quality_of_service: mqtt_format::v5::qos::QualityOfService::AtLeastOnce,
+            retain: false,
+            topic_name: "foo/bar",
+            packet_identifier: None,
+            properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+            payload: b"Hello World",
+        });
+
+        let action = publisher.run(crate::client::MqttInstant::new(10));
+        assert!(
+            matches!(action, Some(ExpectedAction::StorePacket { id }) if id.0.get() == 1),
+            "Got action: {action:?}"
+        );
+
+        let action = publisher.run(crate::client::MqttInstant::new(10));
+        assert!(
+            matches!(
+                action,
+                Some(ExpectedAction::SendPacket(
+                    mqtt_format::v5::packets::MqttPacket::Publish(..)
+                ))
+            ),
+            "Got action: {action:?}"
+        );
+
+        let action = publisher.run(crate::client::MqttInstant::new(11));
+        assert!(action.is_none(), "Got action: {action:?}");
+
+        let action = fsm.run(crate::client::MqttInstant::new(12));
+        assert!(action.is_none(), "Got action: {action:?}");
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Puback(
+                mqtt_format::v5::packets::puback::MPuback {
+                    packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
+                        1.try_into().unwrap(),
+                    ),
+                    reason: mqtt_format::v5::packets::puback::PubackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::puback::PubackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant(13));
+        assert!(
+            matches!(
+                action,
+                Some(ExpectedAction::ReleasePacket { id }) if id.0.get() == 1
             ),
             "Got action: {action:?}"
         );

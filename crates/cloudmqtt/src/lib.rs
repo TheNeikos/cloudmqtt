@@ -39,7 +39,7 @@ impl CloudmqttClient {
             .await
             .expect("Could not connect");
 
-        let mut fsm = MqttClientFSM::new();
+        let mut fsm = MqttClientFSM::default();
 
         let start = Instant::now();
 
