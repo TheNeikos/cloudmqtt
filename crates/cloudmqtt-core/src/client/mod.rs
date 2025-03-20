@@ -13,7 +13,6 @@ use mqtt_format::v5::packets::connack::ConnackReasonCode;
 use mqtt_format::v5::packets::connect::MConnect;
 use mqtt_format::v5::qos::QualityOfService;
 use rustc_hash::FxHasher;
-use tracing::debug;
 use tracing::trace;
 
 #[derive(Debug)]
@@ -123,7 +122,15 @@ impl MqttClientFSM {
         self.inner_run(current_time, None, None)
     }
 
-    #[tracing::instrument(skip_all, fields(current_time = ?current_time, to_consume_packet = to_consume_packet.is_some(), to_publish_packet = to_publish_packet.is_some()))]
+    #[tracing::instrument(
+        skip_all,
+        fields(
+            current_time = ?current_time,
+            to_consume_packet = to_consume_packet.is_some(),
+            to_publish_packet = to_publish_packet.is_some()
+        ),
+        ret
+    )]
     fn inner_run<'p>(
         &mut self,
         current_time: MqttInstant,
@@ -145,8 +152,6 @@ impl MqttClientFSM {
         };
 
         self.data.last_time_run = current_time;
-
-        debug!(?action, "Returning action");
 
         action
     }
