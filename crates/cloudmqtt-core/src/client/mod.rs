@@ -13,7 +13,10 @@ use mqtt_format::v5::packets::connack::ConnackReasonCode;
 use mqtt_format::v5::packets::connect::MConnect;
 use mqtt_format::v5::qos::QualityOfService;
 use rustc_hash::FxHasher;
+use tracing::debug;
+use tracing::trace;
 
+#[derive(Debug)]
 pub struct MqttClientFSM {
     data: ClientData,
     connection_state: ConnectionState,
@@ -120,12 +123,14 @@ impl MqttClientFSM {
         self.inner_run(current_time, None, None)
     }
 
+    #[tracing::instrument(skip_all, fields(current_time = ?current_time, to_consume_packet = to_consume_packet.is_some(), to_publish_packet = to_publish_packet.is_some()))]
     fn inner_run<'p>(
         &mut self,
         current_time: MqttInstant,
         to_consume_packet: Option<MqttPacket<'p>>,
         to_publish_packet: Option<mqtt_format::v5::packets::publish::MPublish<'p>>,
     ) -> Option<ExpectedAction<'p>> {
+        trace!("Doing one state machine step");
         let action = match &self.connection_state {
             ConnectionState::Disconnected => {
                 self.data.last_time_run = current_time;
@@ -141,6 +146,8 @@ impl MqttClientFSM {
 
         self.data.last_time_run = current_time;
 
+        debug!(?action, "Returning action");
+
         action
     }
 
@@ -154,23 +161,6 @@ impl MqttClientFSM {
             unreachable!()
         };
 
-        if self.data.keep_alive > 0 {
-            match &con.ping_state {
-                PingState::WaitingForElapsed => {
-                    if con.last_time_sent.elapsed_seconds(current_time)
-                        >= self.data.keep_alive as u64
-                    {
-                        con.ping_state = PingState::WaitingForPingrespSince(current_time);
-                        con.last_time_sent = current_time;
-
-                        return Some(ExpectedAction::SendPacket(MqttPacket::Pingreq(
-                            mqtt_format::v5::packets::pingreq::MPingreq,
-                        )));
-                    }
-                }
-                PingState::WaitingForPingrespSince(_mqtt_instant) => {}
-            }
-        }
         if let Some(incoming_packet) = to_consume_packet.take() {
             match incoming_packet {
                 MqttPacket::Publish(_) => todo!(),
@@ -197,10 +187,34 @@ impl MqttClientFSM {
             );
 
             con.last_time_sent = current_time;
-
             return Some(ExpectedAction::SendPacket(MqttPacket::Publish(
                 outgoing_publish,
             )));
+        }
+
+        if self.data.keep_alive > 0 {
+            trace!(ping_state = ?con.ping_state, keep_alive = self.data.keep_alive, "Keep alive is non-zero");
+
+            match &con.ping_state {
+                PingState::WaitingForElapsed => {
+                    trace!(
+                        elapsed_since_last_sent = con.last_time_sent.elapsed_seconds(current_time),
+                        "Checking if ping is required"
+                    );
+                    if con.last_time_sent.elapsed_seconds(current_time)
+                        >= self.data.keep_alive as u64
+                    {
+                        trace!("We need to send a ping, doing so now");
+                        con.ping_state = PingState::WaitingForPingrespSince(current_time);
+                        con.last_time_sent = current_time;
+
+                        return Some(ExpectedAction::SendPacket(MqttPacket::Pingreq(
+                            mqtt_format::v5::packets::pingreq::MPingreq,
+                        )));
+                    }
+                }
+                PingState::WaitingForPingrespSince(_mqtt_instant) => {}
+            }
         }
 
         None
@@ -271,6 +285,7 @@ impl MqttClientFSM {
     }
 }
 
+#[derive(Debug)]
 #[expect(clippy::large_enum_variant)]
 pub enum ExpectedAction<'p> {
     SendPacket(MqttPacket<'p>),
@@ -290,27 +305,31 @@ impl MqttInstant {
     }
 }
 
+#[derive(Debug)]
 pub enum PingState {
     WaitingForElapsed,
     WaitingForPingrespSince(MqttInstant),
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct ClientData {
     keep_alive: u16,
     client_id_hash: Option<u64>,
     last_time_run: MqttInstant,
 }
 
+#[derive(Debug)]
 struct Connected {
     last_time_sent: MqttInstant,
     ping_state: PingState,
 }
 
+#[derive(Debug)]
 struct ConnectingWithoutAuth {
     connect_sent: MqttInstant,
 }
 
+#[derive(Debug)]
 enum ConnectionState {
     Disconnected,
     ConnectingWithoutAuth(ConnectingWithoutAuth),
@@ -428,6 +447,11 @@ mod tests {
 
     #[test]
     fn check_simple_publish() {
+        tracing_subscriber::fmt()
+            .with_test_writer()
+            .pretty()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .init();
         let mut fsm = MqttClientFSM::new();
 
         fsm.handle_connect(
@@ -470,12 +494,18 @@ mod tests {
                 payload: b"Hello World",
             })
             .run(crate::client::MqttInstant::new(11));
-        assert!(action.is_some());
+
+        assert!(
+            matches!(
+                action,
+                Some(ExpectedAction::SendPacket(
+                    mqtt_format::v5::packets::MqttPacket::Publish(..)
+                ))
+            ),
+            "Got action: {action:?}"
+        );
 
         let action = fsm.run(crate::client::MqttInstant::new(12));
-        assert!(action.is_some());
-
-        let action = fsm.run(crate::client::MqttInstant::new(13));
-        assert!(action.is_none());
+        assert!(action.is_none(), "Got action: {action:?}");
     }
 }
