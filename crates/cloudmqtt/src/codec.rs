@@ -45,8 +45,23 @@ impl mqtt_format::v5::write::WriteMqttPacket for BytesMutWriter<'_> {
 pub struct MqttPacket {
     packet: Yoke<FormatMqttPacket<'static>, Arc<[u8]>>,
 }
+
 impl MqttPacket {
-    pub(crate) fn get_packet(&self) -> &FormatMqttPacket<'_> {
+    pub fn new(packet: FormatMqttPacket<'_>) -> MqttPacket {
+        let mut buffer = tokio_util::bytes::BytesMut::with_capacity(packet.binary_size() as usize);
+
+        packet.write(&mut BytesMutWriter(&mut buffer)).unwrap();
+
+        let cart = Arc::from(buffer.to_vec());
+
+        MqttPacket {
+            packet: Yoke::attach_to_cart(cart, |data| {
+                FormatMqttPacket::parse_complete(data).unwrap()
+            }),
+        }
+    }
+
+    pub fn get_packet(&self) -> &FormatMqttPacket<'_> {
         self.packet.get()
     }
 }
