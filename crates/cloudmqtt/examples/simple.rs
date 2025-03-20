@@ -12,5 +12,7 @@ async fn main() {
 
     client.publish(b"What's up", "foo/bar").await;
 
+    client.subscribe("whats/up").await;
+
     client.wait_for_shutdown().await;
 }
