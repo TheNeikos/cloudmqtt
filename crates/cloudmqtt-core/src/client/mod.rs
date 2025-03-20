@@ -17,9 +17,10 @@ use tracing::trace;
 
 mod packet_identifier_store;
 pub use self::packet_identifier_store::PacketIdentifierStore;
+pub use self::packet_identifier_store::UsizePacketIdentifierStore;
 
 #[derive(Debug)]
-pub struct MqttClientFSM<ClientPacketIdentifierStore = usize> {
+pub struct MqttClientFSM<ClientPacketIdentifierStore = UsizePacketIdentifierStore> {
     data: ClientData,
     connection_state: ConnectionState,
     client_pis: ClientPacketIdentifierStore,
@@ -89,9 +90,9 @@ where
     }
 }
 
-impl Default for MqttClientFSM<usize> {
+impl Default for MqttClientFSM<UsizePacketIdentifierStore> {
     fn default() -> Self {
-        Self::new(0usize)
+        Self::new(UsizePacketIdentifierStore::default())
     }
 }
 

@@ -4,6 +4,8 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use tracing::trace;
+
 pub trait PacketIdentifierStore {
     fn get_next_free(&mut self) -> Option<mqtt_format::v5::variable_header::PacketIdentifier>;
     fn release(&mut self, id: mqtt_format::v5::variable_header::PacketIdentifier);
@@ -11,14 +13,17 @@ pub trait PacketIdentifierStore {
     fn contains(&self, id: mqtt_format::v5::variable_header::PacketIdentifier) -> bool;
 }
 
-impl PacketIdentifierStore for usize {
+#[derive(Debug, Default)]
+pub struct UsizePacketIdentifierStore(usize);
+
+impl PacketIdentifierStore for UsizePacketIdentifierStore {
     fn get_next_free(&mut self) -> Option<mqtt_format::v5::variable_header::PacketIdentifier> {
         for bit_index in 0..(usize::BITS as usize) {
             let mask = 0b1 << bit_index;
-            if (*self & mask) == 0 {
+            if (self.0 & mask) == 0 {
                 trace!(?bit_index, "Found a slot");
-                *self |= mask;
-                trace!("usize store is now {:0b}", *self);
+                self.0 |= mask;
+                trace!("usize store is now {:0b}", self.0);
                 return Some(mqtt_format::v5::variable_header::PacketIdentifier(
                     (bit_index as u16 + 1)
                         .try_into()
@@ -35,7 +40,7 @@ impl PacketIdentifierStore for usize {
 
         let mask = 0b1 << (id - 1);
         trace!(bit_index = (id - 1), "Releasing index");
-        *self &= !mask;
+        self.0 &= !mask;
     }
 
     fn contains(&self, id: mqtt_format::v5::variable_header::PacketIdentifier) -> bool {
@@ -47,6 +52,6 @@ impl PacketIdentifierStore for usize {
         let mask = 0b1 << (id - 1);
         trace!(bit_index = (id - 1), "Checking if contained");
 
-        *self & mask != 0
+        self.0 & mask != 0
     }
 }
