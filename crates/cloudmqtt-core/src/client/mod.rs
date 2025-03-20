@@ -21,6 +21,12 @@ pub struct MqttClientFSM {
     connection_state: ConnectionState,
 }
 
+impl MqttClientFSM {
+    pub fn is_connected(&self) -> bool {
+        self.connection_state.is_connected()
+    }
+}
+
 #[must_use = "Without being run, this will drop the incoming packet"]
 pub struct MqttClientConsumer<'c, 'p> {
     client: &'c mut MqttClientFSM,
@@ -339,6 +345,16 @@ enum ConnectionState {
     Disconnected,
     ConnectingWithoutAuth(ConnectingWithoutAuth),
     Connected(Connected),
+}
+
+impl ConnectionState {
+    /// Returns `true` if the connection state is [`Connected`].
+    ///
+    /// [`Connected`]: ConnectionState::Connected
+    #[must_use]
+    fn is_connected(&self) -> bool {
+        matches!(self, Self::Connected(..))
+    }
 }
 
 #[cfg(test)]
