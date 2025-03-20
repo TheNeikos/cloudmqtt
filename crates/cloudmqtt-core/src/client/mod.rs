@@ -17,6 +17,7 @@ use tracing::trace;
 
 mod packet_identifier_store;
 pub use self::packet_identifier_store::PacketIdentifierStore;
+pub use self::packet_identifier_store::PacketIdentifierUsage;
 pub use self::packet_identifier_store::UsizePacketIdentifierStore;
 
 #[derive(Debug)]
@@ -69,7 +70,11 @@ where
             PublishingState::Store => {
                 if let Some(packet) = &mut self.packet {
                     if packet.quality_of_service != QualityOfService::AtMostOnce {
-                        let id = self.client.client_pis.get_next_free().unwrap();
+                        let id = self
+                            .client
+                            .client_pis
+                            .get_next_free(PacketIdentifierUsage::Publish)
+                            .unwrap();
                         packet.packet_identifier = Some(id);
 
                         self.state = PublishingState::Send;
