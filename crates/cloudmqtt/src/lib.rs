@@ -9,14 +9,10 @@ mod codec;
 mod router;
 pub mod topic;
 
-use std::sync::Arc;
-
 use codec::BytesMutWriter;
 use codec::MqttPacket;
-use dashmap::DashMap;
 use futures::Stream;
 use tokio_util::bytes::BytesMut;
-use topic::TopicFilterBuf;
 
 enum SendUsage {
     Publish(MqttPacket),
@@ -25,11 +21,7 @@ enum SendUsage {
 
 pub struct CloudmqttClient {
     core_client: crate::client::CoreClient,
-    _router: crate::router::Router,
-
-    next_subscription_id: std::sync::atomic::AtomicU64,
-    subscriptions: Arc<DashMap<SubscriptionId, SubscriptionSink>>,
-    subscription_topics: Arc<DashMap<TopicFilterBuf, Vec<SubscriptionId>>>,
+    router: crate::router::Router,
 }
 
 impl CloudmqttClient {
@@ -49,20 +41,11 @@ impl CloudmqttClient {
 
         let core_client = crate::client::CoreClient::new(connection, incoming_sender.clone());
 
-        let subscriptions = std::sync::Arc::new(dashmap::DashMap::new());
-        let subscription_topics = std::sync::Arc::new(dashmap::DashMap::new());
-        let router = crate::router::Router::new(
-            incoming_receiver,
-            subscriptions.clone(),
-            subscription_topics.clone(),
-        );
+        let router = crate::router::Router::new(incoming_receiver);
 
         CloudmqttClient {
             core_client,
-            next_subscription_id: std::sync::atomic::AtomicU64::new(0),
-            subscriptions,
-            subscription_topics,
-            _router: router,
+            router,
         }
     }
 
@@ -85,52 +68,10 @@ impl CloudmqttClient {
     }
 
     pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Subscription {
-        let buf = {
-            let sub = mqtt_format::v5::packets::subscribe::Subscription {
-                topic_filter: topic_filter.as_ref(),
-                options: mqtt_format::v5::packets::subscribe::SubscriptionOptions {
-                    quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
-                    no_local: true,
-                    retain_as_published: true,
-                    retain_handling: mqtt_format::v5::packets::subscribe::RetainHandling::SendRetainedMessagesAlways,
-                }
-            };
-
-            let mut bytes = BytesMut::new();
-            sub.write(&mut BytesMutWriter(&mut bytes)).unwrap();
-            bytes.to_vec()
-        };
-
-        self.core_client
-            .subscribe(MqttPacket::new(
-                mqtt_format::v5::packets::MqttPacket::Subscribe(
-                    mqtt_format::v5::packets::subscribe::MSubscribe {
-                        packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
-                            1.try_into().unwrap(),
-                        ),
-                        properties: mqtt_format::v5::packets::subscribe::SubscribeProperties::new(),
-                        subscriptions:
-                            mqtt_format::v5::packets::subscribe::Subscriptions::parse_complete(&buf)
-                                .unwrap(),
-                    },
-                ),
-            ))
-            .await;
-
-        let subscription_id = SubscriptionId(
-            self.next_subscription_id
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-        );
-        let (sender, receiver) = tokio::sync::mpsc::channel(1);
-        self.subscriptions.insert(subscription_id, sender);
-        self.subscription_topics
-            .entry(TopicFilterBuf::new(topic_filter.as_ref()).unwrap())
-            .or_default()
-            .push(subscription_id);
-        Subscription {
-            _subscription_id: subscription_id,
-            receiver,
-        }
+        self.subscription_builder()
+            .with_subscription(topic_filter)
+            .build()
+            .await
     }
 
     pub fn subscription_builder(&self) -> SubscriptionBuilder<'_> {
@@ -215,20 +156,13 @@ impl SubscriptionBuilder<'_> {
             ))
             .await;
 
-        let subscription_id = SubscriptionId(
-            self.client
-                .next_subscription_id
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
-        );
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
-        self.client.subscriptions.insert(subscription_id, sender);
+        let subscription_id = self.client.router.add_subscription_sink(sender);
 
         for topic_filter in self.topic_filters.iter() {
             self.client
-                .subscription_topics
-                .entry(TopicFilterBuf::new(topic_filter).unwrap())
-                .or_default()
-                .push(subscription_id);
+                .router
+                .add_subscription_to_topic(subscription_id, topic_filter.as_ref());
         }
 
         Subscription {
