@@ -15,6 +15,7 @@ use codec::BytesMutWriter;
 use codec::MqttPacket;
 use codec::MqttPacketCodec;
 use futures::SinkExt;
+use futures::Stream;
 use futures::StreamExt;
 use mqtt_format::v5::packets::subscribe::Subscription;
 use tokio_util::bytes::BytesMut;
@@ -33,6 +34,7 @@ enum SendUsage {
 pub struct CloudmqttClient {
     client_task: tokio::task::JoinHandle<()>,
     publish_sender: tokio::sync::mpsc::Sender<SendUsage>,
+    incoming_messages: Option<tokio::sync::mpsc::Receiver<MqttPacket>>,
 }
 
 impl CloudmqttClient {
@@ -52,6 +54,9 @@ impl CloudmqttClient {
         let start = Instant::now();
 
         let (sender, mut receiver): (tokio::sync::mpsc::Sender<SendUsage>, _) =
+            tokio::sync::mpsc::channel(1);
+
+        let (incoming_sender, incoming_receiver): (tokio::sync::mpsc::Sender<MqttPacket>, _) =
             tokio::sync::mpsc::channel(1);
 
         let client_task = tokio::task::spawn(async move {
@@ -112,7 +117,7 @@ impl CloudmqttClient {
                                 fsm.publish(packet.get_packet().clone().try_into().unwrap());
 
                             while let Some(action) = publisher.run(since(start)) {
-                                handle_action(&mut writer, action).await;
+                                handle_action(&mut writer, action, &incoming_sender).await;
                             }
 
                             fsm.run(since(start))
@@ -126,7 +131,7 @@ impl CloudmqttClient {
 
                 {
                     if let Some(action) = action {
-                        handle_action(&mut writer, action).await;
+                        handle_action(&mut writer, action, &incoming_sender).await;
                     }
                 }
             }
@@ -135,6 +140,7 @@ impl CloudmqttClient {
         CloudmqttClient {
             client_task,
             publish_sender: sender,
+            incoming_messages: Some(incoming_receiver),
         }
     }
 
@@ -192,6 +198,12 @@ impl CloudmqttClient {
             .expect("Could not subscribe..");
     }
 
+    pub fn receive_messages(&mut self) -> impl Stream<Item = MqttPacket> {
+        futures::stream::unfold(self.incoming_messages.take().unwrap(), |mut recv| async {
+            recv.recv().await.map(|p| (p, recv))
+        })
+    }
+
     pub async fn wait_for_shutdown(&mut self) {
         (&mut self.client_task)
             .await
@@ -202,6 +214,7 @@ impl CloudmqttClient {
 async fn handle_action(
     writer: &mut FramedWrite<&mut tokio::net::tcp::WriteHalf<'_>, MqttPacketCodec>,
     action: ExpectedAction<'_>,
+    incoming_sender: &tokio::sync::mpsc::Sender<MqttPacket>,
 ) {
     match action {
         ExpectedAction::SendPacket(mqtt_packet) => {
@@ -209,6 +222,15 @@ async fn handle_action(
                 .send(mqtt_packet)
                 .await
                 .expect("Could not send packet");
+        }
+        ExpectedAction::ReceivePacket(cloudmqtt_core::client::ReceivePacket::NoFurtherAction(
+            received_packet,
+        )) => {
+            // TODO: Don't await in the FSM loop
+            incoming_sender
+                .send(MqttPacket::new(received_packet))
+                .await
+                .unwrap();
         }
         _ => unreachable!(),
     }
