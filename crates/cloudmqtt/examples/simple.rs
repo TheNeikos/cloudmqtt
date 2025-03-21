@@ -5,6 +5,7 @@
 //
 
 use cloudmqtt::CloudmqttClient;
+use futures::StreamExt;
 
 #[tokio::main]
 async fn main() {
@@ -13,6 +14,16 @@ async fn main() {
     client.publish(b"What's up", "foo/bar").await;
 
     client.subscribe("whats/up").await;
+
+    {
+        let receive_messages = client.receive_messages();
+
+        let mut receive_messages = std::pin::pin!(receive_messages);
+
+        while let Some(msg) = receive_messages.next().await {
+            println!("Got: {msg:?}");
+        }
+    }
 
     client.wait_for_shutdown().await;
 }
