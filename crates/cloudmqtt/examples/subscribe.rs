@@ -5,12 +5,19 @@
 //
 
 use cloudmqtt::CloudmqttClient;
+use futures::StreamExt;
 
 #[tokio::main]
 async fn main() {
     let mut client = CloudmqttClient::new("localhost:1883".to_string()).await;
 
-    client.publish(b"What's up", "foo/bar").await;
+    let whatsub = client.subscribe("whats/up").await;
+    let morestuff = client.subscribe("more/stuff").await;
+    let mut combined = futures::stream::select(whatsub, morestuff);
+
+    while let Some(next_message) = combined.next().await {
+        println!("Got: {next_message:?}");
+    }
 
     client.wait_for_shutdown().await;
 }

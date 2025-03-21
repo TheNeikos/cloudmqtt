@@ -4,27 +4,19 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+mod client;
 mod codec;
+mod router;
+pub mod topic;
 
-use std::time::Instant;
+use std::sync::Arc;
 
-use cloudmqtt_core::client::ExpectedAction;
-use cloudmqtt_core::client::MqttClientFSM;
-use cloudmqtt_core::client::MqttInstant;
 use codec::BytesMutWriter;
 use codec::MqttPacket;
-use codec::MqttPacketCodec;
-use futures::SinkExt;
+use dashmap::DashMap;
 use futures::Stream;
-use futures::StreamExt;
-use mqtt_format::v5::packets::subscribe::Subscription;
 use tokio_util::bytes::BytesMut;
-use tokio_util::codec::FramedRead;
-use tokio_util::codec::FramedWrite;
-
-fn since(start: Instant) -> MqttInstant {
-    MqttInstant::new(start.elapsed().as_secs())
-}
+use topic::TopicFilterBuf;
 
 enum SendUsage {
     Publish(MqttPacket),
@@ -32,9 +24,12 @@ enum SendUsage {
 }
 
 pub struct CloudmqttClient {
-    client_task: tokio::task::JoinHandle<()>,
-    publish_sender: tokio::sync::mpsc::Sender<SendUsage>,
-    incoming_messages: Option<tokio::sync::mpsc::Receiver<MqttPacket>>,
+    core_client: crate::client::CoreClient,
+    _router: crate::router::Router,
+
+    next_subscription_id: std::sync::atomic::AtomicU64,
+    subscriptions: Arc<DashMap<SubscriptionId, SubscriptionSink>>,
+    subscription_topics: Arc<DashMap<TopicFilterBuf, Vec<SubscriptionId>>>,
 }
 
 impl CloudmqttClient {
@@ -45,108 +40,35 @@ impl CloudmqttClient {
             .next()
             .expect("DNS resolved to no addresses");
 
-        let mut connection = tokio::net::TcpStream::connect(socket)
+        let connection = tokio::net::TcpStream::connect(socket)
             .await
             .expect("Could not connect");
-
-        let mut fsm = MqttClientFSM::default();
-
-        let start = Instant::now();
-
-        let (sender, mut receiver): (tokio::sync::mpsc::Sender<SendUsage>, _) =
-            tokio::sync::mpsc::channel(1);
 
         let (incoming_sender, incoming_receiver): (tokio::sync::mpsc::Sender<MqttPacket>, _) =
             tokio::sync::mpsc::channel(1);
 
-        let client_task = tokio::task::spawn(async move {
-            let (reader, mut writer) = connection.split();
+        let core_client = crate::client::CoreClient::new(connection, incoming_sender.clone());
 
-            let mut writer = FramedWrite::new(&mut writer, MqttPacketCodec);
-            let mut reader = FramedRead::new(reader, MqttPacketCodec);
-
-            let action = fsm.handle_connect(
-                since(start),
-                mqtt_format::v5::packets::connect::MConnect {
-                    client_identifier: "cloudmqtt-0",
-                    username: None,
-                    password: None,
-                    clean_start: true,
-                    will: None,
-                    properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
-                    keep_alive: 0,
-                },
-            );
-
-            match action {
-                ExpectedAction::SendPacket(mqtt_packet) => {
-                    writer
-                        .send(mqtt_packet)
-                        .await
-                        .expect("Could not send message");
-                }
-                _ => unreachable!(),
-            }
-            loop {
-                enum GotPacket {
-                    Incoming(MqttPacket),
-                    ToSend(SendUsage),
-                }
-
-                let action = tokio::select! {
-                    packet = reader.next() => {
-                        if let Some(Ok(packet)) = packet {
-                            GotPacket::Incoming(packet)
-                        } else {
-                            println!("We're out, bye!");
-                            break;
-                        }
-                    }
-                    Some(packet) = receiver.recv(), if fsm.is_connected() => {
-                        GotPacket::ToSend(packet)
-                    }
-                };
-
-                let action = match &action {
-                    GotPacket::Incoming(packet) => {
-                        fsm.consume(packet.get_packet().clone()).run(since(start))
-                    }
-                    GotPacket::ToSend(send_usage) => match send_usage {
-                        SendUsage::Publish(packet) => {
-                            let mut publisher =
-                                fsm.publish(packet.get_packet().clone().try_into().unwrap());
-
-                            while let Some(action) = publisher.run(since(start)) {
-                                handle_action(&mut writer, action, &incoming_sender).await;
-                            }
-
-                            fsm.run(since(start))
-                        }
-                        SendUsage::Subscribe(packet) => Some(fsm.subscribe(
-                            since(start),
-                            packet.get_packet().clone().try_into().unwrap(),
-                        )),
-                    },
-                };
-
-                {
-                    if let Some(action) = action {
-                        handle_action(&mut writer, action, &incoming_sender).await;
-                    }
-                }
-            }
-        });
+        let subscriptions = std::sync::Arc::new(dashmap::DashMap::new());
+        let subscription_topics = std::sync::Arc::new(dashmap::DashMap::new());
+        let router = crate::router::Router::new(
+            incoming_receiver,
+            subscriptions.clone(),
+            subscription_topics.clone(),
+        );
 
         CloudmqttClient {
-            client_task,
-            publish_sender: sender,
-            incoming_messages: Some(incoming_receiver),
+            core_client,
+            next_subscription_id: std::sync::atomic::AtomicU64::new(0),
+            subscriptions,
+            subscription_topics,
+            _router: router,
         }
     }
 
     pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) {
-        self.publish_sender
-            .send(SendUsage::Publish(MqttPacket::new(
+        self.core_client
+            .publish(MqttPacket::new(
                 mqtt_format::v5::packets::MqttPacket::Publish(
                     mqtt_format::v5::packets::publish::MPublish {
                         duplicate: false,
@@ -158,14 +80,13 @@ impl CloudmqttClient {
                         payload: message.as_ref(),
                     },
                 ),
-            )))
+            ))
             .await
-            .unwrap();
     }
 
-    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) {
+    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Subscription {
         let buf = {
-            let sub = Subscription {
+            let sub = mqtt_format::v5::packets::subscribe::Subscription {
                 topic_filter: topic_filter.as_ref(),
                 options: mqtt_format::v5::packets::subscribe::SubscriptionOptions {
                     quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
@@ -180,8 +101,8 @@ impl CloudmqttClient {
             bytes.to_vec()
         };
 
-        self.publish_sender
-            .send(SendUsage::Subscribe(MqttPacket::new(
+        self.core_client
+            .subscribe(MqttPacket::new(
                 mqtt_format::v5::packets::MqttPacket::Subscribe(
                     mqtt_format::v5::packets::subscribe::MSubscribe {
                         packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
@@ -193,45 +114,126 @@ impl CloudmqttClient {
                                 .unwrap(),
                     },
                 ),
-            )))
-            .await
-            .expect("Could not subscribe..");
+            ))
+            .await;
+
+        let subscription_id = SubscriptionId(
+            self.next_subscription_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        );
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        self.subscriptions.insert(subscription_id, sender);
+        self.subscription_topics
+            .entry(TopicFilterBuf::new(topic_filter.as_ref()).unwrap())
+            .or_default()
+            .push(subscription_id);
+        Subscription {
+            _subscription_id: subscription_id,
+            receiver,
+        }
     }
 
-    pub fn receive_messages(&mut self) -> impl Stream<Item = MqttPacket> {
-        futures::stream::unfold(self.incoming_messages.take().unwrap(), |mut recv| async {
-            recv.recv().await.map(|p| (p, recv))
-        })
+    pub fn subscription_builder(&self) -> SubscriptionBuilder<'_> {
+        SubscriptionBuilder {
+            client: self,
+            topic_filters: Vec::new(),
+        }
     }
 
     pub async fn wait_for_shutdown(&mut self) {
-        (&mut self.client_task)
-            .await
-            .expect("The background task should not panic...")
+        std::future::pending::<()>().await;
     }
 }
 
-async fn handle_action(
-    writer: &mut FramedWrite<&mut tokio::net::tcp::WriteHalf<'_>, MqttPacketCodec>,
-    action: ExpectedAction<'_>,
-    incoming_sender: &tokio::sync::mpsc::Sender<MqttPacket>,
-) {
-    match action {
-        ExpectedAction::SendPacket(mqtt_packet) => {
-            writer
-                .send(mqtt_packet)
-                .await
-                .expect("Could not send packet");
+#[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
+pub struct SubscriptionId(u64);
+
+type SubscriptionSink = tokio::sync::mpsc::Sender<MqttPacket>;
+
+pub struct Subscription {
+    _subscription_id: SubscriptionId,
+    receiver: tokio::sync::mpsc::Receiver<MqttPacket>,
+}
+
+impl Stream for Subscription {
+    type Item = MqttPacket;
+
+    fn poll_next(
+        mut self: std::pin::Pin<&mut Self>,
+        cx: &mut std::task::Context<'_>,
+    ) -> std::task::Poll<Option<Self::Item>> {
+        self.receiver.poll_recv(cx)
+    }
+}
+
+pub struct SubscriptionBuilder<'a> {
+    client: &'a CloudmqttClient,
+    topic_filters: Vec<String>,
+}
+
+impl SubscriptionBuilder<'_> {
+    pub fn with_subscription(mut self, topic_filter: impl AsRef<str>) -> Self {
+        self.topic_filters.push(topic_filter.as_ref().to_string());
+        self
+    }
+
+    pub async fn build(self) -> Subscription {
+        let buf = {
+            let mut bytes = BytesMut::new();
+
+            for topic_filter in self.topic_filters.iter() {
+                let sub = mqtt_format::v5::packets::subscribe::Subscription {
+                    topic_filter,
+                    options: mqtt_format::v5::packets::subscribe::SubscriptionOptions {
+                        quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+                        no_local: true,
+                        retain_as_published: true,
+                        retain_handling: mqtt_format::v5::packets::subscribe::RetainHandling::SendRetainedMessagesAlways,
+                    }
+                };
+
+                sub.write(&mut BytesMutWriter(&mut bytes)).unwrap();
+            }
+
+            bytes.to_vec()
+        };
+
+        self.client
+            .core_client
+            .subscribe(MqttPacket::new(
+                mqtt_format::v5::packets::MqttPacket::Subscribe(
+                    mqtt_format::v5::packets::subscribe::MSubscribe {
+                        packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
+                            1.try_into().unwrap(),
+                        ),
+                        properties: mqtt_format::v5::packets::subscribe::SubscribeProperties::new(),
+                        subscriptions:
+                            mqtt_format::v5::packets::subscribe::Subscriptions::parse_complete(&buf)
+                                .unwrap(),
+                    },
+                ),
+            ))
+            .await;
+
+        let subscription_id = SubscriptionId(
+            self.client
+                .next_subscription_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        );
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        self.client.subscriptions.insert(subscription_id, sender);
+
+        for topic_filter in self.topic_filters.iter() {
+            self.client
+                .subscription_topics
+                .entry(TopicFilterBuf::new(topic_filter).unwrap())
+                .or_default()
+                .push(subscription_id);
         }
-        ExpectedAction::ReceivePacket(cloudmqtt_core::client::ReceivePacket::NoFurtherAction(
-            received_packet,
-        )) => {
-            // TODO: Don't await in the FSM loop
-            incoming_sender
-                .send(MqttPacket::new(received_packet))
-                .await
-                .unwrap();
+
+        Subscription {
+            _subscription_id: subscription_id,
+            receiver,
         }
-        _ => unreachable!(),
     }
 }

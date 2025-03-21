@@ -14,12 +14,14 @@ license.workspace = true
 
 [dependencies]
 cloudmqtt-core.workspace = true
+dashmap.workspace = true
 futures.workspace = true
 hakari.workspace = true
 mqtt-format = { workspace = true, features = ["yoke"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "rt"] }
 tokio-util = { workspace = true, features = ["codec"] }
+tracing.workspace = true
 winnow.workspace = true
 yoke = { workspace = true, features = ["alloc"] }
 
