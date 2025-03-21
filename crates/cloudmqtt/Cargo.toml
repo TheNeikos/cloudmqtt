@@ -1,0 +1,27 @@
+[package]
+name = "cloudmqtt"
+version.workspace = true
+edition = "2024"
+description = "A pure Rust MQTT client and server library"
+readme = "README.md"
+keywords = ["mqtt", "cloud"]
+categories = ["embedded"]
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cloudmqtt-core.workspace = true
+futures.workspace = true
+hakari.workspace = true
+mqtt-format = { workspace = true, features = ["yoke"] }
+thiserror.workspace = true
+tokio = { workspace = true, features = ["io-util", "net", "rt"] }
+tokio-util = { workspace = true, features = ["codec"] }
+winnow.workspace = true
+yoke = { workspace = true, features = ["alloc"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

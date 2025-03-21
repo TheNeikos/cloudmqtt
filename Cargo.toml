@@ -1,47 +1,35 @@
-[package]
-name = "cloudmqtt"
-version = "0.5.0"
-edition = "2021"
+[workspace]
+members = ["crates/*","crates/hakari"]
+resolver = "2"
+
+[workspace.package]
+version = "0.5.0" # This version is purely for the main cloudmqtt library, and should not be used by any others
 authors = ["Marcel Müller <neikos@neikos.email>"]
-description = "A pure Rust MQTT client and server library"
-readme = "README.md"
 repository = "https://github.com/TheNeikos/cloudmqtt"
 license = "MPL-2.0"
-keywords = ["mqtt", "cloud"]
-categories = ["embedded"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[workspace]
-members = ["cloudmqtt-bin", "mqtt-format"]
 
 [workspace.dependencies]
+bytemuck = { version = "1.22.0", features = ["derive"] }
 futures = "0.3.31"
+nom = { version = "7.1.3" }
+nom-supreme = { version = "0.8.0" }
+num_enum = { version = "0.7.3", default-features = false }
+derive_more = { version = "2", default-features = false }
 paste = "1.0.14"
+pretty_assertions = "1.4.1"
+rustc-hash = { version = "2.1.1", default-features = false }
 thiserror = "2.0.11"
+tokio = { version = "1.43.0" }
+tokio-util = { version = " 0.7.14" }
+tracing = { version = "0.1.41", default-features = false }
+tracing-subscriber = { version = "0.3.19", default-features = false }
 winnow = { version = "0.7", default-features = false }
 yoke = { version = "0.8.0", default-features = false }
 
-#[features]
-#debug = ["winnow/debug"]
 
-[dependencies]
-futures-timer = "3.0.3"
-mqtt-format = { version = "0.5.0", path = "mqtt-format", features = [
-    "yoke",
-    "mqttv5",
-] }
-stable_deref_trait = "1.2.0"
-tokio = { version = "1.43.0", features = ["macros", "full"] }
-tokio-util = { version = "0.7.12", features = ["codec", "compat"] }
-tracing = "0.1.41"
-typed-builder = "0.20"
+hakari = { version = "0.1.0", path = "crates/hakari" }
+mqtt-format = { version = "0.5.0", path = "crates/mqtt-format", default-features = false }
+cloudmqtt-core = { version = "0.5.0", path = "crates/cloudmqtt-core" }
 
-futures.workspace = true
-paste.workspace = true
-thiserror.workspace = true
-winnow = { workspace = true, default-features = true }
-yoke = { workspace = true, default-features = true }
-
-[dev-dependencies]
-static_assertions = "1.1.0"
+[workspace.metadata.crane]
+name = "cloudmqtt"

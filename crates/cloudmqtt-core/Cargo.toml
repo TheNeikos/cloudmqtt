@@ -1,0 +1,16 @@
+[package]
+name = "cloudmqtt-core"
+edition = "2024"
+version.workspace = true
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+mqtt-format = { workspace = true, features = ["mqttv5"] }
+rustc-hash.workspace = true
+tracing = { workspace = true, features = ["attributes"] }
+hakari = { version = "0.1", path = "../hakari" }
+
+[dev-dependencies]
+tracing-subscriber = { workspace = true, features = ["env-filter", "std", "fmt", "ansi", "smallvec"] }

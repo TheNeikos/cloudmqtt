@@ -1,5 +1,14 @@
 # Changelog 'cloudmqtt'
 
+## v0.5.0
+
+The 0.5.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.
+
+Changed:
+
+- Upgraded to Rust version 1.85, and bumped edition requirement to 2024
+- Rewrote the cloudmqtt crate and split it up into cloudmqtt-core which is no_std
+
 ## v0.4.0
 
 The 0.4.0 public release of the cloudmqtt crate. It is still considered to be in an alpha state.

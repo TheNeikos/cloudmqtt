@@ -1,0 +1,37 @@
+[package]
+name = "mqtt-format"
+version = "0.5.0"
+edition = "2024"
+description = "A pure Rust MQTT packet parser and serializer"
+readme = "README.md"
+keywords = ["mqtt", "cloud"]
+categories = ["embedded", "parsing"]
+authors.workspace = true
+repository.workspace = true
+license.workspace = true
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+default = ["mqttv5", "mqttv3"]
+std = ["num_enum/std"]
+yoke = ["dep:yoke"]
+mqttv3 = ["std", "dep:futures", "dep:nom", "dep:nom-supreme", "dep:thiserror"]
+mqttv5 = ["dep:winnow"]
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive"] }
+derive_more = { workspace = true, features = ["from", "try_into"] }
+futures = { workspace = true, optional = true }
+hakari.workspace = true
+nom = { workspace = true, optional = true }
+nom-supreme = { workspace = true, optional = true }
+num_enum = { workspace = true }
+paste.workspace = true
+thiserror = { workspace = true, optional = true }
+winnow = { workspace = true, optional = true }
+yoke = { workspace = true, features = ["derive"], optional = true }
+
+[dev-dependencies]
+pretty_assertions.workspace = true
+tokio = { workspace = true, features = ["test-util", "macros"] }

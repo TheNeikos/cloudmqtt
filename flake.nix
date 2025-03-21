@@ -10,8 +10,16 @@
     };
   };
 
-  outputs = {  nixpkgs, crane, flake-utils, rust-overlay, ... }:
-    flake-utils.lib.eachDefaultSystem (system:
+  outputs =
+    {
+      nixpkgs,
+      crane,
+      flake-utils,
+      rust-overlay,
+      ...
+    }:
+    flake-utils.lib.eachDefaultSystem (
+      system:
       let
         pkgs = import nixpkgs {
           inherit system;
@@ -19,54 +27,30 @@
         };
 
         rustTarget = pkgs.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
-        unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (toolchain: toolchain.default.override {
-          extensions = [ "rust-src" "miri" "rustfmt" ];
-        });
+        unstableRustTarget = pkgs.rust-bin.selectLatestNightlyWith (
+          toolchain:
+          toolchain.default.override {
+            extensions = [
+              "rust-src"
+              "miri"
+              "rustfmt"
+            ];
+          }
+        );
         craneLib = (crane.mkLib pkgs).overrideToolchain rustTarget;
         unstableCraneLib = (crane.mkLib pkgs).overrideToolchain unstableRustTarget;
-
-        tomlInfo = craneLib.crateNameFromCargoToml { cargoToml = ./Cargo.toml; };
-        inherit (tomlInfo) version;
-        src = ./.;
 
         rustfmt' = pkgs.writeShellScriptBin "rustfmt" ''
           exec "${unstableRustTarget}/bin/rustfmt" "$@"
         '';
 
-        cargoArtifacts = craneLib.buildDepsOnly {
-          inherit src;
-          cargoExtraArgs = "--all-features --all";
-        };
-
-        cloudmqtt = craneLib.buildPackage {
-          inherit cargoArtifacts src version;
-          cargoExtraArgs = "--all-features --all";
-        };
+        defs = pkgs.callPackage ./nix { inherit craneLib; };
 
       in
       rec {
-        checks = {
-          inherit cloudmqtt;
+        checks = { } // defs.packages // defs.checks;
 
-          cloudmqtt-clippy = craneLib.cargoClippy {
-            inherit cargoArtifacts src;
-            cargoExtraArgs = "--all --all-features";
-            cargoClippyExtraArgs = "-- --deny warnings";
-          };
-
-          cloudmqtt-fmt = unstableCraneLib.cargoFmt {
-            inherit src;
-          };
-        };
-
-        packages.cloudmqtt = cloudmqtt;
-        packages.default = packages.cloudmqtt;
-
-        apps.cloudmqtt = flake-utils.lib.mkApp {
-          name = "cloudmqtt";
-          drv = cloudmqtt;
-        };
-        apps.default = apps.cloudmqtt;
+        packages = { } // defs.packages;
 
         devShells.default = devShells.cloudmqtt;
         devShells.cloudmqtt = pkgs.mkShell {
@@ -81,6 +65,8 @@
             pkgs.cargo-expand
             pkgs.cargo-bloat
             pkgs.cargo-fuzz
+            pkgs.cargo-hakari
+            pkgs.cargo-nextest
 
             pkgs.gitlint
           ];
