@@ -133,6 +133,13 @@ impl CloudmqttClient {
         }
     }
 
+    pub fn subscription_builder(&self) -> SubscriptionBuilder<'_> {
+        SubscriptionBuilder {
+            client: self,
+            topic_filters: Vec::new(),
+        }
+    }
+
     pub async fn wait_for_shutdown(&mut self) {
         std::future::pending::<()>().await;
     }
@@ -156,5 +163,77 @@ impl Stream for Subscription {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         self.receiver.poll_recv(cx)
+    }
+}
+
+pub struct SubscriptionBuilder<'a> {
+    client: &'a CloudmqttClient,
+    topic_filters: Vec<String>,
+}
+
+impl SubscriptionBuilder<'_> {
+    pub fn with_subscription(mut self, topic_filter: impl AsRef<str>) -> Self {
+        self.topic_filters.push(topic_filter.as_ref().to_string());
+        self
+    }
+
+    pub async fn build(self) -> Subscription {
+        let buf = {
+            let mut bytes = BytesMut::new();
+
+            for topic_filter in self.topic_filters.iter() {
+                let sub = mqtt_format::v5::packets::subscribe::Subscription {
+                    topic_filter,
+                    options: mqtt_format::v5::packets::subscribe::SubscriptionOptions {
+                        quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+                        no_local: true,
+                        retain_as_published: true,
+                        retain_handling: mqtt_format::v5::packets::subscribe::RetainHandling::SendRetainedMessagesAlways,
+                    }
+                };
+
+                sub.write(&mut BytesMutWriter(&mut bytes)).unwrap();
+            }
+
+            bytes.to_vec()
+        };
+
+        self.client
+            .core_client
+            .subscribe(MqttPacket::new(
+                mqtt_format::v5::packets::MqttPacket::Subscribe(
+                    mqtt_format::v5::packets::subscribe::MSubscribe {
+                        packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
+                            1.try_into().unwrap(),
+                        ),
+                        properties: mqtt_format::v5::packets::subscribe::SubscribeProperties::new(),
+                        subscriptions:
+                            mqtt_format::v5::packets::subscribe::Subscriptions::parse_complete(&buf)
+                                .unwrap(),
+                    },
+                ),
+            ))
+            .await;
+
+        let subscription_id = SubscriptionId(
+            self.client
+                .next_subscription_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed),
+        );
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        self.client.subscriptions.insert(subscription_id, sender);
+
+        for topic_filter in self.topic_filters.iter() {
+            self.client
+                .subscription_topics
+                .entry(TopicFilterBuf::new(topic_filter).unwrap())
+                .or_default()
+                .push(subscription_id);
+        }
+
+        Subscription {
+            _subscription_id: subscription_id,
+            receiver,
+        }
     }
 }
