@@ -246,15 +246,25 @@ impl TopicNameBuf {
             return true;
         }
 
-        if filter.has_end_wildcard && self.levels.len() < filter.levels.len() {
-            return false;
-        }
+        let mut filter_it = filter.levels.iter().peekable();
+        let mut path_it = self.levels.iter();
 
-        for (filter, path) in filter.levels.iter().zip(&self.levels) {
+        loop {
+            let (Some(filter), Some(path)) = (filter_it.next(), path_it.next()) else {
+                break;
+            };
+
             match filter {
                 TopicFilterLevel::Path(topic_path) => {
                     if topic_path != path {
                         return false;
+                    }
+
+                    if filter_it
+                        .peek()
+                        .is_some_and(|f| **f == TopicFilterLevel::MultiLevelSeperator)
+                    {
+                        return true;
                     }
                 }
                 TopicFilterLevel::Empty => {
