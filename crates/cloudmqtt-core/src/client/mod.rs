@@ -194,6 +194,26 @@ where
             .expect("inner_run did not return packet as expected")
     }
 
+    pub fn acknowledge<'p>(
+        &mut self,
+        current_time: MqttInstant,
+        AcknowledgeAction(packet_identifier): AcknowledgeAction,
+    ) -> ExpectedAction<'p> {
+        self.inner_run(
+            current_time,
+            None,
+            Some(
+                mqtt_format::v5::packets::puback::MPuback {
+                    packet_identifier,
+                    reason: mqtt_format::v5::packets::puback::PubackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::puback::PubackProperties::new(),
+                }
+                .into(),
+            ),
+        )
+        .expect("inner_run did not return packet as expected")
+    }
+
     pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'static>> {
         self.inner_run(current_time, None, None)
     }
@@ -244,7 +264,34 @@ where
 
         if let Some(incoming_packet) = to_consume_packet.take() {
             match incoming_packet {
-                MqttPacket::Publish(_) => todo!(),
+                MqttPacket::Publish(
+                    publish @ mqtt_format::v5::packets::publish::MPublish {
+                        duplicate: _,
+                        quality_of_service,
+                        retain: _,
+                        topic_name: _,
+                        packet_identifier,
+                        properties: _,
+                        payload: _,
+                    },
+                ) => match quality_of_service {
+                    QualityOfService::AtMostOnce => {
+                        return Some(ExpectedAction::ReceivePacket(
+                            ReceivePacket::NoFurtherAction(MqttPacket::Publish(publish)),
+                        ));
+                    }
+                    QualityOfService::AtLeastOnce => {
+                        return Some(ExpectedAction::ReceivePacket(
+                            ReceivePacket::AcknowledgeNeeded {
+                                // TODO: Dont unwrap()
+                                acknowledge: AcknowledgeAction(packet_identifier.unwrap()),
+                                packet: MqttPacket::Publish(publish),
+                            },
+                        ));
+                    }
+                    QualityOfService::ExactlyOnce => todo!(),
+                },
+
                 MqttPacket::Disconnect(_) => todo!(),
                 MqttPacket::Puback(puback) => {
                     assert!(self.client_pis.contains(puback.packet_identifier));
@@ -375,7 +422,6 @@ where
 }
 
 #[derive(Debug)]
-#[expect(clippy::large_enum_variant)]
 pub enum ExpectedAction<'p> {
     SendPacket(MqttPacket<'p>),
     SaveClientIdentifier(&'p str),
@@ -385,7 +431,20 @@ pub enum ExpectedAction<'p> {
     ReleasePacket {
         id: mqtt_format::v5::variable_header::PacketIdentifier,
     },
+    ReceivePacket(ReceivePacket<'p>),
 }
+
+#[derive(Debug)]
+pub enum ReceivePacket<'p> {
+    NoFurtherAction(MqttPacket<'p>),
+    AcknowledgeNeeded {
+        packet: MqttPacket<'p>,
+        acknowledge: AcknowledgeAction,
+    },
+}
+
+#[derive(Debug)]
+pub struct AcknowledgeAction(mqtt_format::v5::variable_header::PacketIdentifier);
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
 pub struct MqttInstant(u64);
@@ -707,6 +766,113 @@ mod tests {
         );
 
         let action = fsm.run(crate::client::MqttInstant::new(12));
+        assert!(action.is_none(), "Got action: {action:?}");
+    }
+
+    #[test]
+    fn check_publish_recv() {
+        tracing_subscriber::fmt()
+            .with_test_writer()
+            .pretty()
+            .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+            .init();
+        let mut fsm = MqttClientFSM::default();
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 10,
+            },
+        );
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Connected { .. }
+        ));
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Publish(
+                mqtt_format::v5::packets::publish::MPublish {
+                    duplicate: false,
+                    quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+                    retain: false,
+                    topic_name: "foo",
+                    packet_identifier: None,
+                    properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+                    payload: &[],
+                },
+            ))
+            .run(crate::client::MqttInstant::new(1));
+
+        // match from hell
+        assert!(matches!(
+            action,
+            Some(ExpectedAction::ReceivePacket(
+                crate::client::ReceivePacket::NoFurtherAction { .. }
+            ))
+        ));
+
+        let action = fsm.run(crate::client::MqttInstant::new(2));
+        assert!(action.is_none(), "Got action: {action:?}");
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Publish(
+                mqtt_format::v5::packets::publish::MPublish {
+                    duplicate: false,
+                    quality_of_service: mqtt_format::v5::qos::QualityOfService::AtLeastOnce,
+                    retain: false,
+                    topic_name: "foo",
+                    packet_identifier: Some(mqtt_format::v5::variable_header::PacketIdentifier(
+                        11.try_into().unwrap(),
+                    )),
+                    properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+                    payload: &[],
+                },
+            ))
+            .run(crate::client::MqttInstant::new(3));
+
+        // match from hell
+        let Some(ExpectedAction::ReceivePacket(crate::client::ReceivePacket::AcknowledgeNeeded {
+            packet,
+            acknowledge,
+        })) = action
+        else {
+            panic!("Expected ReceivePacket with AcknowledgeNeeded: {action:?}")
+        };
+
+        assert!(matches!(
+            packet,
+            mqtt_format::v5::packets::MqttPacket::Publish { .. }
+        ));
+        assert!(matches!(acknowledge, crate::client::AcknowledgeAction(pid) if pid.0.get() == 11));
+
+        let action = fsm.acknowledge(crate::client::MqttInstant::new(4), acknowledge);
+        assert!(
+            matches!(
+                action,
+                ExpectedAction::SendPacket(mqtt_format::v5::packets::MqttPacket::Puback(..))
+            ),
+            "Got action: {action:?}"
+        );
+
+        let action = fsm.run(crate::client::MqttInstant::new(2));
         assert!(action.is_none(), "Got action: {action:?}");
     }
 }

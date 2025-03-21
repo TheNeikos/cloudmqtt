@@ -20,7 +20,6 @@ use super::write::WriteMqttPacket;
 /// Parse an UTF-8 String
 ///
 /// MQTT expects that all Strings are UTF-8 encoded
-///
 #[doc = crate::v5::util::md_speclink!("_Toc3901010")]
 pub fn parse_string<'i>(input: &mut &'i Bytes) -> MResult<&'i str> {
     winnow::combinator::trace("mqtt_string", |input: &mut &'i Bytes| {
@@ -51,7 +50,6 @@ pub fn string_pair_binary_size(key: &str, value: &str) -> u32 {
 /// Parse a pair of UTF-8 Strings
 ///
 /// MQTT expects that all Strings are UTF-8 encoded
-///
 #[doc = crate::v5::util::md_speclink!("_Toc3901013")]
 pub fn parse_string_pair<'i>(input: &mut &'i Bytes) -> MResult<(&'i str, &'i str)> {
     winnow::combinator::trace("mqtt_string_pair", |input: &mut &'i Bytes| {

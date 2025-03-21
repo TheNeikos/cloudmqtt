@@ -74,7 +74,6 @@ pub fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
 ///
 /// Value range: `0..268_435_455`
 /// The maximal value is smaller than a u32, so that type is used
-///
 #[doc = crate::v5::util::md_speclink!("_Toc3901011")]
 pub fn parse_variable_u32<'a, I>(input: &mut I) -> MResult<u32>
 where
