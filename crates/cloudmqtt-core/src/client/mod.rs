@@ -444,6 +444,7 @@ pub enum ReceivePacket<'p> {
 }
 
 #[derive(Debug)]
+#[must_use = "AcknowledgeActions need to be sent back to the FSM so that the server considers it received."]
 pub struct AcknowledgeAction(mqtt_format::v5::variable_header::PacketIdentifier);
 
 #[derive(Debug, Copy, Clone, Default, PartialEq, Eq, PartialOrd, Ord)]
