@@ -4,7 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-use tracing::trace;
+use crate::util::trace;
 
 #[derive(PartialEq, Eq)]
 pub enum PacketIdentifierUsage {

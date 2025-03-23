@@ -13,7 +13,8 @@ use mqtt_format::v5::packets::connack::ConnackReasonCode;
 use mqtt_format::v5::packets::connect::MConnect;
 use mqtt_format::v5::qos::QualityOfService;
 use rustc_hash::FxHasher;
-use tracing::trace;
+
+use crate::util::trace;
 
 mod packet_identifier_store;
 pub use self::packet_identifier_store::PacketIdentifierStore;
@@ -218,7 +219,7 @@ where
         self.inner_run(current_time, None, None)
     }
 
-    #[tracing::instrument(
+    #[cfg_attr(feature = "tracing", tracing::instrument(
         skip_all,
         fields(
             current_time = ?current_time,
@@ -226,7 +227,7 @@ where
             to_publish_packet = to_send_packet.is_some()
         ),
         ret
-    )]
+    ))]
     fn inner_run<'p>(
         &mut self,
         current_time: MqttInstant,
