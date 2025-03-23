@@ -29,7 +29,7 @@ yoke = { version = "0.8.0", default-features = false }
 
 
 mqtt-format = { version = "0.5.0", path = "crates/mqtt-format", default-features = false }
-cloudmqtt-core = { version = "0.5.0", path = "crates/cloudmqtt-core" }
+cloudmqtt-core = { version = "0.5.0", path = "crates/cloudmqtt-core", default-features = false }
 
 cloudmqtt-workspace-hack = { version = "0.0.0" }
 
