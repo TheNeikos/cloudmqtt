@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/*","crates/hakari"]
+members = ["crates/*"]
 resolver = "2"
 
 [workspace.package]
@@ -28,9 +28,13 @@ winnow = { version = "0.7", default-features = false }
 yoke = { version = "0.8.0", default-features = false }
 
 
-hakari = { version = "0.1.0", path = "crates/hakari" }
 mqtt-format = { version = "0.5.0", path = "crates/mqtt-format", default-features = false }
 cloudmqtt-core = { version = "0.5.0", path = "crates/cloudmqtt-core" }
+
+cloudmqtt-workspace-hack = { version = "0.0.0" }
+
+[patch.crates-io.cloudmqtt-workspace-hack]
+path = "crates/workspace-hack"
 
 [workspace.metadata.crane]
 name = "cloudmqtt"

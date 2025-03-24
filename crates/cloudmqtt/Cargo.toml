@@ -16,7 +16,6 @@ license.workspace = true
 cloudmqtt-core.workspace = true
 dashmap.workspace = true
 futures.workspace = true
-hakari.workspace = true
 mqtt-format = { workspace = true, features = ["yoke"] }
 thiserror.workspace = true
 tokio = { workspace = true, features = ["io-util", "net", "rt", "macros"] }
@@ -24,6 +23,7 @@ tokio-util = { workspace = true, features = ["codec"] }
 tracing.workspace = true
 winnow.workspace = true
 yoke = { workspace = true, features = ["alloc"] }
+cloudmqtt-workspace-hack.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

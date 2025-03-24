@@ -23,7 +23,7 @@ let
       fileset = lib.fileset.unions [
         ../Cargo.lock
         ../Cargo.toml
-        (craneLib.fileset.commonCargoSources ../crates/hakari)
+        (craneLib.fileset.commonCargoSources ../crates/workspace-hack)
         (craneLib.fileset.commonCargoSources ../crates/mqtt-format)
         (craneLib.fileset.commonCargoSources ../crates/cloudmqtt-core)
         (craneLib.fileset.commonCargoSources crate)

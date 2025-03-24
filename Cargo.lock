@@ -105,9 +105,9 @@ name = "cloudmqtt"
 version = "0.5.0"
 dependencies = [
  "cloudmqtt-core",
+ "cloudmqtt-workspace-hack",
  "dashmap",
  "futures",
- "hakari",
  "mqtt-format",
  "thiserror",
  "tokio",
@@ -121,11 +121,28 @@ dependencies = [
 name = "cloudmqtt-core"
 version = "0.5.0"
 dependencies = [
- "hakari",
+ "cloudmqtt-workspace-hack",
  "mqtt-format",
  "rustc-hash",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "cloudmqtt-workspace-hack"
+version = "0.0.0"
+dependencies = [
+ "futures-core",
+ "futures-sink",
+ "num_enum",
+ "num_enum_derive",
+ "stable_deref_trait",
+ "syn",
+ "tokio",
+ "tracing-core",
+ "winnow",
+ "yoke",
+ "zerofrom",
 ]
 
 [[package]]
@@ -276,23 +293,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "07e28edb80900c19c28f1072f2e8aeca7fa06b23cd4169cefe1af5aa3260783f"
 
 [[package]]
-name = "hakari"
-version = "0.1.0"
-dependencies = [
- "futures-core",
- "futures-sink",
- "num_enum",
- "num_enum_derive",
- "stable_deref_trait",
- "syn",
- "tokio",
- "tracing-core",
- "winnow",
- "yoke",
- "zerofrom",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -394,9 +394,9 @@ name = "mqtt-format"
 version = "0.5.0"
 dependencies = [
  "bytemuck",
+ "cloudmqtt-workspace-hack",
  "derive_more",
  "futures",
- "hakari",
  "nom",
  "nom-supreme",
  "num_enum",
