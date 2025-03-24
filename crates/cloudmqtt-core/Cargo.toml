@@ -13,7 +13,7 @@ tracing = { workspace = true, features = ["attributes"], optional = true }
 cloudmqtt-workspace-hack.workspace = true
 
 [features]
-default = ["tracing"]
+default = []
 tracing = ["dep:tracing"]
 
 [dev-dependencies]
