@@ -455,7 +455,7 @@ impl MqttInstant {
         MqttInstant(now)
     }
 
-    fn elapsed_seconds(&self, current_time: MqttInstant) -> u64 {
+    pub fn elapsed_seconds(&self, current_time: MqttInstant) -> u64 {
         self.0.abs_diff(current_time.0)
     }
 }
