@@ -105,9 +105,9 @@ impl<CPIS> MqttClientFSM<CPIS>
 where
     CPIS: PacketIdentifierStore,
 {
-    pub fn new(client_pis: CPIS) -> MqttClientFSM<CPIS> {
+    pub const fn new(client_pis: CPIS) -> MqttClientFSM<CPIS> {
         MqttClientFSM {
-            data: ClientData::default(),
+            data: ClientData::const_new(0, None, MqttInstant::new(0)),
             connection_state: ConnectionState::Disconnected,
             client_pis,
         }
@@ -451,7 +451,7 @@ pub struct AcknowledgeAction(mqtt_format::v5::variable_header::PacketIdentifier)
 pub struct MqttInstant(u64);
 
 impl MqttInstant {
-    pub fn new(now: u64) -> MqttInstant {
+    pub const fn new(now: u64) -> MqttInstant {
         MqttInstant(now)
     }
 
@@ -471,6 +471,20 @@ pub struct ClientData {
     keep_alive: u16,
     client_id_hash: Option<u64>,
     last_time_run: MqttInstant,
+}
+
+impl ClientData {
+    pub const fn const_new(
+        keep_alive: u16,
+        client_id_hash: Option<u64>,
+        last_time_run: MqttInstant,
+    ) -> Self {
+        Self {
+            keep_alive,
+            client_id_hash,
+            last_time_run,
+        }
+    }
 }
 
 #[derive(Debug)]
