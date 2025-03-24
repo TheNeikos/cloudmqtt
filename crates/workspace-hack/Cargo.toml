@@ -20,6 +20,7 @@ futures-sink = { version = "0.3" }
 num_enum = { version = "0.7", default-features = false, features = ["std"] }
 stable_deref_trait = { version = "1", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }
+tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 winnow = { version = "0.7" }
 yoke = { version = "0.8", default-features = false, features = ["alloc", "derive"] }

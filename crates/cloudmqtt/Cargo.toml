@@ -13,7 +13,7 @@ license.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-cloudmqtt-core.workspace = true
+cloudmqtt-core = { workspace = true, features = ["tracing"] }
 dashmap.workspace = true
 futures.workspace = true
 mqtt-format = { workspace = true, features = ["yoke"] }

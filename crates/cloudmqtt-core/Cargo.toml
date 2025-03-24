@@ -9,8 +9,12 @@ license.workspace = true
 [dependencies]
 mqtt-format = { workspace = true, features = ["mqttv5"] }
 rustc-hash.workspace = true
-tracing = { workspace = true, features = ["attributes"] }
+tracing = { workspace = true, features = ["attributes"], optional = true }
 cloudmqtt-workspace-hack.workspace = true
+
+[features]
+default = []
+tracing = ["dep:tracing"]
 
 [dev-dependencies]
 tracing-subscriber = { workspace = true, features = ["env-filter", "std", "fmt", "ansi", "smallvec"] }
