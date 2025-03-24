@@ -223,6 +223,12 @@ where
         .expect("inner_run did not return packet as expected")
     }
 
+    pub fn connection_lost(&mut self, current_time: MqttInstant) {
+        self.client_pis.release_non_publish_slots();
+        self.data.last_time_run = current_time;
+        self.connection_state = ConnectionState::Disconnected;
+    }
+
     pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'static>> {
         self.inner_run(current_time, ExternalInfos::None)
     }
@@ -551,6 +557,75 @@ mod tests {
             },
         );
 
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Connected { .. }
+        ));
+    }
+
+    #[test]
+    fn check_simple_connect_and_disconnect() {
+        let mut fsm = MqttClientFSM::default();
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 0,
+            },
+        );
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Connected { .. }
+        ));
+
+        fsm.connection_lost(crate::client::MqttInstant(1));
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Disconnected
+        ));
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 0,
+            },
+        );
         let action = fsm
             .consume(mqtt_format::v5::packets::MqttPacket::Connack(
                 mqtt_format::v5::packets::connack::MConnack {
