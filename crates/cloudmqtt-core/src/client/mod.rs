@@ -45,7 +45,8 @@ where
     CPIS: PacketIdentifierStore,
 {
     pub fn run(self, current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
-        self.client.inner_run(current_time, Some(self.packet), None)
+        self.client
+            .inner_run(current_time, ExternalInfos::ConsumePacket(self.packet))
     }
 }
 
@@ -88,8 +89,10 @@ where
             }
             PublishingState::Send => {
                 self.state = PublishingState::Done;
-                self.client
-                    .inner_run(current_time, None, self.packet.take().map(Into::into))
+                self.client.inner_run(
+                    current_time,
+                    ExternalInfos::PublishPacket(self.packet.take().map(Into::into).unwrap()),
+                )
             }
             PublishingState::Done => None,
         }
@@ -100,6 +103,12 @@ impl Default for MqttClientFSM<UsizePacketIdentifierStore> {
     fn default() -> Self {
         Self::new(UsizePacketIdentifierStore::default())
     }
+}
+
+pub enum ExternalInfos<'p> {
+    ConsumePacket(MqttPacket<'p>),
+    PublishPacket(MqttPacket<'p>),
+    None,
 }
 
 impl<CPIS> MqttClientFSM<CPIS>
@@ -191,7 +200,7 @@ where
             .get_next_free(PacketIdentifierUsage::NonPublish)
             .expect("could not get a free packet identifier");
 
-        self.inner_run(current_time, None, Some(packet.into()))
+        self.inner_run(current_time, ExternalInfos::PublishPacket(packet.into()))
             .expect("inner_run did not return packet as expected")
     }
 
@@ -202,8 +211,7 @@ where
     ) -> ExpectedAction<'p> {
         self.inner_run(
             current_time,
-            None,
-            Some(
+            ExternalInfos::PublishPacket(
                 mqtt_format::v5::packets::puback::MPuback {
                     packet_identifier,
                     reason: mqtt_format::v5::packets::puback::PubackReasonCode::Success,
@@ -216,23 +224,20 @@ where
     }
 
     pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'static>> {
-        self.inner_run(current_time, None, None)
+        self.inner_run(current_time, ExternalInfos::None)
     }
 
     #[cfg_attr(feature = "tracing", tracing::instrument(
         skip_all,
         fields(
             current_time = ?current_time,
-            to_consume_packet = to_consume_packet.is_some(),
-            to_publish_packet = to_send_packet.is_some()
         ),
         ret
     ))]
     fn inner_run<'p>(
         &mut self,
         current_time: MqttInstant,
-        to_consume_packet: Option<MqttPacket<'p>>,
-        to_send_packet: Option<MqttPacket<'p>>,
+        external_infos: ExternalInfos<'p>,
     ) -> Option<ExpectedAction<'p>> {
         trace!("Doing one state machine step");
         let action = match &self.connection_state {
@@ -241,10 +246,10 @@ where
                 None
             }
             ConnectionState::ConnectingWithoutAuth { .. } => {
-                self.handle_connecting_without_auth(current_time, to_consume_packet)
+                self.handle_connecting_without_auth(current_time, external_infos)
             }
             ConnectionState::Connected { .. } => {
-                self.handle_connected(current_time, to_consume_packet, to_send_packet)
+                self.handle_connected(current_time, external_infos)
             }
         };
 
@@ -256,101 +261,103 @@ where
     fn handle_connected<'p>(
         &mut self,
         current_time: MqttInstant,
-        mut to_consume_packet: Option<MqttPacket<'p>>,
-        mut to_send_packet: Option<MqttPacket<'p>>,
+        external_infos: ExternalInfos<'p>,
     ) -> Option<ExpectedAction<'p>> {
         let ConnectionState::Connected(con) = &mut self.connection_state else {
             unreachable!()
         };
 
-        if let Some(incoming_packet) = to_consume_packet.take() {
-            match incoming_packet {
-                MqttPacket::Publish(
-                    publish @ mqtt_format::v5::packets::publish::MPublish {
-                        duplicate: _,
-                        quality_of_service,
-                        retain: _,
-                        topic_name: _,
-                        packet_identifier,
-                        properties: _,
-                        payload: _,
+        match external_infos {
+            ExternalInfos::ConsumePacket(incoming_packet) => {
+                match incoming_packet {
+                    MqttPacket::Publish(
+                        publish @ mqtt_format::v5::packets::publish::MPublish {
+                            duplicate: _,
+                            quality_of_service,
+                            retain: _,
+                            topic_name: _,
+                            packet_identifier,
+                            properties: _,
+                            payload: _,
+                        },
+                    ) => match quality_of_service {
+                        QualityOfService::AtMostOnce => {
+                            return Some(ExpectedAction::ReceivePacket(
+                                ReceivePacket::NoFurtherAction(MqttPacket::Publish(publish)),
+                            ));
+                        }
+                        QualityOfService::AtLeastOnce => {
+                            return Some(ExpectedAction::ReceivePacket(
+                                ReceivePacket::AcknowledgeNeeded {
+                                    // TODO: Dont unwrap()
+                                    acknowledge: AcknowledgeAction(packet_identifier.unwrap()),
+                                    packet: MqttPacket::Publish(publish),
+                                },
+                            ));
+                        }
+                        QualityOfService::ExactlyOnce => todo!(),
                     },
-                ) => match quality_of_service {
-                    QualityOfService::AtMostOnce => {
-                        return Some(ExpectedAction::ReceivePacket(
-                            ReceivePacket::NoFurtherAction(MqttPacket::Publish(publish)),
-                        ));
+
+                    MqttPacket::Disconnect(_) => todo!(),
+                    MqttPacket::Puback(puback) => {
+                        assert!(self.client_pis.contains(puback.packet_identifier));
+
+                        self.client_pis.release(puback.packet_identifier);
+
+                        return Some(ExpectedAction::ReleasePacket {
+                            id: puback.packet_identifier,
+                        });
                     }
-                    QualityOfService::AtLeastOnce => {
-                        return Some(ExpectedAction::ReceivePacket(
-                            ReceivePacket::AcknowledgeNeeded {
-                                // TODO: Dont unwrap()
-                                acknowledge: AcknowledgeAction(packet_identifier.unwrap()),
-                                packet: MqttPacket::Publish(publish),
-                            },
-                        ));
-                    }
-                    QualityOfService::ExactlyOnce => todo!(),
-                },
-
-                MqttPacket::Disconnect(_) => todo!(),
-                MqttPacket::Puback(puback) => {
-                    assert!(self.client_pis.contains(puback.packet_identifier));
-
-                    self.client_pis.release(puback.packet_identifier);
-
-                    return Some(ExpectedAction::ReleasePacket {
-                        id: puback.packet_identifier,
-                    });
-                }
-                MqttPacket::Pingresp(mqtt_format::v5::packets::pingresp::MPingresp) => {
-                    match &con.ping_state {
-                        PingState::WaitingForPingrespSince(_since) => {
-                            con.ping_state = PingState::WaitingForElapsed;
-                        }
-                        PingState::WaitingForElapsed => {
-                            panic!("Protocol error, got PingResp without a req");
+                    MqttPacket::Pingresp(mqtt_format::v5::packets::pingresp::MPingresp) => {
+                        match &con.ping_state {
+                            PingState::WaitingForPingrespSince(_since) => {
+                                con.ping_state = PingState::WaitingForElapsed;
+                            }
+                            PingState::WaitingForElapsed => {
+                                panic!("Protocol error, got PingResp without a req");
+                            }
                         }
                     }
-                }
-                MqttPacket::Suback(suback) => {
-                    assert!(self.client_pis.contains(suback.packet_identifier));
+                    MqttPacket::Suback(suback) => {
+                        assert!(self.client_pis.contains(suback.packet_identifier));
 
-                    self.client_pis.release(suback.packet_identifier);
+                        self.client_pis.release(suback.packet_identifier);
 
-                    // TODO: Verify that subscriptions don't use QoS higher than we set as maximum
-                }
-                _ => panic!("Invalid packet received"),
+                        // TODO: Verify that subscriptions don't use QoS higher than we set as maximum
+                    }
+                    _ => panic!("Invalid packet received"),
+                };
             }
-        };
+            ExternalInfos::PublishPacket(outgoing_publish) => {
+                con.last_time_sent = current_time;
+                return Some(ExpectedAction::SendPacket(outgoing_publish));
+            }
+            ExternalInfos::None => {
+                if self.data.keep_alive > 0 {
+                    trace!(ping_state = ?con.ping_state, keep_alive = self.data.keep_alive, "Keep alive is non-zero");
 
-        if let Some(outgoing_publish) = to_send_packet.take() {
-            con.last_time_sent = current_time;
-            return Some(ExpectedAction::SendPacket(outgoing_publish));
-        }
+                    match &con.ping_state {
+                        PingState::WaitingForElapsed => {
+                            trace!(
+                                elapsed_since_last_sent =
+                                    con.last_time_sent.elapsed_seconds(current_time),
+                                "Checking if ping is required"
+                            );
+                            if con.last_time_sent.elapsed_seconds(current_time)
+                                >= self.data.keep_alive as u64
+                            {
+                                trace!("We need to send a ping, doing so now");
+                                con.ping_state = PingState::WaitingForPingrespSince(current_time);
+                                con.last_time_sent = current_time;
 
-        if self.data.keep_alive > 0 {
-            trace!(ping_state = ?con.ping_state, keep_alive = self.data.keep_alive, "Keep alive is non-zero");
-
-            match &con.ping_state {
-                PingState::WaitingForElapsed => {
-                    trace!(
-                        elapsed_since_last_sent = con.last_time_sent.elapsed_seconds(current_time),
-                        "Checking if ping is required"
-                    );
-                    if con.last_time_sent.elapsed_seconds(current_time)
-                        >= self.data.keep_alive as u64
-                    {
-                        trace!("We need to send a ping, doing so now");
-                        con.ping_state = PingState::WaitingForPingrespSince(current_time);
-                        con.last_time_sent = current_time;
-
-                        return Some(ExpectedAction::SendPacket(MqttPacket::Pingreq(
-                            mqtt_format::v5::packets::pingreq::MPingreq,
-                        )));
+                                return Some(ExpectedAction::SendPacket(MqttPacket::Pingreq(
+                                    mqtt_format::v5::packets::pingreq::MPingreq,
+                                )));
+                            }
+                        }
+                        PingState::WaitingForPingrespSince(_mqtt_instant) => {}
                     }
                 }
-                PingState::WaitingForPingrespSince(_mqtt_instant) => {}
             }
         }
 
@@ -360,64 +367,69 @@ where
     fn handle_connecting_without_auth<'p>(
         &mut self,
         _current_time: MqttInstant,
-        mut to_consume_packet: Option<MqttPacket<'p>>,
+        external_infos: ExternalInfos<'p>,
     ) -> Option<ExpectedAction<'p>> {
         let ConnectionState::ConnectingWithoutAuth(conn_without_auth) = &mut self.connection_state
         else {
             unreachable!()
         };
-        match to_consume_packet.take() {
-            Some(MqttPacket::Connack(connack)) => {
-                if connack.reason_code != ConnackReasonCode::Success {
-                    panic!("Connection unsuccessful");
+        match external_infos {
+            ExternalInfos::ConsumePacket(to_consume_packet) => {
+                match to_consume_packet {
+                    MqttPacket::Connack(connack) => {
+                        if connack.reason_code != ConnackReasonCode::Success {
+                            panic!("Connection unsuccessful");
+                        }
+
+                        // TODO: Handle session_present flag
+
+                        let _server_receive_maximum = connack
+                            .properties
+                            .receive_maximum()
+                            .map(|rm| rm.0.get())
+                            .unwrap_or(65_535);
+
+                        // TODO: Handle _server_receive_maximum above
+
+                        // TODO: Handle maximum QoS
+
+                        // TODO: Handle retain available
+
+                        // TODO: Handle max packet size
+
+                        // TODO: Handle max packet size
+
+                        if let Some(keep_alive) = connack.properties.server_keep_alive() {
+                            self.data.keep_alive = keep_alive.0;
+                        }
+
+                        let potential_client_id = if let Some(client_identifier) =
+                            connack.properties.assigned_client_identifier()
+                        {
+                            let mut hasher = FxHasher::default();
+                            client_identifier.0.hash(&mut hasher);
+                            self.data.client_id_hash = Some(hasher.finish());
+                            Some(client_identifier.0)
+                        } else {
+                            None
+                        };
+
+                        self.connection_state = ConnectionState::Connected(Connected {
+                            ping_state: PingState::WaitingForElapsed,
+                            last_time_sent: conn_without_auth.connect_sent,
+                        });
+
+                        potential_client_id.map(ExpectedAction::SaveClientIdentifier)
+                    }
+                    p => panic!("Unexpected packet received: {p:?}"),
                 }
-
-                // TODO: Handle session_present flag
-
-                let _server_receive_maximum = connack
-                    .properties
-                    .receive_maximum()
-                    .map(|rm| rm.0.get())
-                    .unwrap_or(65_535);
-
-                // TODO: Handle _server_receive_maximum above
-
-                // TODO: Handle maximum QoS
-
-                // TODO: Handle retain available
-
-                // TODO: Handle max packet size
-
-                // TODO: Handle max packet size
-
-                if let Some(keep_alive) = connack.properties.server_keep_alive() {
-                    self.data.keep_alive = keep_alive.0;
-                }
-
-                let potential_client_id = if let Some(client_identifier) =
-                    connack.properties.assigned_client_identifier()
-                {
-                    let mut hasher = FxHasher::default();
-                    client_identifier.0.hash(&mut hasher);
-                    self.data.client_id_hash = Some(hasher.finish());
-                    Some(client_identifier.0)
-                } else {
-                    None
-                };
-
-                self.connection_state = ConnectionState::Connected(Connected {
-                    ping_state: PingState::WaitingForElapsed,
-                    last_time_sent: conn_without_auth.connect_sent,
-                });
-
-                potential_client_id.map(ExpectedAction::SaveClientIdentifier)
             }
-            None => match &self.connection_state {
+            ExternalInfos::PublishPacket(_mqtt_packet) => todo!(),
+            ExternalInfos::None => match &self.connection_state {
                 ConnectionState::Disconnected => None,
                 ConnectionState::ConnectingWithoutAuth { .. } => None,
                 ConnectionState::Connected(Connected { .. }) => None,
             },
-            p => panic!("Unexpected packet received: {p:?}"),
         }
     }
 }
