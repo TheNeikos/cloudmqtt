@@ -50,6 +50,45 @@ where
     }
 }
 
+#[expect(clippy::large_enum_variant)]
+enum DisconnectState<'p> {
+    DisconnectPacket(MqttPacket<'p>),
+    DisconnectConnection,
+    Done,
+}
+
+#[must_use = "Without being run, this will not disconnect properly"]
+pub struct MqttClientDisconnecter<'c, 'p, CPIS> {
+    client: &'c mut MqttClientFSM<CPIS>,
+    state: DisconnectState<'p>,
+}
+
+impl<'p, CPIS> MqttClientDisconnecter<'_, 'p, CPIS>
+where
+    CPIS: PacketIdentifierStore,
+{
+    pub fn run(&mut self, _current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
+        // TODO: Do something about time?
+        let state = core::mem::replace(&mut self.state, DisconnectState::Done);
+        match state {
+            DisconnectState::DisconnectPacket(packet) => {
+                self.state = DisconnectState::DisconnectConnection;
+                Some(ExpectedAction::SendPacket(packet))
+            }
+
+            DisconnectState::DisconnectConnection => {
+                self.state = DisconnectState::Done;
+                self.client.reset_connection();
+                Some(ExpectedAction::Disconnect)
+            }
+            DisconnectState::Done => {
+                self.state = DisconnectState::Done;
+                None
+            }
+        }
+    }
+}
+
 enum PublishingState {
     Store,
     Send,
@@ -221,6 +260,16 @@ where
             ),
         )
         .expect("inner_run did not return packet as expected")
+    }
+
+    pub fn disconnect<'p>(
+        &mut self,
+        disconnect: mqtt_format::v5::packets::disconnect::MDisconnect<'p>,
+    ) -> MqttClientDisconnecter<'_, 'p, CPIS> {
+        MqttClientDisconnecter {
+            client: self,
+            state: DisconnectState::DisconnectPacket(disconnect.into()),
+        }
     }
 
     pub fn connection_lost(&mut self, current_time: MqttInstant) {
@@ -651,6 +700,63 @@ mod tests {
             fsm.connection_state,
             ConnectionState::Connected { .. }
         ));
+    }
+
+    #[test]
+    fn check_manual_disconnect() {
+        let mut fsm = MqttClientFSM::default();
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 0,
+            },
+        );
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        let mut disconnecter = fsm.disconnect(mqtt_format::v5::packets::disconnect::MDisconnect {
+            reason_code:
+                mqtt_format::v5::packets::disconnect::DisconnectReasonCode::NormalDisconnection,
+            properties: mqtt_format::v5::packets::disconnect::DisconnectProperties::new(),
+        });
+
+        let action = disconnecter.run(crate::client::MqttInstant(1));
+        assert!(matches!(
+            action,
+            Some(ExpectedAction::SendPacket(
+                mqtt_format::v5::packets::MqttPacket::Disconnect(..)
+            ))
+        ));
+
+        let action = disconnecter.run(crate::client::MqttInstant(1));
+        assert!(matches!(action, Some(ExpectedAction::Disconnect)));
+
+        let action = disconnecter.run(crate::client::MqttInstant(1));
+        assert!(action.is_none(), "Action was not None: {action:?}");
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Disconnected
+        ));
+
+        let action = fsm.run(crate::client::MqttInstant(1));
+        assert!(action.is_none(), "Action was not None: {action:?}");
     }
 
     #[test]
