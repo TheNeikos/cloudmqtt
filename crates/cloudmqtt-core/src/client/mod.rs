@@ -224,8 +224,12 @@ where
     }
 
     pub fn connection_lost(&mut self, current_time: MqttInstant) {
-        self.client_pis.release_non_publish_slots();
         self.data.last_time_run = current_time;
+        self.reset_connection();
+    }
+
+    fn reset_connection(&mut self) {
+        self.client_pis.release_non_publish_slots();
         self.connection_state = ConnectionState::Disconnected;
     }
 
@@ -304,7 +308,12 @@ where
                         QualityOfService::ExactlyOnce => todo!(),
                     },
 
-                    MqttPacket::Disconnect(_) => todo!(),
+                    MqttPacket::Disconnect(_disc) => {
+                        // TODO: Do something about being disconnected?
+                        self.reset_connection();
+
+                        return Some(ExpectedAction::Disconnect);
+                    }
                     MqttPacket::Puback(puback) => {
                         assert!(self.client_pis.contains(puback.packet_identifier));
 
@@ -451,6 +460,7 @@ pub enum ExpectedAction<'p> {
         id: mqtt_format::v5::variable_header::PacketIdentifier,
     },
     ReceivePacket(ReceivePacket<'p>),
+    Disconnect,
 }
 
 #[derive(Debug)]
