@@ -654,6 +654,50 @@ mod tests {
     }
 
     #[test]
+    fn check_incoming_disconnects() {
+        let mut fsm = MqttClientFSM::default();
+
+        fsm.handle_connect(
+            crate::client::MqttInstant::new(0),
+            mqtt_format::v5::packets::connect::MConnect {
+                client_identifier: "testing",
+                username: None,
+                password: None,
+                clean_start: false,
+                will: None,
+                properties: mqtt_format::v5::packets::connect::ConnectProperties::new(),
+                keep_alive: 0,
+            },
+        );
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ))
+            .run(crate::client::MqttInstant::new(0));
+        assert!(action.is_none());
+
+        let action = fsm
+            .consume(mqtt_format::v5::packets::MqttPacket::Disconnect(
+                mqtt_format::v5::packets::disconnect::MDisconnect {
+                    reason_code: mqtt_format::v5::packets::disconnect::DisconnectReasonCode::NormalDisconnection,
+                    properties: mqtt_format::v5::packets::disconnect::DisconnectProperties::new()
+                },
+            ))
+            .run(crate::client::MqttInstant::new(1));
+        assert!(matches!(action, Some(ExpectedAction::Disconnect)));
+
+        assert!(matches!(
+            fsm.connection_state,
+            ConnectionState::Disconnected
+        ));
+    }
+
+    #[test]
     fn check_ping_request() {
         let mut fsm = MqttClientFSM::default();
 
