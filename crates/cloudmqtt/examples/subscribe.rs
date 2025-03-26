@@ -13,8 +13,8 @@ async fn main() {
         .await
         .unwrap();
 
-    let whatsub = client.subscribe("whats/up").await;
-    let morestuff = client.subscribe("more/stuff").await;
+    let whatsub = client.subscribe("whats/up").await.unwrap();
+    let morestuff = client.subscribe("more/stuff").await.unwrap();
     let mut combined = futures::stream::select(whatsub, morestuff);
 
     while let Some(next_message) = combined.next().await {
