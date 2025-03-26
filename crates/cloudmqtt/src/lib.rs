@@ -6,6 +6,7 @@
 
 mod client;
 mod codec;
+mod error;
 mod router;
 pub mod topic;
 
@@ -13,6 +14,7 @@ use codec::BytesMutWriter;
 use codec::MqttPacket;
 use futures::Stream;
 use tokio_util::bytes::BytesMut;
+use error::Error;
 
 enum SendUsage {
     Publish(MqttPacket),
@@ -25,16 +27,16 @@ pub struct CloudmqttClient {
 }
 
 impl CloudmqttClient {
-    pub async fn new(address: String) -> CloudmqttClient {
+    pub async fn new(address: String) -> Result<CloudmqttClient, Error> {
         let socket = tokio::net::lookup_host(address)
             .await
-            .expect("Could not lookup DNS")
+            .map_err(Error::DnsLookup)?
             .next()
-            .expect("DNS resolved to no addresses");
+            .ok_or(Error::DnsNoAddrs)?;
 
         let connection = tokio::net::TcpStream::connect(socket)
             .await
-            .expect("Could not connect");
+            .map_err(Error::TcpConnect)?;
 
         let (incoming_sender, incoming_receiver): (tokio::sync::mpsc::Sender<MqttPacket>, _) =
             tokio::sync::mpsc::channel(1);
@@ -43,10 +45,10 @@ impl CloudmqttClient {
 
         let router = crate::router::Router::new(incoming_receiver);
 
-        CloudmqttClient {
+        Ok(CloudmqttClient {
             core_client,
             router,
-        }
+        })
     }
 
     pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) {

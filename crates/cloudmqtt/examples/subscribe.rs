@@ -9,7 +9,9 @@ use futures::StreamExt;
 
 #[tokio::main]
 async fn main() {
-    let mut client = CloudmqttClient::new("localhost:1883".to_string()).await;
+    let mut client = CloudmqttClient::new("localhost:1883".to_string())
+        .await
+        .unwrap();
 
     let whatsub = client.subscribe("whats/up").await;
     let morestuff = client.subscribe("more/stuff").await;
