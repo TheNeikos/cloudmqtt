@@ -43,18 +43,26 @@ impl Router {
                         panic!("Received non-publish packet in router");
                     };
 
-                    let topic_name_buf = TopicNameBuf::new(topic_name).unwrap(); // TODO
+                    let topic_name_buf = match TopicNameBuf::new(topic_name) {
+                        Ok(buf) => buf,
+                        Err(error) => {
+                            tracing::warn!(?error, "Invalid topic name");
+                            continue;
+                        }
+                    };
 
                     let Some(subscription_ids) = subscription_topics
                         .iter()
                         .find(|r| topic_name_buf.matches(r.key()))
                     else {
-                        todo!()
+                        tracing::debug!(topic = ?topic_name_buf, "Did not find any subscription id for topic");
+                        continue;
                     };
 
                     for subscription_id in subscription_ids.value() {
                         let Some(sender) = subscriptions.get(subscription_id) else {
-                            todo!()
+                            tracing::debug!(topic = ?topic_name_buf, "Did not find any subscription for topic");
+                            continue;
                         };
 
                         if let Err(error) = sender.value().send(next_packet.clone()).await {
