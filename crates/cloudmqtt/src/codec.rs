@@ -13,6 +13,8 @@ use tokio_util::codec::Encoder;
 use winnow::Partial;
 use yoke::Yoke;
 
+use crate::error::Error;
+
 pub(crate) struct BytesMutWriter<'b>(pub(crate) &'b mut tokio_util::bytes::BytesMut);
 
 #[derive(Debug, thiserror::Error)]
@@ -47,18 +49,20 @@ pub struct MqttPacket {
 }
 
 impl MqttPacket {
-    pub fn new(packet: FormatMqttPacket<'_>) -> MqttPacket {
+    pub fn new(packet: FormatMqttPacket<'_>) -> Result<MqttPacket, Error> {
         let mut buffer = tokio_util::bytes::BytesMut::with_capacity(packet.binary_size() as usize);
 
-        packet.write(&mut BytesMutWriter(&mut buffer)).unwrap();
+        packet
+            .write(&mut BytesMutWriter(&mut buffer))
+            .map_err(Error::WriteBuffer)?;
 
         let cart = Arc::from(buffer.to_vec());
 
-        MqttPacket {
+        Ok(MqttPacket {
             packet: Yoke::attach_to_cart(cart, |data| {
                 FormatMqttPacket::parse_complete(data).unwrap()
             }),
-        }
+        })
     }
 
     pub fn get_packet(&self) -> &FormatMqttPacket<'_> {

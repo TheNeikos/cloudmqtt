@@ -17,6 +17,7 @@ use tokio_util::codec::FramedWrite;
 use crate::SendUsage;
 use crate::codec::MqttPacket;
 use crate::codec::MqttPacketCodec;
+use crate::error::Error;
 
 fn since(start: Instant) -> MqttInstant {
     MqttInstant::new(start.elapsed().as_secs())
@@ -98,7 +99,11 @@ impl CoreClient {
                                 fsm.publish(packet.get_packet().clone().try_into().unwrap());
 
                             while let Some(action) = publisher.run(since(start)) {
-                                handle_action(&mut writer, action, &incoming_sender).await;
+                                if let Err(error) =
+                                    handle_action(&mut writer, action, &incoming_sender).await
+                                {
+                                    tracing::warn!(?error, "Could not handle action");
+                                }
                             }
 
                             fsm.run(since(start))
@@ -112,7 +117,11 @@ impl CoreClient {
 
                 {
                     if let Some(action) = action {
-                        handle_action(&mut writer, action, &incoming_sender).await;
+                        if let Err(error) =
+                            handle_action(&mut writer, action, &incoming_sender).await
+                        {
+                            tracing::warn!(?error, "Could not handle action");
+                        }
                     }
                 }
             }
@@ -124,11 +133,11 @@ impl CoreClient {
         }
     }
 
-    pub async fn publish(&self, packet: MqttPacket) {
+    pub async fn publish(&self, packet: MqttPacket) -> Result<(), Error> {
         self.publish_sender
             .send(SendUsage::Publish(packet))
             .await
-            .unwrap();
+            .map_err(|_| Error::InternalChannelClosed)
     }
 
     pub async fn subscribe(&self, packet: MqttPacket) {
@@ -143,7 +152,7 @@ async fn handle_action(
     writer: &mut FramedWrite<&mut tokio::net::tcp::WriteHalf<'_>, MqttPacketCodec>,
     action: ExpectedAction<'_>,
     incoming_sender: &tokio::sync::mpsc::Sender<MqttPacket>,
-) {
+) -> Result<(), Error> {
     match action {
         ExpectedAction::SendPacket(mqtt_packet) => {
             writer
@@ -156,10 +165,11 @@ async fn handle_action(
         )) => {
             // TODO: Don't await in the FSM loop
             incoming_sender
-                .send(MqttPacket::new(received_packet))
+                .send(MqttPacket::new(received_packet)?)
                 .await
                 .unwrap();
         }
         _ => unreachable!(),
     }
+    Ok(())
 }

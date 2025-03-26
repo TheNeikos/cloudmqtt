@@ -6,11 +6,13 @@
 
 mod client;
 mod codec;
+mod error;
 mod router;
 pub mod topic;
 
 use codec::BytesMutWriter;
 use codec::MqttPacket;
+use error::Error;
 use futures::Stream;
 use tokio_util::bytes::BytesMut;
 
@@ -25,16 +27,16 @@ pub struct CloudmqttClient {
 }
 
 impl CloudmqttClient {
-    pub async fn new(address: String) -> CloudmqttClient {
+    pub async fn new(address: String) -> Result<CloudmqttClient, Error> {
         let socket = tokio::net::lookup_host(address)
             .await
-            .expect("Could not lookup DNS")
+            .map_err(Error::DnsLookup)?
             .next()
-            .expect("DNS resolved to no addresses");
+            .ok_or(Error::DnsNoAddrs)?;
 
         let connection = tokio::net::TcpStream::connect(socket)
             .await
-            .expect("Could not connect");
+            .map_err(Error::TcpConnect)?;
 
         let (incoming_sender, incoming_receiver): (tokio::sync::mpsc::Sender<MqttPacket>, _) =
             tokio::sync::mpsc::channel(1);
@@ -43,31 +45,32 @@ impl CloudmqttClient {
 
         let router = crate::router::Router::new(incoming_receiver);
 
-        CloudmqttClient {
+        Ok(CloudmqttClient {
             core_client,
             router,
-        }
+        })
     }
 
-    pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) {
-        self.core_client
-            .publish(MqttPacket::new(
-                mqtt_format::v5::packets::MqttPacket::Publish(
-                    mqtt_format::v5::packets::publish::MPublish {
-                        duplicate: false,
-                        quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
-                        retain: false,
-                        topic_name: topic.as_ref(),
-                        packet_identifier: None,
-                        properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
-                        payload: message.as_ref(),
-                    },
-                ),
-            ))
-            .await
+    pub async fn publish(
+        &self,
+        message: impl AsRef<[u8]>,
+        topic: impl AsRef<str>,
+    ) -> Result<(), Error> {
+        let packet = MqttPacket::new(mqtt_format::v5::packets::MqttPacket::Publish(
+            mqtt_format::v5::packets::publish::MPublish {
+                duplicate: false,
+                quality_of_service: mqtt_format::v5::qos::QualityOfService::AtMostOnce,
+                retain: false,
+                topic_name: topic.as_ref(),
+                packet_identifier: None,
+                properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+                payload: message.as_ref(),
+            },
+        ))?;
+        self.core_client.publish(packet).await
     }
 
-    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Subscription {
+    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Result<Subscription, Error> {
         self.subscription_builder()
             .with_subscription(topic_filter)
             .build()
@@ -118,7 +121,7 @@ impl SubscriptionBuilder<'_> {
         self
     }
 
-    pub async fn build(self) -> Subscription {
+    pub async fn build(self) -> Result<Subscription, Error> {
         let buf = {
             let mut bytes = BytesMut::new();
 
@@ -133,28 +136,27 @@ impl SubscriptionBuilder<'_> {
                     }
                 };
 
-                sub.write(&mut BytesMutWriter(&mut bytes)).unwrap();
+                sub.write(&mut BytesMutWriter(&mut bytes))
+                    .map_err(Error::WriteBuffer)?;
             }
 
             bytes.to_vec()
         };
 
-        self.client
-            .core_client
-            .subscribe(MqttPacket::new(
-                mqtt_format::v5::packets::MqttPacket::Subscribe(
-                    mqtt_format::v5::packets::subscribe::MSubscribe {
-                        packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
-                            1.try_into().unwrap(),
-                        ),
-                        properties: mqtt_format::v5::packets::subscribe::SubscribeProperties::new(),
-                        subscriptions:
-                            mqtt_format::v5::packets::subscribe::Subscriptions::parse_complete(&buf)
-                                .unwrap(),
-                    },
+        let packet = MqttPacket::new(mqtt_format::v5::packets::MqttPacket::Subscribe(
+            mqtt_format::v5::packets::subscribe::MSubscribe {
+                packet_identifier: mqtt_format::v5::variable_header::PacketIdentifier(
+                    1.try_into().unwrap(),
                 ),
-            ))
-            .await;
+                properties: mqtt_format::v5::packets::subscribe::SubscribeProperties::new(),
+                subscriptions: mqtt_format::v5::packets::subscribe::Subscriptions::parse_complete(
+                    &buf,
+                )
+                .unwrap(),
+            },
+        ))?;
+
+        self.client.core_client.subscribe(packet).await;
 
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
         let subscription_id = self.client.router.add_subscription_sink(sender);
@@ -165,9 +167,9 @@ impl SubscriptionBuilder<'_> {
                 .add_subscription_to_topic(subscription_id, topic_filter.as_ref());
         }
 
-        Subscription {
+        Ok(Subscription {
             _subscription_id: subscription_id,
             receiver,
-        }
+        })
     }
 }
