@@ -69,7 +69,7 @@ impl CloudmqttClient {
                         payload: message.as_ref(),
                     },
                 ),
-            ))
+            )?)
             .await
     }
 
@@ -160,7 +160,7 @@ impl SubscriptionBuilder<'_> {
                                 .unwrap(),
                     },
                 ),
-            ))
+            )?)
             .await;
 
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
