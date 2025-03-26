@@ -17,6 +17,7 @@ use tokio_util::codec::FramedWrite;
 use crate::SendUsage;
 use crate::codec::MqttPacket;
 use crate::codec::MqttPacketCodec;
+use crate::error::Error;
 
 fn since(start: Instant) -> MqttInstant {
     MqttInstant::new(start.elapsed().as_secs())
@@ -124,11 +125,11 @@ impl CoreClient {
         }
     }
 
-    pub async fn publish(&self, packet: MqttPacket) {
+    pub async fn publish(&self, packet: MqttPacket) -> Result<(), Error> {
         self.publish_sender
             .send(SendUsage::Publish(packet))
             .await
-            .unwrap();
+            .map_err(|_| Error::InternalChannelClosed)
     }
 
     pub async fn subscribe(&self, packet: MqttPacket) {

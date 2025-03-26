@@ -17,4 +17,7 @@ pub enum Error {
 
     #[error("Failed writing internal buffer")]
     WriteBuffer(#[source] crate::codec::MqttWriterError),
+
+    #[error("Internal channel closed")]
+    InternalChannelClosed,
 }
