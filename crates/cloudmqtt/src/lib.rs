@@ -12,9 +12,9 @@ pub mod topic;
 
 use codec::BytesMutWriter;
 use codec::MqttPacket;
+use error::Error;
 use futures::Stream;
 use tokio_util::bytes::BytesMut;
-use error::Error;
 
 enum SendUsage {
     Publish(MqttPacket),
@@ -69,7 +69,7 @@ impl CloudmqttClient {
             .await
     }
 
-    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Subscription {
+    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Result<Subscription, Error> {
         self.subscription_builder()
             .with_subscription(topic_filter)
             .build()
@@ -120,7 +120,7 @@ impl SubscriptionBuilder<'_> {
         self
     }
 
-    pub async fn build(self) -> Subscription {
+    pub async fn build(self) -> Result<Subscription, Error> {
         let buf = {
             let mut bytes = BytesMut::new();
 
@@ -135,7 +135,8 @@ impl SubscriptionBuilder<'_> {
                     }
                 };
 
-                sub.write(&mut BytesMutWriter(&mut bytes)).unwrap();
+                sub.write(&mut BytesMutWriter(&mut bytes))
+                    .map_err(Error::WriteBuffer)?;
             }
 
             bytes.to_vec()
@@ -167,9 +168,9 @@ impl SubscriptionBuilder<'_> {
                 .add_subscription_to_topic(subscription_id, topic_filter.as_ref());
         }
 
-        Subscription {
+        Ok(Subscription {
             _subscription_id: subscription_id,
             receiver,
-        }
+        })
     }
 }

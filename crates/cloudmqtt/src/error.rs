@@ -14,4 +14,7 @@ pub enum Error {
 
     #[error("TCP Connectionn failed")]
     TcpConnect(#[source] std::io::Error),
+
+    #[error("Failed writing internal buffer")]
+    WriteBuffer(#[source] crate::codec::MqttWriterError),
 }
