@@ -12,7 +12,7 @@ async fn main() {
         .await
         .unwrap();
 
-    client.publish(b"What's up", "foo/bar").await;
+    client.publish(b"What's up", "foo/bar").await.unwrap();
 
     client.wait_for_shutdown().await;
 }

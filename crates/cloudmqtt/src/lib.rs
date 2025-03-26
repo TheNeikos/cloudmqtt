@@ -51,7 +51,11 @@ impl CloudmqttClient {
         })
     }
 
-    pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) {
+    pub async fn publish(
+        &self,
+        message: impl AsRef<[u8]>,
+        topic: impl AsRef<str>,
+    ) -> Result<(), Error> {
         self.core_client
             .publish(MqttPacket::new(
                 mqtt_format::v5::packets::MqttPacket::Publish(
