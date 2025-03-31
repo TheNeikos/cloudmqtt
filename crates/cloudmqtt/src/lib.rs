@@ -9,6 +9,9 @@ mod codec;
 mod router;
 pub mod topic;
 
+#[cfg_attr(not(any(feature = "test_utils", test, doc)), doc(hidden))]
+pub mod test_harness;
+
 use codec::BytesMutWriter;
 use codec::MqttPacket;
 use futures::Stream;

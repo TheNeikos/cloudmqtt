@@ -16,19 +16,22 @@ let
     doCheck = false;
   };
 
-  fileSetForCrate =
-    crate:
+  sourcesForCrate = crate:
     lib.fileset.toSource {
       root = ../.;
-      fileset = lib.fileset.unions [
-        ../Cargo.lock
-        ../Cargo.toml
-        (craneLib.fileset.commonCargoSources ../crates/workspace-hack)
-        (craneLib.fileset.commonCargoSources ../crates/mqtt-format)
-        (craneLib.fileset.commonCargoSources ../crates/cloudmqtt-core)
-        (craneLib.fileset.commonCargoSources crate)
-      ];
+      fileset = fileSetForCrate crate;
     };
+
+  fileSetForCrate = crate:
+    lib.fileset.unions [
+      ../Cargo.lock
+      ../Cargo.toml
+      (craneLib.fileset.commonCargoSources ../crates/workspace-hack)
+      (craneLib.fileset.commonCargoSources ../crates/mqtt-format)
+      (craneLib.fileset.commonCargoSources ../crates/cloudmqtt-core)
+      (craneLib.fileset.commonCargoSources crate)
+      (lib.fileset.fileFilter (f: f.hasExt "kdl") ../.)
+    ];
 in
 {
   packages = {
@@ -37,7 +40,7 @@ in
       // {
         pname = "cloudmqtt";
         cargoExtraARgs = "-p cloudmqtt";
-        src = fileSetForCrate ../crates/cloudmqtt;
+        src = sourcesForCrate ../crates/cloudmqtt;
       }
     );
   };
@@ -68,6 +71,15 @@ in
         partitions = 1;
         partitionType = "count";
         cargoNextestPartitionsExtraArgs = "--no-tests=pass";
+
+        src = lib.fileset.toSource {
+          root = ../.;
+          fileset = lib.fileset.unions [
+            (fileSetForCrate ../crates/cloudmqtt)
+            (fileSetForCrate ../crates/cloudmqtt-core)
+            (fileSetForCrate ../crates/mqtt-format)
+          ];
+        };
       }
     );
 
