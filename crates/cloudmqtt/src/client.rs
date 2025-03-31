@@ -29,10 +29,15 @@ pub struct CoreClient {
 }
 
 impl CoreClient {
-    pub fn new(
-        mut connection: tokio::net::TcpStream,
+    pub fn new<Read, Write>(
+        reader: Read,
+        writer: Write,
         incoming_sender: tokio::sync::mpsc::Sender<MqttPacket>,
-    ) -> Self {
+    ) -> Self
+    where
+        Read: tokio::io::AsyncRead + Send + 'static,
+        Write: tokio::io::AsyncWrite + Send + 'static,
+    {
         let (sender, mut receiver): (tokio::sync::mpsc::Sender<SendUsage>, _) =
             tokio::sync::mpsc::channel(1);
 
@@ -41,9 +46,9 @@ impl CoreClient {
         let start = Instant::now();
 
         let client_task = tokio::task::spawn(async move {
-            let (reader, mut writer) = connection.split();
-
-            let mut writer = FramedWrite::new(&mut writer, MqttPacketCodec);
+            let writer = std::pin::pin!(writer);
+            let reader = std::pin::pin!(reader);
+            let mut writer = FramedWrite::new(writer, MqttPacketCodec);
             let mut reader = FramedRead::new(reader, MqttPacketCodec);
 
             let action = fsm.handle_connect(
@@ -139,11 +144,15 @@ impl CoreClient {
     }
 }
 
-async fn handle_action(
-    writer: &mut FramedWrite<&mut tokio::net::tcp::WriteHalf<'_>, MqttPacketCodec>,
+async fn handle_action<W>(
+    writer: &mut FramedWrite<W, MqttPacketCodec>,
     action: ExpectedAction<'_>,
     incoming_sender: &tokio::sync::mpsc::Sender<MqttPacket>,
-) {
+) where
+    W: tokio::io::AsyncWrite + Unpin,
+{
+    let mut writer = std::pin::pin!(writer);
+
     match action {
         ExpectedAction::SendPacket(mqtt_packet) => {
             writer

@@ -39,10 +39,22 @@ impl CloudmqttClient {
             .await
             .expect("Could not connect");
 
+        Self::new_from_connection(connection)
+    }
+
+    pub fn new_from_connection<C>(connection: C) -> CloudmqttClient
+    where
+        C: tokio::io::AsyncRead,
+        C: tokio::io::AsyncWrite,
+        C: Send,
+        C: 'static,
+    {
         let (incoming_sender, incoming_receiver): (tokio::sync::mpsc::Sender<MqttPacket>, _) =
             tokio::sync::mpsc::channel(1);
 
-        let core_client = crate::client::CoreClient::new(connection, incoming_sender.clone());
+        let (reader, writer) = tokio::io::split(connection);
+        let core_client =
+            crate::client::CoreClient::new(reader, writer, incoming_sender.clone());
 
         let router = crate::router::Router::new(incoming_receiver);
 
