@@ -17,7 +17,8 @@ async fn main() {
         .with_subscription("more/things")
         .with_subscription("cloudmqtt/rocks")
         .build()
-        .await;
+        .await
+        .unwrap();
 
     while let Some(next_message) = multi_sub.next().await {
         println!("Got: {next_message:?}");

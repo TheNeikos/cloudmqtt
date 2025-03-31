@@ -19,22 +19,29 @@ use tokio_util::codec::FramedWrite;
 use crate::SendUsage;
 use crate::codec::MqttPacket;
 use crate::codec::MqttPacketCodec;
+use crate::error::Error;
 
 fn since(start: Instant) -> MqttInstant {
     MqttInstant::new(start.elapsed().as_secs())
 }
 
 pub struct CoreClient {
-    #[allow(dead_code)]
-    client_task: tokio::task::JoinHandle<()>,
-    publish_sender: tokio::sync::mpsc::Sender<SendUsage>,
     incoming_sender: tokio::sync::mpsc::Sender<MqttPacket>,
+    connection_state: Arc<Mutex<ConnectionState>>,
+}
 
-    unconnected_fsm: Arc<Mutex<Option<MqttClientFSM>>>,
+enum ConnectionState {
+    Unconnected {
+        client: MqttClientFSM,
+    },
+
+    Connected {
+        sender: tokio::sync::mpsc::Sender<SendUsage>,
+    },
 }
 
 impl CoreClient {
-    pub fn new<Read, Write>(
+    pub fn new_and_connect<Read, Write>(
         reader: Read,
         writer: Write,
         incoming_sender: tokio::sync::mpsc::Sender<MqttPacket>,
@@ -48,36 +55,85 @@ impl CoreClient {
 
         let start = Instant::now();
 
-        let fsm_arc = Arc::new(Mutex::new(None));
-        let fsm_clone = fsm_arc.clone();
+        let connection_state = Arc::new(Mutex::new(ConnectionState::Connected { sender }));
+
+        let state_arc = connection_state.clone();
         let incoming_sender_clone = incoming_sender.clone();
-        let client_task = tokio::task::spawn(async move {
+        tokio::task::spawn(async move {
             let fsm = MqttClientFSM::default();
-            let mut fsm = handle_connection(reader, writer, incoming_sender_clone, receiver, start, fsm).await;
+
+            let mut fsm =
+                handle_connection(reader, writer, incoming_sender_clone, receiver, start, fsm)
+                    .await;
             fsm.connection_lost(since(start));
-            let _ = fsm_arc.lock().await.insert(fsm);
+
+            *state_arc.lock().await = ConnectionState::Unconnected { client: fsm };
         });
 
         Self {
-            client_task,
-            publish_sender: sender,
             incoming_sender,
-            unconnected_fsm: fsm_clone,
+            connection_state,
         }
     }
 
-    pub async fn publish(&self, packet: MqttPacket) {
-        self.publish_sender
-            .send(SendUsage::Publish(packet))
-            .await
-            .unwrap();
+    pub fn new(incoming_sender: tokio::sync::mpsc::Sender<MqttPacket>) -> Self {
+        Self {
+            incoming_sender,
+            connection_state: Arc::new(Mutex::new(ConnectionState::Unconnected {
+                client: MqttClientFSM::default(),
+            })),
+        }
     }
 
-    pub async fn subscribe(&self, packet: MqttPacket) {
-        self.publish_sender
-            .send(SendUsage::Subscribe(packet))
-            .await
-            .expect("Could not subscribe..");
+    pub async fn connect<Read, Write>(&self, reader: Read, writer: Write) -> Result<(), Error>
+    where
+        Read: tokio::io::AsyncRead + Send + 'static,
+        Write: tokio::io::AsyncWrite + Send + 'static,
+    {
+        let (sender, receiver): (tokio::sync::mpsc::Sender<SendUsage>, _) =
+            tokio::sync::mpsc::channel(1);
+
+        let ConnectionState::Unconnected { client: fsm } =
+            std::mem::replace(&mut *self.connection_state.lock().await, {
+                ConnectionState::Connected { sender }
+            })
+        else {
+            return Err(Error::AlreadyConnected);
+        };
+
+        let start = Instant::now();
+        let state_arc = self.connection_state.clone();
+        let incoming_sender_clone = self.incoming_sender.clone();
+        tokio::task::spawn(async move {
+            let mut fsm =
+                handle_connection(reader, writer, incoming_sender_clone, receiver, start, fsm)
+                    .await;
+            fsm.connection_lost(since(start));
+
+            *state_arc.lock().await = ConnectionState::Unconnected { client: fsm };
+        });
+
+        Ok(())
+    }
+
+    pub async fn publish(&self, packet: MqttPacket) -> Result<(), Error> {
+        match *self.connection_state.lock().await {
+            ConnectionState::Unconnected { .. } => Err(Error::NotConnected),
+            ConnectionState::Connected { ref sender } => sender
+                .send(SendUsage::Publish(packet))
+                .await
+                .map_err(|_| Error::TokioChannel),
+        }
+    }
+
+    pub async fn subscribe(&self, packet: MqttPacket) -> Result<(), Error> {
+        match *self.connection_state.lock().await {
+            ConnectionState::Unconnected { .. } => Err(Error::NotConnected),
+            ConnectionState::Connected { ref sender } => sender
+                .send(SendUsage::Subscribe(packet))
+                .await
+                .map_err(|_| Error::TokioChannel),
+        }
     }
 }
 

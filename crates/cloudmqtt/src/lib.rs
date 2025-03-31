@@ -6,6 +6,7 @@
 
 mod client;
 mod codec;
+pub mod error;
 mod router;
 pub mod topic;
 
@@ -14,6 +15,7 @@ pub mod test_harness;
 
 use codec::BytesMutWriter;
 use codec::MqttPacket;
+use error::Error;
 use futures::Stream;
 use tokio_util::bytes::BytesMut;
 
@@ -54,7 +56,7 @@ impl CloudmqttClient {
 
         let (reader, writer) = tokio::io::split(connection);
         let core_client =
-            crate::client::CoreClient::new(reader, writer, incoming_sender.clone());
+            crate::client::CoreClient::new_and_connect(reader, writer, incoming_sender.clone());
 
         let router = crate::router::Router::new(incoming_receiver);
 
@@ -64,7 +66,7 @@ impl CloudmqttClient {
         }
     }
 
-    pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) {
+    pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) -> Result<(), Error> {
         self.core_client
             .publish(MqttPacket::new(
                 mqtt_format::v5::packets::MqttPacket::Publish(
@@ -82,7 +84,7 @@ impl CloudmqttClient {
             .await
     }
 
-    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Subscription {
+    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Result<Subscription, Error> {
         self.subscription_builder()
             .with_subscription(topic_filter)
             .build()
@@ -133,7 +135,7 @@ impl SubscriptionBuilder<'_> {
         self
     }
 
-    pub async fn build(self) -> Subscription {
+    pub async fn build(self) -> Result<Subscription, Error> {
         let buf = {
             let mut bytes = BytesMut::new();
 
@@ -169,7 +171,7 @@ impl SubscriptionBuilder<'_> {
                     },
                 ),
             ))
-            .await;
+            .await?;
 
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
         let subscription_id = self.client.router.add_subscription_sink(sender);
@@ -180,9 +182,9 @@ impl SubscriptionBuilder<'_> {
                 .add_subscription_to_topic(subscription_id, topic_filter.as_ref());
         }
 
-        Subscription {
+        Ok(Subscription {
             _subscription_id: subscription_id,
             receiver,
-        }
+        })
     }
 }
