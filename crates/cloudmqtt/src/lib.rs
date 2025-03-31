@@ -74,7 +74,22 @@ impl CloudmqttClient {
         }
     }
 
-    pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) -> Result<(), Error> {
+    pub async fn connect<C>(&self, connection: C) -> Result<(), Error>
+    where
+        C: tokio::io::AsyncRead,
+        C: tokio::io::AsyncWrite,
+        C: Send,
+        C: 'static,
+    {
+        let (reader, writer) = tokio::io::split(connection);
+        self.core_client.connect(reader, writer).await
+    }
+
+    pub async fn publish(
+        &self,
+        message: impl AsRef<[u8]>,
+        topic: impl AsRef<str>,
+    ) -> Result<(), Error> {
         self.core_client
             .publish(MqttPacket::new(
                 mqtt_format::v5::packets::MqttPacket::Publish(
