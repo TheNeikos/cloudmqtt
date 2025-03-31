@@ -30,7 +30,15 @@ pub struct CloudmqttClient {
 }
 
 impl CloudmqttClient {
-    pub async fn new(address: String) -> CloudmqttClient {
+    pub fn new() -> CloudmqttClient {
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        Self {
+            core_client: crate::client::CoreClient::new(sender),
+            router: crate::router::Router::new(receiver),
+        }
+    }
+
+    pub async fn new_with_address(address: String) -> CloudmqttClient {
         let socket = tokio::net::lookup_host(address)
             .await
             .expect("Could not lookup DNS")

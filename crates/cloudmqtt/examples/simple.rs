@@ -8,7 +8,7 @@ use cloudmqtt::CloudmqttClient;
 
 #[tokio::main]
 async fn main() {
-    let mut client = CloudmqttClient::new("localhost:1883".to_string()).await;
+    let mut client = CloudmqttClient::new_with_address("localhost:1883".to_string()).await;
 
     client.publish(b"What's up", "foo/bar").await.unwrap();
 
