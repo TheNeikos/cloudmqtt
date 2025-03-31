@@ -4,6 +4,7 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use cloudmqtt_core::client::ExpectedAction;
@@ -11,6 +12,7 @@ use cloudmqtt_core::client::MqttClientFSM;
 use cloudmqtt_core::client::MqttInstant;
 use futures::SinkExt;
 use futures::StreamExt;
+use tokio::sync::Mutex;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 
@@ -26,6 +28,8 @@ pub struct CoreClient {
     #[allow(dead_code)]
     client_task: tokio::task::JoinHandle<()>,
     publish_sender: tokio::sync::mpsc::Sender<SendUsage>,
+
+    unconnected_fsm: Arc<Mutex<Option<MqttClientFSM>>>,
 }
 
 impl CoreClient {
@@ -41,15 +45,17 @@ impl CoreClient {
         let (sender, mut receiver): (tokio::sync::mpsc::Sender<SendUsage>, _) =
             tokio::sync::mpsc::channel(1);
 
-        let mut fsm = MqttClientFSM::default();
-
         let start = Instant::now();
 
+        let fsm_arc = Arc::new(Mutex::new(None));
+        let fsm_clone = fsm_arc.clone();
         let client_task = tokio::task::spawn(async move {
             let writer = std::pin::pin!(writer);
             let reader = std::pin::pin!(reader);
             let mut writer = FramedWrite::new(writer, MqttPacketCodec);
             let mut reader = FramedRead::new(reader, MqttPacketCodec);
+
+            let mut fsm = MqttClientFSM::default();
 
             let action = fsm.handle_connect(
                 since(start),
@@ -121,11 +127,15 @@ impl CoreClient {
                     }
                 }
             }
+
+            fsm.connection_lost(since(start));
+            let _ = fsm_arc.lock().await.insert(fsm);
         });
 
         Self {
             client_task,
             publish_sender: sender,
+            unconnected_fsm: fsm_clone,
         }
     }
 
