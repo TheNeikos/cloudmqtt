@@ -80,4 +80,32 @@ impl TestHarness {
 
         self.runtime.block_on(client.publish(payload, topic))
     }
+
+    pub fn publish_to_client(
+        &mut self,
+        broker_name: String,
+        client_name: String,
+        payload: String,
+        topic: String,
+    ) -> Result<(), error::TestHarnessError> {
+        let broker = self
+            .brokers
+            .get_mut(&broker_name)
+            .ok_or(error::TestHarnessError::BrokerNotFound(broker_name))?;
+
+        self.runtime.block_on(broker.send(
+            &client_name,
+            mqtt_format::v5::packets::MqttPacket::Publish(
+                mqtt_format::v5::packets::publish::MPublish {
+                    duplicate: false,
+                    quality_of_service: mqtt_format::v5::qos::QualityOfService::AtLeastOnce,
+                    retain: false,
+                    topic_name: &topic,
+                    packet_identifier: None,
+                    properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+                    payload: payload.as_bytes(),
+                },
+            ),
+        ))
+    }
 }

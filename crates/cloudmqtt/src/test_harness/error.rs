@@ -17,4 +17,7 @@ pub enum TestHarnessError {
 
     #[error("Client errored")]
     Client(#[source] crate::error::Error),
+
+    #[error("Codec error")]
+    Codec(#[source] crate::codec::MqttPacketCodecError),
 }
