@@ -66,4 +66,18 @@ impl TestHarness {
 
         self.runtime.block_on(client.connect_to(broker))
     }
+
+    pub fn publish(
+        &mut self,
+        client_name: String,
+        payload: String,
+        topic: String,
+    ) -> Result<(), error::TestHarnessError> {
+        let client = self
+            .clients
+            .get_mut(&client_name)
+            .ok_or(error::TestHarnessError::ClientNotFound(client_name))?;
+
+        self.runtime.block_on(client.publish(payload, topic))
+    }
 }

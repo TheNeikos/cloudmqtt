@@ -43,6 +43,17 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
         ),
     );
 
+    ts.add_verb(
+        "publish",
+        FunctionVerb::new(
+            |harness: &mut TestHarness, client_name: String, payload: String, topic: String| {
+                harness
+                    .publish(client_name, payload, topic)
+                    .into_diagnostic()
+            },
+        ),
+    );
+
     ts
 }
 

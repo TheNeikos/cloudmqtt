@@ -14,4 +14,7 @@ pub enum TestHarnessError {
 
     #[error("Internal channel error")]
     Channel,
+
+    #[error("Client errored")]
+    Client(#[source] crate::error::Error),
 }

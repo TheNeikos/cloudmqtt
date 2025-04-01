@@ -37,4 +37,16 @@ impl Client {
         broker.connect(self.name.clone(), server).await.unwrap();
         Ok(())
     }
+
+    pub(crate) async fn publish(
+        &mut self,
+        payload: impl AsRef<[u8]>,
+        topic: impl AsRef<str>,
+    ) -> Result<(), TestHarnessError> {
+        tracing::debug!(payload = ?payload.as_ref(), topic = ?topic.as_ref(), "Sending out payload on topic");
+        self.client
+            .publish(payload, topic)
+            .await
+            .map_err(TestHarnessError::Client)
+    }
 }

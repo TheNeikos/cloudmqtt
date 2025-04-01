@@ -2,4 +2,5 @@ testcase {
     start_broker "b1"
     create_client "c1"
     connect_to_broker "c1" "b1"
+    publish "c1" "payload" "some/topic"
 }
