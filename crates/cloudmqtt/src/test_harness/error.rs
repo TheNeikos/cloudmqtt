@@ -30,4 +30,7 @@ pub enum TestHarnessError {
 
     #[error("Unexpected client identifier: got {}, expected {}", .got, .expected)]
     UnexpectedClientIdentifier { got: String, expected: String },
+
+    #[error("Packet {} not received", .0)]
+    PacketNotReceived(String),
 }
