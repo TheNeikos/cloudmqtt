@@ -137,7 +137,11 @@ fn check_cases(path: &Utf8Path, data: String) -> datatest_stable::Result<()> {
         prev_panic(panic_info);
     }));
 
-    let errors = testcases
+    let report_handler = test_dsl::miette::GraphicalReportHandler::new_themed(
+        test_dsl::miette::GraphicalTheme::unicode(),
+    );
+
+    let any_error = testcases
         .into_iter()
         .zip(std::iter::repeat_with(
             cloudmqtt::test_harness::TestHarness::new,
@@ -145,19 +149,20 @@ fn check_cases(path: &Utf8Path, data: String) -> datatest_stable::Result<()> {
         .map(|(testcase, mut harness)| testcase.run(&mut harness))
         .filter_map(Result::err)
         .inspect(|error| {
-            tracing::warn!(?error, "Testcase failed");
+            let mut out = String::new();
+            report_handler.render_report(&mut out, error).unwrap();
+            println!("{out}");
         })
-        .collect::<Vec<_>>();
+        .count()
+        != 0;
 
-    if errors.is_empty() {
-        Ok(())
+    if any_error {
+        Err(Box::new(Error))
     } else {
-        let errors = errors
-            .into_iter()
-            .map(|error| format!("{error:?}"))
-            .collect::<Vec<_>>()
-            .join(", ");
-
-        Err(errors.into())
+        Ok(())
     }
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("At least one Error")]
+struct Error;

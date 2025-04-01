@@ -37,5 +37,6 @@ cloudmqtt-workspace-hack.workspace = true
 camino = "1.1"
 datatest-stable = "0.3.2"
 test-dsl = "0.2.0"
+miette = { version = "*", features = ["fancy"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 tracing-subscriber = { workspace = true, features = ["env-filter", "std", "fmt"] }
