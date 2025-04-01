@@ -60,12 +60,15 @@ impl Router {
                     };
 
                     for subscription_id in subscription_ids.value() {
-                        let Some(sender) = subscriptions.get(subscription_id) else {
+                        let Some(sender) = subscriptions
+                            .get(subscription_id)
+                            .map(|r| r.value().clone())
+                        else {
                             tracing::debug!(topic = ?topic_name_buf, "Did not find any subscription for topic");
                             continue;
                         };
 
-                        if let Err(error) = sender.value().send(next_packet.clone()).await {
+                        if let Err(error) = sender.send(next_packet.clone()).await {
                             tracing::error!(?error, "TODO");
                         }
                     }
