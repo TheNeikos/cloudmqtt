@@ -62,36 +62,43 @@ impl Broker {
             .map_err(TestHarnessError::Codec)
     }
 
+    pub(crate) async fn recv_packet(
+        &self,
+        client_name: &str,
+    ) -> Result<crate::codec::MqttPacket, TestHarnessError> {
+        let packet = {
+            let Some(mut r) = self.connections.get_mut(client_name) else {
+                tracing::warn!(name = ?client_name, "Failed to find client");
+                return Err(TestHarnessError::ClientNotFound(client_name.to_string()));
+            };
+            tracing::debug!(name = ?client_name, "Client found, fetching next packet");
+
+            let Some(next) = r.value_mut().connection.next().await else {
+                tracing::warn!(name = ?client_name, "Stream to client closed");
+                return Err(TestHarnessError::StreamClosed(client_name.to_string()));
+            };
+
+            next
+        };
+
+        packet.map_err(TestHarnessError::Codec)
+    }
+
     pub(crate) async fn wait_received(
         &self,
         client_name: &str,
         expected_packet: mqtt_format::v5::packets::MqttPacket<'_>,
     ) -> Result<(), TestHarnessError> {
-        let Some(mut r) = self.connections.get_mut(client_name) else {
-            tracing::warn!(name = ?client_name, "Failed to find client");
-            return Err(TestHarnessError::ClientNotFound(client_name.to_string()));
-        };
-        tracing::debug!(name = ?client_name, "Client found, fetching next packet");
+        let packet = self.recv_packet(client_name).await?;
 
-        let Some(next) = r.value_mut().connection.next().await else {
-            tracing::warn!(name = ?client_name, "Stream to client closed");
-            return Err(TestHarnessError::StreamClosed(client_name.to_string()));
-        };
-
-        match next {
-            Ok(packet) => {
-                if *packet.get_packet() == expected_packet {
-                    tracing::trace!("Packet as expected");
-                    Ok(())
-                } else {
-                    tracing::warn!(expected = ?expected_packet, received = ?packet, "Packet not as expected");
-                    Err(TestHarnessError::PacketNotExpected { got: packet })
-                }
-            }
-            Err(error) => {
-                tracing::warn!("Codec error");
-                Err(TestHarnessError::Codec(error))
-            }
+        if *packet.get_packet() == expected_packet {
+            tracing::trace!("Packet as expected");
+            Ok(())
+        } else {
+            tracing::warn!(expected = ?expected_packet, received = ?packet, "Packet not as expected");
+            Err(TestHarnessError::PacketNotExpected {
+                got: Box::new(packet),
+            })
         }
     }
 }

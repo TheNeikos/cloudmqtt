@@ -6,6 +6,8 @@
 
 use std::collections::HashMap;
 
+use error::TestHarnessError;
+
 mod broker;
 mod client;
 pub mod error;
@@ -137,5 +139,39 @@ impl TestHarness {
         );
 
         self.runtime.block_on(fut)
+    }
+
+    pub fn wait_for_connect_on_broker(
+        &self,
+        broker_name: String,
+        client_name: String,
+        client_identifier: String,
+    ) -> Result<(), TestHarnessError> {
+        let broker = self
+            .brokers
+            .get(&broker_name)
+            .ok_or(error::TestHarnessError::BrokerNotFound(broker_name))?;
+
+        let fut = broker.recv_packet(&client_name);
+
+        let packet = self.runtime.block_on(fut)?;
+        let _ = broker;
+
+        match packet.get_packet() {
+            mqtt_format::v5::packets::MqttPacket::Connect(connect) => {
+                if connect.client_identifier == client_identifier {
+                    Ok(())
+                } else {
+                    Err(TestHarnessError::UnexpectedClientIdentifier {
+                        got: connect.client_identifier.to_string(),
+                        expected: client_identifier,
+                    })
+                }
+            }
+
+            _other => Err(TestHarnessError::PacketNotExpected {
+                got: Box::new(packet),
+            }),
+        }
     }
 }
