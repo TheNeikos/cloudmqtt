@@ -126,6 +126,12 @@ impl CloudmqttClient {
     }
 }
 
+impl Default for CloudmqttClient {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 #[derive(Debug, Copy, Clone, Hash, PartialEq, Eq)]
 pub struct SubscriptionId(u64);
 
