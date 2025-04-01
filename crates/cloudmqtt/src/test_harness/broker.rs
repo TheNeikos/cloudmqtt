@@ -6,6 +6,7 @@
 
 use dashmap::DashMap;
 use futures::SinkExt;
+use futures::StreamExt;
 use tokio_util::codec::Framed;
 
 use super::error::TestHarnessError;
@@ -54,7 +55,44 @@ impl Broker {
             return Err(TestHarnessError::ClientNotFound(client_name.to_string()));
         };
 
-        r.value_mut().connection.send(packet).await.map_err(TestHarnessError::Codec)
+        r.value_mut()
+            .connection
+            .send(packet)
+            .await
+            .map_err(TestHarnessError::Codec)
+    }
+
+    pub(crate) async fn wait_received(
+        &self,
+        client_name: &str,
+        expected_packet: mqtt_format::v5::packets::MqttPacket<'_>,
+    ) -> Result<(), TestHarnessError> {
+        let Some(mut r) = self.connections.get_mut(client_name) else {
+            tracing::warn!(name = ?client_name, "Failed to find client");
+            return Err(TestHarnessError::ClientNotFound(client_name.to_string()));
+        };
+        tracing::debug!(name = ?client_name, "Client found, fetching next packet");
+
+        let Some(next) = r.value_mut().connection.next().await else {
+            tracing::warn!(name = ?client_name, "Stream to client closed");
+            return Err(TestHarnessError::StreamClosed(client_name.to_string()));
+        };
+
+        match next {
+            Ok(packet) => {
+                if *packet.get_packet() == expected_packet {
+                    tracing::trace!("Packet as expected");
+                    Ok(())
+                } else {
+                    tracing::warn!(expected = ?expected_packet, received = ?packet, "Packet not as expected");
+                    Err(TestHarnessError::PacketNotExpected { got: packet })
+                }
+            }
+            Err(error) => {
+                tracing::warn!("Codec error");
+                Err(TestHarnessError::Codec(error))
+            }
+        }
     }
 }
 

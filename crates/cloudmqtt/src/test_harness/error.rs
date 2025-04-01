@@ -5,6 +5,7 @@
 //
 
 #[derive(Debug, thiserror::Error)]
+#[allow(clippy::large_enum_variant)]
 pub enum TestHarnessError {
     #[error("Broker '{}' not found", .0)]
     BrokerNotFound(String),
@@ -20,4 +21,10 @@ pub enum TestHarnessError {
 
     #[error("Codec error")]
     Codec(#[source] crate::codec::MqttPacketCodecError),
+
+    #[error("Stream for '{}' closed", .0)]
+    StreamClosed(String),
+
+    #[error("Received not expected packet: '{:?}'", .got)]
+    PacketNotExpected { got: crate::codec::MqttPacket },
 }

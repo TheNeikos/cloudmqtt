@@ -108,4 +108,34 @@ impl TestHarness {
             ),
         ))
     }
+
+    pub fn wait_for_publish_on_broker(
+        &self,
+        broker_name: String,
+        client_name: String,
+        payload: String,
+        topic: String,
+    ) -> Result<(), error::TestHarnessError> {
+        let broker = self
+            .brokers
+            .get(&broker_name)
+            .ok_or(error::TestHarnessError::BrokerNotFound(broker_name))?;
+
+        let fut = broker.wait_received(
+            &client_name,
+            mqtt_format::v5::packets::MqttPacket::Publish(
+                mqtt_format::v5::packets::publish::MPublish {
+                    duplicate: false,
+                    quality_of_service: mqtt_format::v5::qos::QualityOfService::AtLeastOnce,
+                    retain: false,
+                    topic_name: &topic,
+                    packet_identifier: None,
+                    properties: mqtt_format::v5::packets::publish::PublishProperties::new(),
+                    payload: payload.as_bytes(),
+                },
+            ),
+        );
+
+        self.runtime.block_on(fut)
+    }
 }

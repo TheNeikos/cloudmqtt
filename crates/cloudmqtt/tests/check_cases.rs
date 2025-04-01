@@ -69,6 +69,24 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
         ),
     );
 
+    ts.add_condition(
+        "wait_for_publish_on_broker",
+        // TODO: This should not be a new_now() but there's no other interface yet???
+        test_dsl::condition::Condition::<TestHarness>::new_now(
+            |harness: &TestHarness,
+             broker_name: String,
+             client_name: String,
+             payload: String,
+             topic: String| {
+                match harness.wait_for_publish_on_broker(broker_name, client_name, payload, topic) {
+                    Err(cloudmqtt::test_harness::error::TestHarnessError::PacketNotExpected {
+                        got: _,
+                    }) => Ok(false),
+                    other => other.map(|_| true).into_diagnostic(),
+                }
+            },
+        ),
+    );
 
     ts
 }
