@@ -4,11 +4,11 @@ testcase {
 
     connect_to_broker "c1" "b1"
     assert {
-        wait_for_connect_on_broker "b1" "c1" "cloudmqtt-0"
+        connect_received_on_broker "b1" "c1" "cloudmqtt-0"
     }
 
     publish "c1" "payload" "some/topic"
     assert {
-        wait_for_publish_on_broker "b1" "c1" "payload" "some/topic"
+        publish_received_on_broker "b1" "c1" "payload" "some/topic"
     }
 }

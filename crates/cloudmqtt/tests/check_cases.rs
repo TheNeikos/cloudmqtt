@@ -70,7 +70,7 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
     );
 
     ts.add_condition(
-        "wait_for_connect_on_broker",
+        "connect_received_on_broker",
         // TODO: This should not be a new_now() but there's no other interface yet???
         test_dsl::condition::Condition::<TestHarness>::new_now(
             |harness: &TestHarness,
@@ -86,7 +86,7 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
     );
 
     ts.add_condition(
-        "wait_for_publish_on_broker",
+        "publish_received_on_broker",
         // TODO: This should not be a new_now() but there's no other interface yet???
         test_dsl::condition::Condition::<TestHarness>::new_now(
             |harness: &TestHarness,
