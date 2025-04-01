@@ -6,20 +6,47 @@
 
 use std::collections::HashMap;
 
-#[derive(Debug, Default)]
+mod broker;
+mod client;
+pub mod error;
+
+#[derive(Debug)]
 pub struct TestHarness {
-    brokers: HashMap<String, Broker>,
-    clients: HashMap<String, Client>,
+    brokers: HashMap<String, broker::Broker>,
+    clients: HashMap<String, client::Client>,
+    runtime: tokio::runtime::Runtime,
+}
+
+impl Default for TestHarness {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl TestHarness {
-    pub fn start_broker(&mut self, name: String) -> Result<(), TestHarnessError> {
-        self.brokers.insert(name, Broker::new());
+    pub fn new() -> Self {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+
+        Self {
+            brokers: HashMap::default(),
+            clients: HashMap::default(),
+            runtime,
+        }
+    }
+
+    pub fn start_broker(&mut self, name: String) -> Result<(), error::TestHarnessError> {
+        let broker = broker::Broker::new(name.clone());
+        self.brokers.insert(name, broker);
         Ok(())
     }
 
-    pub fn create_client(&mut self, name: String) -> Result<(), TestHarnessError> {
-        self.clients.insert(name, Client::new());
+    pub fn create_client(&mut self, name: String) -> Result<(), error::TestHarnessError> {
+        let _rt = self.runtime.enter();
+        let client = client::Client::new(name.clone());
+        self.clients.insert(name, client);
         Ok(())
     }
 
@@ -27,47 +54,16 @@ impl TestHarness {
         &mut self,
         client_name: String,
         broker_name: String,
-    ) -> Result<(), TestHarnessError> {
+    ) -> Result<(), error::TestHarnessError> {
         let broker = self
             .brokers
             .get_mut(&broker_name)
-            .ok_or(TestHarnessError::BrokerNotFound(broker_name))?;
+            .ok_or(error::TestHarnessError::BrokerNotFound(broker_name))?;
         let client = self
             .clients
             .get_mut(&client_name)
-            .ok_or(TestHarnessError::ClientNotFound(client_name))?;
+            .ok_or(error::TestHarnessError::ClientNotFound(client_name))?;
 
-        client.connect_to(broker)
+        self.runtime.block_on(client.connect_to(broker))
     }
-}
-
-#[derive(Debug, Default)]
-struct Broker {}
-
-impl Broker {
-    fn new() -> Self {
-        Self {}
-    }
-}
-
-#[derive(Debug, Default)]
-struct Client {}
-
-impl Client {
-    fn new() -> Self {
-        Self {}
-    }
-
-    fn connect_to(&mut self, _broker: &mut Broker) -> Result<(), TestHarnessError> {
-        todo!()
-    }
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum TestHarnessError {
-    #[error("Broker '{}' not found", .0)]
-    BrokerNotFound(String),
-
-    #[error("Client '{}' not found", .0)]
-    ClientNotFound(String),
 }

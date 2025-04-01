@@ -47,6 +47,11 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
 }
 
 fn check_cases(path: &Utf8Path, data: String) -> datatest_stable::Result<()> {
+    tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_str("trace").unwrap())
+        .init();
+
     let ts = setup_test_dsl();
 
     let testcases = ts
@@ -60,67 +65,44 @@ fn check_cases(path: &Utf8Path, data: String) -> datatest_stable::Result<()> {
         return Err(String::from("No testcases found").into());
     }
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .thread_name(path.as_str())
-        .enable_all()
-        .thread_keep_alive(Duration::from_millis(100))
-        .build()?;
+    let prev_panic = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic_info| {
+        let payload = panic_info.payload();
 
-    let (error_sender, error_recv) = tokio::sync::oneshot::channel();
+        #[expect(
+            clippy::manual_map,
+            reason = "We want to be clear that we return a None if nothing matches"
+        )]
+        let payload = if let Some(s) = payload.downcast_ref::<&str>() {
+            Some(&**s)
+        } else if let Some(s) = payload.downcast_ref::<String>() {
+            Some(s.as_str())
+        } else {
+            None
+        };
 
-    let command_future = async {
-        let prev_panic = std::panic::take_hook();
-        std::panic::set_hook(Box::new(move |panic_info| {
-            let payload = panic_info.payload();
+        let location = panic_info.location().map(|l| l.to_string());
 
-            #[expect(
-                clippy::manual_map,
-                reason = "We want to be clear that we return a None if nothing matches"
-            )]
-            let payload = if let Some(s) = payload.downcast_ref::<&str>() {
-                Some(&**s)
-            } else if let Some(s) = payload.downcast_ref::<String>() {
-                Some(s.as_str())
-            } else {
-                None
-            };
+        tracing::error!(
+            panic.payload = payload,
+            panic.location = location,
+            "A panic occurred",
+        );
 
-            let location = panic_info.location().map(|l| l.to_string());
+        prev_panic(panic_info);
+    }));
 
-            tracing::error!(
-                panic.payload = payload,
-                panic.location = location,
-                "A panic occurred",
-            );
-
-            prev_panic(panic_info);
-        }));
-
-        tracing_subscriber::fmt()
-            .with_test_writer()
-            .with_env_filter(tracing_subscriber::EnvFilter::from_str("trace").unwrap())
-            .init();
-
-        let errors = testcases
-            .into_iter()
-            .zip(std::iter::repeat_with(
-                cloudmqtt::test_harness::TestHarness::new,
-            ))
-            .map(|(testcase, mut harness)| testcase.run(&mut harness))
-            .filter_map(Result::err)
-            .inspect(|error| {
-                tracing::warn!(?error, "Testcase failed");
-            })
-            .collect::<Vec<_>>();
-
-        error_sender.send(errors).unwrap();
-    };
-
-    runtime.block_on(command_future);
-
-    let errors = error_recv.blocking_recv().unwrap();
-
-    runtime.shutdown_background();
+    let errors = testcases
+        .into_iter()
+        .zip(std::iter::repeat_with(
+            cloudmqtt::test_harness::TestHarness::new,
+        ))
+        .map(|(testcase, mut harness)| testcase.run(&mut harness))
+        .filter_map(Result::err)
+        .inspect(|error| {
+            tracing::warn!(?error, "Testcase failed");
+        })
+        .collect::<Vec<_>>();
 
     if errors.is_empty() {
         Ok(())
