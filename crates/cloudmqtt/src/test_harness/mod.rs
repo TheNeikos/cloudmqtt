@@ -118,63 +118,60 @@ impl TestHarness {
         ))
     }
 
-    pub fn wait_for_publish_on_broker(
+    pub fn check_for_publish_on_broker(
         &self,
         broker_name: String,
         client_name: String,
         expected_payload: String,
         expected_topic: String,
-    ) -> Result<(), error::TestHarnessError> {
+    ) -> Result<bool, error::TestHarnessError> {
         let broker = self
             .brokers
             .get(&broker_name)
             .ok_or(error::TestHarnessError::BrokerNotFound(broker_name))?;
 
-        let fut = broker.has_received_packet(&client_name, |packet: &crate::codec::MqttPacket| {
-            match packet.get_packet() {
-                mqtt_format::v5::packets::MqttPacket::Publish(
-                    mqtt_format::v5::packets::publish::MPublish {
-                        topic_name,
-                        payload,
-                        ..
-                    },
-                ) => {
-                    if *topic_name != expected_topic {
-                        tracing::warn!("Unexpected topic: {topic_name} != {expected_topic}");
-                        return false;
+        let fut =
+            broker.has_received_packet(&client_name, move |packet: &crate::codec::MqttPacket| {
+                match packet.get_packet() {
+                    mqtt_format::v5::packets::MqttPacket::Publish(
+                        mqtt_format::v5::packets::publish::MPublish {
+                            topic_name,
+                            payload,
+                            ..
+                        },
+                    ) => {
+                        if *topic_name != expected_topic {
+                            tracing::warn!("Unexpected topic: {topic_name} != {expected_topic}");
+                            return Err(TestHarnessError::UnexpectedTopic {
+                                expected: expected_topic.to_string(),
+                                found: topic_name.to_string(),
+                            });
+                        }
+
+                        let Ok(payload) = std::str::from_utf8(payload) else {
+                            tracing::warn!("Payload not valid UTF8");
+                            return Err(TestHarnessError::PayloadNotUtf8);
+                        };
+
+                        if payload != expected_payload {
+                            tracing::warn!("Unexpected payload: {payload} != {expected_payload}");
+                        }
+
+                        Ok(true)
                     }
-
-                    let Ok(payload) = std::str::from_utf8(payload) else {
-                        tracing::warn!("Payload not valid UTF8");
-                        return false;
-                    };
-
-                    if payload != expected_payload {
-                        tracing::warn!("Unexpected payload: {payload} != {expected_payload}");
-                        return false;
-                    }
-
-                    true
+                    _found => Ok(false),
                 }
-                _ => false,
-            }
-        });
+            });
 
-        match self.runtime.block_on(fut) {
-            Ok(true) => Ok(()),
-            Ok(false) => {
-                todo!()
-            }
-            Err(error) => Err(error),
-        }
+        self.runtime.block_on(fut)
     }
 
-    pub fn wait_for_connect_on_broker(
+    pub fn check_for_connect_on_broker(
         &self,
         broker_name: String,
         client_name: String,
         client_identifier: String,
-    ) -> Result<(), TestHarnessError> {
+    ) -> Result<bool, TestHarnessError> {
         let broker = self
             .brokers
             .get(&broker_name)
@@ -184,28 +181,24 @@ impl TestHarness {
             .get_packet()
         {
             mqtt_format::v5::packets::MqttPacket::Connect(connect) => {
-                let b = connect.client_identifier == client_identifier;
-
-                if !b {
+                if connect.client_identifier == client_identifier {
+                    Ok(true)
+                } else {
                     tracing::error!(
                         "Client identifier wrong: {} != {}",
                         connect.client_identifier,
                         client_identifier
                     );
-                }
 
-                b
+                    Err(TestHarnessError::UnexpectedClientIdentifier {
+                        got: connect.client_identifier.to_string(),
+                        expected: client_identifier.to_string(),
+                    })
+                }
             }
-            _ => false,
+            _ => Ok(false),
         });
 
-        let received_connect_packet = self.runtime.block_on(fut)?;
-        let _ = broker;
-
-        if !received_connect_packet {
-            return Err(TestHarnessError::PacketNotReceived("connect".to_string()));
-        }
-
-        Ok(())
+        self.runtime.block_on(fut)
     }
 }

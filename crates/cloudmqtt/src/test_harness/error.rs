@@ -33,4 +33,10 @@ pub enum TestHarnessError {
 
     #[error("Packet {} not received", .0)]
     PacketNotReceived(String),
+
+    #[error("Unexpected topic, expected: {}, found: {}", .expected, .found)]
+    UnexpectedTopic { expected: String, found: String },
+
+    #[error("Packet payload is not valid UTF8")]
+    PayloadNotUtf8,
 }

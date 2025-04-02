@@ -86,8 +86,7 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
              client_name: String,
              client_identifier: String| {
                 harness
-                    .wait_for_connect_on_broker(broker_name, client_name, client_identifier)
-                    .map(|_| true)
+                    .check_for_connect_on_broker(broker_name, client_name, client_identifier)
                     .into_diagnostic()
             },
         ),
@@ -102,11 +101,12 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
              client_name: String,
              payload: String,
              topic: String| {
-                match harness.wait_for_publish_on_broker(broker_name, client_name, payload, topic) {
+                match harness.check_for_publish_on_broker(broker_name, client_name, payload, topic)
+                {
                     Err(cloudmqtt::test_harness::error::TestHarnessError::PacketNotExpected {
                         got: _,
                     }) => Ok(false),
-                    other => other.map(|_| true).into_diagnostic(),
+                    other => other.into_diagnostic(),
                 }
             },
         ),
