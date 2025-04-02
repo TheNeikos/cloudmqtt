@@ -26,6 +26,14 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
     );
 
     ts.add_verb(
+        "sleep",
+        FunctionVerb::new(|harness: &mut TestHarness, duration: String| {
+            let duration = humantime::parse_duration(&duration).into_diagnostic()?;
+            harness.sleep(duration).into_diagnostic()
+        }),
+    );
+
+    ts.add_verb(
         "create_client",
         FunctionVerb::new(|harness: &mut TestHarness, name: String| {
             harness.create_client(name).into_diagnostic()

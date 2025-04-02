@@ -3,11 +3,13 @@ testcase {
     create_client "c1"
 
     connect_to_broker "c1" "b1"
+    sleep "100ms"
     assert {
         connect_received_on_broker "b1" "c1" "cloudmqtt-0"
     }
 
     publish "c1" "payload" "some/topic"
+    sleep "100ms"
     assert {
         publish_received_on_broker "b1" "c1" "payload" "some/topic"
     }

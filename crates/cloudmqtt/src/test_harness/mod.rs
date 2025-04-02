@@ -39,6 +39,13 @@ impl TestHarness {
         }
     }
 
+    pub fn sleep(&self, duration: std::time::Duration) -> Result<(), TestHarnessError> {
+        let _rt = self.runtime.enter();
+        let fut = tokio::time::sleep(duration);
+        self.runtime.block_on(fut);
+        Ok(())
+    }
+
     pub fn start_broker(&mut self, name: String) -> Result<(), error::TestHarnessError> {
         let broker = broker::Broker::new(name.clone());
         self.brokers.insert(name, broker);

@@ -32,6 +32,7 @@ tracing.workspace = true
 winnow.workspace = true
 yoke = { workspace = true, features = ["alloc"] }
 cloudmqtt-workspace-hack.workspace = true
+humantime = "2.2"
 
 [dev-dependencies]
 camino = "1.1"
