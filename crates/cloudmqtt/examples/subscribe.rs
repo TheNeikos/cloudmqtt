@@ -9,10 +9,10 @@ use futures::StreamExt;
 
 #[tokio::main]
 async fn main() {
-    let mut client = CloudmqttClient::new("localhost:1883".to_string()).await;
+    let mut client = CloudmqttClient::new_with_address("localhost:1883".to_string()).await;
 
-    let whatsub = client.subscribe("whats/up").await;
-    let morestuff = client.subscribe("more/stuff").await;
+    let whatsub = client.subscribe("whats/up").await.unwrap();
+    let morestuff = client.subscribe("more/stuff").await.unwrap();
     let mut combined = futures::stream::select(whatsub, morestuff);
 
     while let Some(next_message) = combined.next().await {

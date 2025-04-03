@@ -1,0 +1,16 @@
+testcase {
+    start_broker "b1"
+    create_client "c1"
+
+    connect_to_broker client="c1" broker="b1"
+    sleep "100ms"
+    assert {
+        connect_received_on_broker "b1" "c1" "cloudmqtt-0"
+    }
+
+    publish client="c1" payload="test" topic="some/thing"
+    sleep "100ms"
+    assert {
+        publish_received_on_broker "b1" "c1" "payload" "some/thing"
+    }
+}

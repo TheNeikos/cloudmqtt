@@ -10,7 +10,15 @@ authors.workspace = true
 repository.workspace = true
 license.workspace = true
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[test]]
+name = "check_cases"
+harness = false
+
+[features]
+## Enable testing-related utility functions
+##
+## Any item only exported through this feature should not be considered stable.
+test_utils = []
 
 [dependencies]
 cloudmqtt-core = { workspace = true, features = ["tracing"] }
@@ -24,6 +32,12 @@ tracing.workspace = true
 winnow.workspace = true
 yoke = { workspace = true, features = ["alloc"] }
 cloudmqtt-workspace-hack.workspace = true
+humantime = "2.2"
 
 [dev-dependencies]
+camino = "1.1"
+datatest-stable = "0.3.2"
+test-dsl = "0.4.0"
+miette = { version = "*", features = ["fancy"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+tracing-subscriber = { workspace = true, features = ["env-filter", "std", "fmt"] }

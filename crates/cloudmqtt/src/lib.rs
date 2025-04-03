@@ -6,11 +6,16 @@
 
 mod client;
 mod codec;
+pub mod error;
 mod router;
 pub mod topic;
 
+#[cfg_attr(not(any(feature = "test_utils", test, doc)), doc(hidden))]
+pub mod test_harness;
+
 use codec::BytesMutWriter;
 use codec::MqttPacket;
+use error::Error;
 use futures::Stream;
 use tokio_util::bytes::BytesMut;
 
@@ -25,7 +30,15 @@ pub struct CloudmqttClient {
 }
 
 impl CloudmqttClient {
-    pub async fn new(address: String) -> CloudmqttClient {
+    pub fn new() -> CloudmqttClient {
+        let (sender, receiver) = tokio::sync::mpsc::channel(1);
+        Self {
+            core_client: crate::client::CoreClient::new(sender),
+            router: crate::router::Router::new(receiver),
+        }
+    }
+
+    pub async fn new_with_address(address: String) -> CloudmqttClient {
         let socket = tokio::net::lookup_host(address)
             .await
             .expect("Could not lookup DNS")
@@ -36,10 +49,22 @@ impl CloudmqttClient {
             .await
             .expect("Could not connect");
 
+        Self::new_from_connection(connection)
+    }
+
+    pub fn new_from_connection<C>(connection: C) -> CloudmqttClient
+    where
+        C: tokio::io::AsyncRead,
+        C: tokio::io::AsyncWrite,
+        C: Send,
+        C: 'static,
+    {
         let (incoming_sender, incoming_receiver): (tokio::sync::mpsc::Sender<MqttPacket>, _) =
             tokio::sync::mpsc::channel(1);
 
-        let core_client = crate::client::CoreClient::new(connection, incoming_sender.clone());
+        let (reader, writer) = tokio::io::split(connection);
+        let core_client =
+            crate::client::CoreClient::new_and_connect(reader, writer, incoming_sender.clone());
 
         let router = crate::router::Router::new(incoming_receiver);
 
@@ -49,7 +74,22 @@ impl CloudmqttClient {
         }
     }
 
-    pub async fn publish(&self, message: impl AsRef<[u8]>, topic: impl AsRef<str>) {
+    pub async fn connect<C>(&self, connection: C) -> Result<(), Error>
+    where
+        C: tokio::io::AsyncRead,
+        C: tokio::io::AsyncWrite,
+        C: Send,
+        C: 'static,
+    {
+        let (reader, writer) = tokio::io::split(connection);
+        self.core_client.connect(reader, writer).await
+    }
+
+    pub async fn publish(
+        &self,
+        message: impl AsRef<[u8]>,
+        topic: impl AsRef<str>,
+    ) -> Result<(), Error> {
         self.core_client
             .publish(MqttPacket::new(
                 mqtt_format::v5::packets::MqttPacket::Publish(
@@ -67,7 +107,7 @@ impl CloudmqttClient {
             .await
     }
 
-    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Subscription {
+    pub async fn subscribe(&self, topic_filter: impl AsRef<str>) -> Result<Subscription, Error> {
         self.subscription_builder()
             .with_subscription(topic_filter)
             .build()
@@ -83,6 +123,12 @@ impl CloudmqttClient {
 
     pub async fn wait_for_shutdown(&mut self) {
         std::future::pending::<()>().await;
+    }
+}
+
+impl Default for CloudmqttClient {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -118,7 +164,7 @@ impl SubscriptionBuilder<'_> {
         self
     }
 
-    pub async fn build(self) -> Subscription {
+    pub async fn build(self) -> Result<Subscription, Error> {
         let buf = {
             let mut bytes = BytesMut::new();
 
@@ -154,7 +200,7 @@ impl SubscriptionBuilder<'_> {
                     },
                 ),
             ))
-            .await;
+            .await?;
 
         let (sender, receiver) = tokio::sync::mpsc::channel(1);
         let subscription_id = self.client.router.add_subscription_sink(sender);
@@ -165,9 +211,9 @@ impl SubscriptionBuilder<'_> {
                 .add_subscription_to_topic(subscription_id, topic_filter.as_ref());
         }
 
-        Subscription {
+        Ok(Subscription {
             _subscription_id: subscription_id,
             receiver,
-        }
+        })
     }
 }

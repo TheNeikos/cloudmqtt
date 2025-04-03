@@ -17,11 +17,15 @@ publish = false
 [dependencies]
 futures-core = { version = "0.3" }
 futures-sink = { version = "0.3" }
+memchr = { version = "2" }
 num_enum = { version = "0.7", default-features = false, features = ["std"] }
+regex-automata = { version = "0.4", default-features = false, features = ["dfa", "hybrid", "meta", "nfa", "perf", "unicode"] }
+regex-syntax = { version = "0.8", default-features = false, features = ["std", "unicode"] }
 stable_deref_trait = { version = "1", default-features = false, features = ["alloc"] }
 tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = ["ansi", "env-filter", "smallvec"] }
 winnow = { version = "0.7" }
 yoke = { version = "0.8", default-features = false, features = ["alloc", "derive"] }
 zerofrom = { version = "0.1", default-features = false, features = ["alloc", "derive"] }
