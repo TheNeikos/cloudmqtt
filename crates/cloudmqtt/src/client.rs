@@ -65,8 +65,11 @@ impl CoreClient {
             let mut fsm =
                 handle_connection(reader, writer, incoming_sender_clone, receiver, start, fsm)
                     .await;
+
+            tracing::trace!("Connection lost. Telling FSM");
             fsm.connection_lost(since(start));
 
+            tracing::trace!("Setting state to Unconnected");
             *state_arc.lock().await = ConnectionState::Unconnected { client: fsm };
         });
 
@@ -108,8 +111,11 @@ impl CoreClient {
             let mut fsm =
                 handle_connection(reader, writer, incoming_sender_clone, receiver, start, fsm)
                     .await;
+
+            tracing::trace!("Connection lost. Telling FSM");
             fsm.connection_lost(since(start));
 
+            tracing::trace!("Setting state to Unconnected");
             *state_arc.lock().await = ConnectionState::Unconnected { client: fsm };
         });
 
@@ -118,21 +124,33 @@ impl CoreClient {
 
     pub async fn publish(&self, packet: MqttPacket) -> Result<(), Error> {
         match *self.connection_state.lock().await {
-            ConnectionState::Unconnected { .. } => Err(Error::NotConnected),
-            ConnectionState::Connected { ref sender } => sender
-                .send(SendUsage::Publish(packet))
-                .await
-                .map_err(|_| Error::TokioChannel),
+            ConnectionState::Unconnected { .. } => {
+                tracing::warn!("Tried to publish although not connected");
+                Err(Error::NotConnected)
+            }
+            ConnectionState::Connected { ref sender } => {
+                tracing::debug!("Sending out publish packet");
+                sender
+                    .send(SendUsage::Publish(packet))
+                    .await
+                    .map_err(|_| Error::TokioChannel)
+            }
         }
     }
 
     pub async fn subscribe(&self, packet: MqttPacket) -> Result<(), Error> {
         match *self.connection_state.lock().await {
-            ConnectionState::Unconnected { .. } => Err(Error::NotConnected),
-            ConnectionState::Connected { ref sender } => sender
-                .send(SendUsage::Subscribe(packet))
-                .await
-                .map_err(|_| Error::TokioChannel),
+            ConnectionState::Unconnected { .. } => {
+                tracing::warn!("Tried to subscribe although not connected");
+                Err(Error::NotConnected)
+            }
+            ConnectionState::Connected { ref sender } => {
+                tracing::debug!("Trying to subscribe");
+                sender
+                    .send(SendUsage::Subscribe(packet))
+                    .await
+                    .map_err(|_| Error::TokioChannel)
+            }
         }
     }
 }
@@ -153,6 +171,8 @@ where
     let reader = std::pin::pin!(reader);
     let mut writer = FramedWrite::new(writer, MqttPacketCodec);
     let mut reader = FramedRead::new(reader, MqttPacketCodec);
+
+    tracing::trace!("Calling FSM to handle connect");
     let action = fsm.handle_connect(
         since(start),
         mqtt_format::v5::packets::connect::MConnect {
@@ -165,15 +185,16 @@ where
             keep_alive: 0,
         },
     );
+
     match action {
-        ExpectedAction::SendPacket(mqtt_packet) => {
-            writer
-                .send(mqtt_packet)
-                .await
-                .expect("Could not send message");
+        ExpectedAction::SendPacket(packet) => {
+            tracing::trace!(?packet, "Handling expected action after connect");
+            writer.send(packet).await.expect("Could not send message");
         }
         _ => unreachable!(),
     }
+
+    tracing::trace!("Entering handling loop");
     loop {
         enum GotPacket {
             Incoming(MqttPacket),
@@ -183,36 +204,46 @@ where
         let action = tokio::select! {
             packet = reader.next() => {
                 if let Some(Ok(packet)) = packet {
+                    tracing::trace!(?packet, "Received incoming packet");
                     GotPacket::Incoming(packet)
                 } else {
-                    println!("We're out, bye!");
+                    tracing::trace!("Reader closed, breaking handle loop");
                     break;
                 }
             }
             Some(packet) = receiver.recv(), if fsm.is_connected() => {
+                tracing::trace!("Received packet to send");
                 GotPacket::ToSend(packet)
             }
         };
 
+        tracing::trace!("Processing next action");
         let action = match &action {
             GotPacket::Incoming(packet) => {
                 fsm.consume(packet.get_packet().clone()).run(since(start))
             }
             GotPacket::ToSend(send_usage) => match send_usage {
                 SendUsage::Publish(packet) => {
+                    tracing::trace!("Publishing packet to FSM");
                     let mut publisher =
                         fsm.publish(packet.get_packet().clone().try_into().unwrap());
 
+                    tracing::trace!("Consuming publisher actions");
                     while let Some(action) = publisher.run(since(start)) {
+                        tracing::trace!(?action, "Handling action");
                         handle_action(&mut writer, action, &incoming_sender).await;
                     }
 
+                    tracing::trace!("Running FSM");
                     fsm.run(since(start))
                 }
-                SendUsage::Subscribe(packet) => Some(fsm.subscribe(
-                    since(start),
-                    packet.get_packet().clone().try_into().unwrap(),
-                )),
+                SendUsage::Subscribe(packet) => {
+                    tracing::trace!(?packet, "Subscribing in FSM");
+                    Some(fsm.subscribe(
+                        since(start),
+                        packet.get_packet().clone().try_into().unwrap(),
+                    ))
+                }
             },
         };
 
