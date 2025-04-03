@@ -95,8 +95,11 @@ impl Decoder for MqttPacketCodec {
         // 1. Byte: FixedHeader
         // 2-5. Byte: Variable-Size
 
+        tracing::trace!(len = src.len(), "Trying to decide packet");
         if src.len() < 2 {
-            src.reserve(2 - src.len());
+            let additional = 2 - src.len();
+            tracing::trace!(?additional, "Reserving more bytes");
+            src.reserve(additional);
             return Ok(None);
         }
 
@@ -104,24 +107,31 @@ impl Decoder for MqttPacketCodec {
             match mqtt_format::v5::integers::parse_variable_u32(&mut Partial::new(&src[1..])) {
                 Ok(size) => size as usize,
                 Err(winnow::error::ErrMode::Incomplete(winnow::error::Needed::Size(needed))) => {
+                    tracing::trace!(additional = ?needed, "Reserving more bytes");
                     src.reserve(needed.into());
                     return Ok(None);
                 }
                 Err(winnow::error::ErrMode::Incomplete(winnow::error::Needed::Unknown)) => {
+                    tracing::trace!(additional = 1, "Reserving more bytes");
                     src.reserve(1);
                     return Ok(None);
                 }
                 _ => {
+                    tracing::trace!("Protocol error");
                     return Err(MqttPacketCodecError::Protocol);
                 }
             };
+        tracing::trace!(?remaining_length, "Found remaining packet length");
 
         let total_packet_length = 1
             + mqtt_format::v5::integers::variable_u32_binary_size(remaining_length as u32) as usize
             + remaining_length;
+        tracing::trace!(?total_packet_length);
 
         if src.len() < total_packet_length {
-            src.reserve(total_packet_length - src.len());
+            let additional = total_packet_length - src.len();
+            tracing::trace!(additional, "Reserving more bytes");
+            src.reserve(additional);
             return Ok(None);
         }
 
@@ -131,6 +141,7 @@ impl Decoder for MqttPacketCodec {
             FormatMqttPacket::parse_complete(data).map_err(MqttPacketCodecError::Parsing)
         })?;
 
+        tracing::trace!(packet = ?packet.get(), "Finished decoding packet");
         Ok(Some(MqttPacket { packet }))
     }
 }
@@ -143,6 +154,7 @@ impl Encoder<FormatMqttPacket<'_>> for MqttPacketCodec {
         packet: FormatMqttPacket<'_>,
         dst: &mut tokio_util::bytes::BytesMut,
     ) -> Result<(), Self::Error> {
+        tracing::trace!("Trying to encode packet");
         let size = packet.binary_size() as usize;
         dst.reserve(size);
 
