@@ -1105,9 +1105,9 @@ dependencies = [
 
 [[package]]
 name = "test-dsl"
-version = "0.2.0"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "60f11756ed9f2bbef054b2349ba73c38eb19d8cb238d6932825805265320ea1e"
+checksum = "bf36f2b4b7dd87332ddd6ef84e8a170f7ea63818ee5923e38f868910e696becb"
 dependencies = [
  "kdl",
  "miette",

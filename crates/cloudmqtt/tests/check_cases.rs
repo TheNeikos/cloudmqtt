@@ -80,7 +80,7 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
     ts.add_condition(
         "connect_received_on_broker",
         // TODO: This should not be a new_now() but there's no other interface yet???
-        test_dsl::condition::Condition::<TestHarness>::new_now(
+        test_dsl::condition::Condition::<TestHarness, _>::new_now(
             |harness: &TestHarness,
              broker_name: String,
              client_name: String,
@@ -95,7 +95,7 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
     ts.add_condition(
         "publish_received_on_broker",
         // TODO: This should not be a new_now() but there's no other interface yet???
-        test_dsl::condition::Condition::<TestHarness>::new_now(
+        test_dsl::condition::Condition::<TestHarness, _>::new_now(
             |harness: &TestHarness,
              broker_name: String,
              client_name: String,
@@ -124,10 +124,10 @@ fn check_cases(path: &Utf8Path, data: String) -> datatest_stable::Result<()> {
     let ts = setup_test_dsl();
 
     let testcases = ts
-        .parse_document(test_dsl::miette::NamedSource::new(
-            path,
-            std::sync::Arc::from(data),
-        ))
+        .parse_testcase(test_dsl::TestCaseInput::FromFile {
+            filepath: std::sync::Arc::from(path.as_str()),
+            contents: std::sync::Arc::from(data.as_str()),
+        })
         .map_err(|error| format!("Failed to parse testcase: {error:?}"))?;
 
     if testcases.is_empty() {
