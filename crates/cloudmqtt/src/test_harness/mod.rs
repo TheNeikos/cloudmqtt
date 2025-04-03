@@ -73,7 +73,7 @@ impl TestHarness {
             .get_mut(&client_name)
             .ok_or(error::TestHarnessError::ClientNotFound(client_name))?;
 
-        self.runtime.block_on(client.connect_to(broker))
+        self.runtime.block_on(client.connect_to_and_ack(broker))
     }
 
     pub fn publish(

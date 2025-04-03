@@ -30,11 +30,15 @@ impl Client {
         }
     }
 
-    pub(crate) async fn connect_to(&mut self, broker: &mut Broker) -> Result<(), TestHarnessError> {
+    pub(crate) async fn connect_to_and_ack(
+        &mut self,
+        broker: &mut Broker,
+    ) -> Result<(), TestHarnessError> {
         let (client, server) = tokio::io::duplex(100);
 
         self.client.connect(client).await.unwrap();
         broker.connect(self.name.clone(), server).await.unwrap();
+        broker.send_connack(&self.name).await.unwrap();
         Ok(())
     }
 

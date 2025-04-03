@@ -126,6 +126,20 @@ impl Broker {
             .map_err(|_| TestHarnessError::Channel)
     }
 
+    pub(crate) async fn send_connack(&mut self, client_name: &str) -> Result<(), TestHarnessError> {
+        self.send(
+            client_name,
+            mqtt_format::v5::packets::MqttPacket::Connack(
+                mqtt_format::v5::packets::connack::MConnack {
+                    session_present: false,
+                    reason_code: mqtt_format::v5::packets::connack::ConnackReasonCode::Success,
+                    properties: mqtt_format::v5::packets::connack::ConnackProperties::new(),
+                },
+            ),
+        )
+        .await
+    }
+
     pub(crate) async fn has_received_packet<F>(
         &self,
         client_name: &str,
