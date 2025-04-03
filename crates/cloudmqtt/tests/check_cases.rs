@@ -42,39 +42,36 @@ fn setup_test_dsl() -> test_dsl::TestDsl<TestHarness> {
 
     ts.add_verb(
         "connect_to_broker",
-        FunctionVerb::new(
-            |harness: &mut TestHarness, client_name: String, broker_name: String| {
+        test_dsl::named_parameters_verb!(
+            |harness: &mut TestHarness, client: String, broker: String| {
                 harness
-                    .connect_client_to_broker(client_name, broker_name)
+                    .connect_client_to_broker(client, broker)
                     .into_diagnostic()
-            },
+            }
         ),
     );
 
     ts.add_verb(
         "publish",
-        FunctionVerb::new(
-            |harness: &mut TestHarness, client_name: String, payload: String, topic: String| {
-                harness
-                    .publish(client_name, payload, topic)
-                    .into_diagnostic()
-            },
-        ),
+        test_dsl::named_parameters_verb!(|harness: &mut TestHarness,
+                                          client: String,
+                                          payload: String,
+                                          topic: String| {
+            harness.publish(client, payload, topic).into_diagnostic()
+        }),
     );
 
     ts.add_verb(
         "publish_to_client",
-        FunctionVerb::new(
-            |harness: &mut TestHarness,
-             broker_name: String,
-             client_name: String,
-             payload: String,
-             topic: String| {
-                harness
-                    .publish_to_client(broker_name, client_name, payload, topic)
-                    .into_diagnostic()
-            },
-        ),
+        test_dsl::named_parameters_verb!(|harness: &mut TestHarness,
+                                          broker: String,
+                                          client: String,
+                                          payload: String,
+                                          topic: String| {
+            harness
+                .publish_to_client(broker, client, payload, topic)
+                .into_diagnostic()
+        }),
     );
 
     ts.add_condition(
