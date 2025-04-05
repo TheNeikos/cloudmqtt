@@ -32,6 +32,18 @@ crate::v5::reason_code::make_combined_reason_code! {
     }
 }
 
+impl SubackReasonCode {
+    /// Return Some(_) if self is a "Granted" reason code, otherwise None
+    pub fn granted(&self) -> Option<Self> {
+        match self {
+            SubackReasonCode::GrantedQoS0
+            | SubackReasonCode::GrantedQoS1
+            | SubackReasonCode::GrantedQoS2 => Some(*self),
+            _ => None,
+        }
+    }
+}
+
 crate::v5::properties::define_properties! {
     packet_type: MSuback,
     anker: "_Toc3901174",
