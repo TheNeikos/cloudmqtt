@@ -8,7 +8,6 @@ use winnow::Bytes;
 use winnow::error::FromExternalError;
 
 use super::MResult;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 #[derive(num_enum::TryFromPrimitive, num_enum::IntoPrimitive)]
@@ -28,7 +27,10 @@ pub fn parse_qos(input: &mut &Bytes) -> MResult<QualityOfService> {
 }
 
 #[inline]
-pub fn write_qos<W: WriteMqttPacket>(buffer: &mut W, qos: QualityOfService) -> WResult<W> {
+pub fn write_qos<W: WriteMqttPacket>(
+    buffer: &mut W,
+    qos: QualityOfService,
+) -> Result<(), W::Error> {
     crate::v5::variable_header::write_u8(buffer, qos.into())
 }
 
@@ -51,6 +53,6 @@ pub fn parse_maximum_quality_of_service(input: &mut &Bytes) -> MResult<MaximumQu
 pub fn write_maximum_quality_of_service<W: WriteMqttPacket>(
     buffer: &mut W,
     qos: MaximumQualityOfService,
-) -> WResult<W> {
+) -> Result<(), W::Error> {
     crate::v5::variable_header::write_u8(buffer, qos.into())
 }

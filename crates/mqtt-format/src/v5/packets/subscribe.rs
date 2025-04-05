@@ -21,7 +21,6 @@ use crate::v5::strings::write_string;
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::UserProperties;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 define_properties! {
@@ -78,7 +77,7 @@ impl SubscriptionOptions {
         .parse_next(input)
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         let qos = self.quality_of_service as u8;
         let no_local = (self.no_local as u8) << 2;
         let retain_as_published = (self.retain_as_published as u8) << 3;
@@ -111,7 +110,7 @@ impl<'i> Subscription<'i> {
         .parse_next(input)
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         write_string(buffer, self.topic_filter)?;
         self.options.write(buffer)
     }
@@ -158,7 +157,7 @@ impl<'i> Subscriptions<'i> {
         self.start.len() as u32
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         for sub in self.iter() {
             sub.write(buffer)?;
         }
@@ -224,7 +223,7 @@ impl<'i> MSubscribe<'i> {
             + self.subscriptions.binary_size()
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         self.packet_identifier.write(buffer)?;
         self.properties.write(buffer)?;
         self.subscriptions.write(buffer)

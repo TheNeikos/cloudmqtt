@@ -30,7 +30,6 @@ use crate::v5::variable_header::SessionExpiryInterval;
 use crate::v5::variable_header::TopicAliasMaximum;
 use crate::v5::variable_header::UserProperties;
 use crate::v5::variable_header::WillDelayInterval;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
@@ -175,7 +174,7 @@ impl<'i> MConnect<'i> {
         + self.password.as_ref().map(|p| crate::v5::bytes::binary_data_binary_size(p)).unwrap_or(0)
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         crate::v5::strings::write_string(buffer, "MQTT")?;
         ProtocolLevel::V5.write(buffer)?;
 
@@ -229,7 +228,7 @@ pub struct Will<'i> {
 }
 
 impl Will<'_> {
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         self.properties.write(buffer)?;
         crate::v5::strings::write_string(buffer, self.topic)?;
         crate::v5::bytes::write_binary_data(buffer, self.payload)?;
@@ -279,7 +278,7 @@ impl ProtocolLevel {
         }
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         match self {
             ProtocolLevel::V3 => buffer.write_byte(3),
             ProtocolLevel::V5 => buffer.write_byte(5),

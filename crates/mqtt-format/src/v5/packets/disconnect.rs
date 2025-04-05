@@ -13,7 +13,6 @@ use crate::v5::variable_header::ReasonString;
 use crate::v5::variable_header::ServerReference;
 use crate::v5::variable_header::SessionExpiryInterval;
 use crate::v5::variable_header::UserProperties;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 crate::v5::reason_code::make_combined_reason_code! {
@@ -112,7 +111,7 @@ impl<'i> MDisconnect<'i> {
         self.reason_code == DisconnectReasonCode::NormalDisconnection
             && self.properties == DisconnectProperties::new()
     }
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         if self.is_short_packet() {
             return Ok(());
         }

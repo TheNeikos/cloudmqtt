@@ -25,7 +25,6 @@ use self::subscribe::MSubscribe;
 use self::unsuback::MUnsuback;
 use self::unsubscribe::MUnsubscribe;
 use super::fixed_header::PacketType;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 use crate::v5::MResult;
 use crate::v5::fixed_header::MFixedHeader;
@@ -131,7 +130,7 @@ impl<'i> MqttPacket<'i> {
         header + crate::v5::integers::variable_u32_binary_size(packet_size) + packet_size
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         match self {
             MqttPacket::Auth(p) => {
                 let fixed_header = MFixedHeader {

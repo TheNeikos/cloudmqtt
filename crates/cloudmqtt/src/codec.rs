@@ -30,12 +30,12 @@ impl From<mqtt_format::v5::write::MqttWriteError> for MqttWriterError {
 impl mqtt_format::v5::write::WriteMqttPacket for BytesMutWriter<'_> {
     type Error = MqttWriterError;
 
-    fn write_byte(&mut self, u: u8) -> mqtt_format::v5::write::WResult<Self> {
+    fn write_byte(&mut self, u: u8) -> Result<(), Self::Error> {
         self.0.put_u8(u);
         Ok(())
     }
 
-    fn write_slice(&mut self, u: &[u8]) -> mqtt_format::v5::write::WResult<Self> {
+    fn write_slice(&mut self, u: &[u8]) -> Result<(), Self::Error> {
         self.0.extend_from_slice(u);
         Ok(())
     }

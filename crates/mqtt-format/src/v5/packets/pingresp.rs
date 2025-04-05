@@ -8,7 +8,6 @@ use winnow::Bytes;
 use winnow::Parser;
 
 use crate::v5::MResult;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
@@ -26,7 +25,7 @@ impl MPingresp {
         0
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, _buffer: &mut W) -> Result<(), W::Error> {
         Ok(())
     }
 }

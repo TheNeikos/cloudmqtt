@@ -14,7 +14,6 @@ use winnow::error::FromExternalError;
 use winnow::token::take_while;
 
 use super::MResult;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 /// Parse a u16
@@ -29,7 +28,7 @@ pub fn parse_u16(input: &mut &Bytes) -> MResult<u16> {
     .parse_next(input)
 }
 
-pub fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> WResult<W> {
+pub fn write_u16<W: WriteMqttPacket>(buffer: &mut W, u: u16) -> Result<(), W::Error> {
     buffer.write_u16(u)?;
     Ok(())
 }
@@ -49,7 +48,7 @@ pub fn parse_u16_nonzero(input: &mut &Bytes) -> MResult<core::num::NonZeroU16> {
 pub fn write_u16_nonzero<W: WriteMqttPacket>(
     buffer: &mut W,
     u: core::num::NonZeroU16,
-) -> WResult<W> {
+) -> Result<(), W::Error> {
     write_u16(buffer, u.get())
 }
 
@@ -65,7 +64,7 @@ pub fn parse_u32(input: &mut &Bytes) -> MResult<u32> {
     .parse_next(input)
 }
 
-pub fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
+pub fn write_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> Result<(), W::Error> {
     buffer.write_u32(u)?;
     Ok(())
 }
@@ -114,7 +113,7 @@ pub const fn variable_u32_binary_size(u: u32) -> u32 {
     }
 }
 
-pub fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> WResult<W> {
+pub fn write_variable_u32<W: WriteMqttPacket>(buffer: &mut W, u: u32) -> Result<(), W::Error> {
     match u {
         0..=127 => {
             buffer.write_byte(u as u8)?;

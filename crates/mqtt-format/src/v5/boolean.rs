@@ -8,7 +8,6 @@ use winnow::Bytes;
 use winnow::error::ParserError;
 
 use super::MResult;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 pub fn parse_bool(input: &mut &Bytes) -> MResult<bool> {
@@ -20,6 +19,6 @@ pub fn parse_bool(input: &mut &Bytes) -> MResult<bool> {
 }
 
 #[inline]
-pub fn write_bool<W: WriteMqttPacket>(buffer: &mut W, b: bool) -> WResult<W> {
+pub fn write_bool<W: WriteMqttPacket>(buffer: &mut W, b: bool) -> Result<(), W::Error> {
     buffer.write_byte(b as u8)
 }

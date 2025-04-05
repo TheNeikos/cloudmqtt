@@ -14,7 +14,6 @@ use winnow::error::InputError;
 use winnow::error::ParserError;
 
 use super::MResult;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -87,7 +86,7 @@ impl MFixedHeader {
         1
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         #[allow(clippy::identity_op)]
         let byte = match self.packet_type {
             PacketType::Connect => (1 << 4) | 0,

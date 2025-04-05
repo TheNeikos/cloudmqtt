@@ -10,7 +10,6 @@ use winnow::Parser;
 use winnow::binary::length_take;
 
 use super::MResult;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 pub fn parse_binary_data<'i>(input: &mut &'i Bytes) -> MResult<&'i [u8]> {
@@ -20,7 +19,7 @@ pub fn parse_binary_data<'i>(input: &mut &'i Bytes) -> MResult<&'i [u8]> {
     .parse_next(input)
 }
 
-pub fn write_binary_data<W: WriteMqttPacket>(buffer: &mut W, slice: &[u8]) -> WResult<W> {
+pub fn write_binary_data<W: WriteMqttPacket>(buffer: &mut W, slice: &[u8]) -> Result<(), W::Error> {
     let slice_len = slice
         .len()
         .try_into()

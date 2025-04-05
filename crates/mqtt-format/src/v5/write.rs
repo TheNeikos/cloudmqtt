@@ -4,8 +4,6 @@
 //   file, You can obtain one at http://mozilla.org/MPL/2.0/.
 //
 
-pub type WResult<W> = core::result::Result<(), <W as WriteMqttPacket>::Error>;
-
 #[derive(Debug)]
 pub enum MqttWriteError {
     Invariant,
@@ -15,17 +13,17 @@ pub enum MqttWriteError {
 pub trait WriteMqttPacket: Send {
     type Error: From<MqttWriteError>;
 
-    fn write_byte(&mut self, u: u8) -> WResult<Self>;
-    fn write_slice(&mut self, u: &[u8]) -> WResult<Self>;
+    fn write_byte(&mut self, u: u8) -> core::result::Result<(), Self::Error>;
+    fn write_slice(&mut self, u: &[u8]) -> core::result::Result<(), Self::Error>;
 
     #[inline]
-    fn write_u16(&mut self, u: u16) -> WResult<Self> {
+    fn write_u16(&mut self, u: u16) -> core::result::Result<(), Self::Error> {
         self.write_byte((u >> 8) as u8)?;
         self.write_byte(u as u8)
     }
 
     #[inline]
-    fn write_u32(&mut self, u: u32) -> WResult<Self> {
+    fn write_u32(&mut self, u: u32) -> core::result::Result<(), Self::Error> {
         let bytes = u.to_be_bytes();
         self.write_byte(bytes[0])?;
         self.write_byte(bytes[1])?;

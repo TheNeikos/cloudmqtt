@@ -29,7 +29,6 @@ use crate::v5::variable_header::SubscriptionIdentifiersAvailable;
 use crate::v5::variable_header::TopicAliasMaximum;
 use crate::v5::variable_header::UserProperties;
 use crate::v5::variable_header::WildcardSubscriptionAvailable;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 crate::v5::reason_code::make_combined_reason_code! {
@@ -153,7 +152,7 @@ impl<'i> MConnack<'i> {
         + self.properties.binary_size()
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         let byte = (self.session_present as u8) << 7;
         buffer.write_byte(byte)?;
         self.reason_code.write(buffer)?;
