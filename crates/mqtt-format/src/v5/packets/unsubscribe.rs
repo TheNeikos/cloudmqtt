@@ -15,7 +15,6 @@ use crate::v5::strings::write_string;
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::UserProperties;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 define_properties! {
@@ -67,7 +66,7 @@ impl<'i> Unsubscriptions<'i> {
         self.start.len() as u32
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         for unsub in self.iter() {
             unsub.write(buffer)?;
         }
@@ -117,7 +116,7 @@ impl<'i> Unsubscription<'i> {
         .parse_next(input)
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         write_string(buffer, self.topic_filter)
     }
 }
@@ -156,7 +155,7 @@ impl<'i> MUnsubscribe<'i> {
             + self.unsubscriptions.binary_size()
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         self.packet_identifier.write(buffer)?;
         self.properties.write(buffer)?;
         self.unsubscriptions.write(buffer)

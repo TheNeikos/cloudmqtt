@@ -14,7 +14,6 @@ use winnow::error::FromExternalError;
 use super::MResult;
 use super::integers::parse_u16;
 use super::write::MqttWriteError;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 /// Parse an UTF-8 String
@@ -35,7 +34,7 @@ pub fn string_binary_size(s: &str) -> u32 {
     (2 + s.len()) as u32
 }
 
-pub fn write_string<W: WriteMqttPacket>(buffer: &mut W, s: &str) -> WResult<W> {
+pub fn write_string<W: WriteMqttPacket>(buffer: &mut W, s: &str) -> Result<(), W::Error> {
     let len = s.len().try_into().map_err(|_| MqttWriteError::Invariant)?;
 
     buffer.write_u16(len)?;

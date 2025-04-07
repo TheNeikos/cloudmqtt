@@ -5,7 +5,6 @@
 //
 
 use super::write::MqttWriteError;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 
 #[derive(Debug)]
@@ -16,12 +15,12 @@ pub struct TestWriter {
 impl WriteMqttPacket for TestWriter {
     type Error = MqttWriteError;
 
-    fn write_byte(&mut self, u: u8) -> WResult<Self> {
+    fn write_byte(&mut self, u: u8) -> Result<(), Self::Error> {
         self.buffer.push(u);
         Ok(())
     }
 
-    fn write_slice(&mut self, u: &[u8]) -> WResult<Self> {
+    fn write_slice(&mut self, u: &[u8]) -> Result<(), Self::Error> {
         self.buffer.extend(u);
         Ok(())
     }

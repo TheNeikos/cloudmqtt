@@ -11,7 +11,6 @@ use crate::v5::MResult;
 use crate::v5::variable_header::PacketIdentifier;
 use crate::v5::variable_header::ReasonString;
 use crate::v5::variable_header::UserProperties;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 crate::v5::reason_code::make_combined_reason_code! {
@@ -82,7 +81,7 @@ impl<'i> MPubrec<'i> {
             + self.properties.binary_size()
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         self.packet_identifier.write(buffer)?;
         self.reason.write(buffer)?;
         self.properties.write(buffer)

@@ -133,7 +133,7 @@ macro_rules! define_properties {
                 $crate::v5::integers::variable_u32_binary_size(prop_size) + prop_size
             }
 
-            pub fn write<W: crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> crate::v5::write::WResult<W> {
+            pub fn write<W: crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
                 use crate::v5::variable_header::MqttProperties;
 
                 #[cfg(test)]

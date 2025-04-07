@@ -22,7 +22,6 @@ use crate::v5::variable_header::SubscriptionIdentifier;
 use crate::v5::variable_header::TopicAlias;
 use crate::v5::variable_header::UserProperties;
 use crate::v5::write::MqttWriteError;
-use crate::v5::write::WResult;
 use crate::v5::write::WriteMqttPacket;
 
 #[cfg_attr(feature = "yoke", derive(yoke::Yokeable))]
@@ -113,7 +112,7 @@ impl<'i> MPublish<'i> {
             + self.payload.len() as u32
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         write_string(buffer, self.topic_name)?;
 
         if self.quality_of_service == QualityOfService::AtMostOnce

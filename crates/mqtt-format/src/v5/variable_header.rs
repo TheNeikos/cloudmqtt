@@ -13,7 +13,6 @@ use super::integers::parse_u16;
 use super::integers::parse_u16_nonzero;
 use super::integers::parse_u32;
 use super::integers::write_variable_u32;
-use super::write::WResult;
 use super::write::WriteMqttPacket;
 use crate::v5::integers::parse_variable_u32;
 
@@ -32,7 +31,7 @@ impl PacketIdentifier {
         2
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         buffer.write_u16(self.0.get())
     }
 }
@@ -47,7 +46,7 @@ pub trait MqttProperties<'lt>: Sized {
 
     fn binary_size(&self) -> u32;
 
-    fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W>;
+    fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error>;
 }
 
 macro_rules! define_properties {
@@ -85,7 +84,7 @@ macro_rules! define_properties {
                 }
 
                 fn write<W: $crate::v5::write::WriteMqttPacket>(&self, buffer: &mut W)
-                    -> $crate::v5::write::WResult<W>
+                    -> Result<(), W::Error>
                 {
                     $writer(buffer, self.0)?;
                     Ok(())
@@ -148,7 +147,7 @@ macro_rules! define_properties {
 }
 
 #[inline]
-pub(crate) fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> WResult<W> {
+pub(crate) fn write_u8<W: WriteMqttPacket>(buffer: &mut W, u: u8) -> Result<(), W::Error> {
     buffer.write_byte(u)
 }
 
@@ -382,7 +381,7 @@ impl<'i> MqttProperties<'i> for UserProperties<'i> {
             .sum()
     }
 
-    fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         let mut iter = self.iter();
         let first = iter
             .next()
@@ -437,7 +436,7 @@ impl<'i> UserProperty<'i> {
         crate::v5::strings::string_pair_binary_size(self.key, self.value)
     }
 
-    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> WResult<W> {
+    pub fn write<W: WriteMqttPacket>(&self, buffer: &mut W) -> Result<(), W::Error> {
         crate::v5::strings::write_string(buffer, self.key)?;
         crate::v5::strings::write_string(buffer, self.value)
     }
