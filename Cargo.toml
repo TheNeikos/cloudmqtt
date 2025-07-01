@@ -9,12 +9,12 @@ repository = "https://github.com/TheNeikos/cloudmqtt"
 license = "MPL-2.0"
 
 [workspace.dependencies]
-bytemuck = { version = "1.23.0", features = ["derive"] }
+bytemuck = { version = "1.23.1", features = ["derive"] }
 dashmap = "6.1"
 futures = "0.3.31"
 nom = { version = "7.1.3" }
 nom-supreme = { version = "0.8.0" }
-num_enum = { version = "0.7.3", default-features = false }
+num_enum = { version = "0.7.4", default-features = false }
 derive_more = { version = "2", default-features = false }
 paste = "1.0.14"
 pretty_assertions = "1.4.1"
