@@ -32,11 +32,11 @@ tracing.workspace = true
 winnow.workspace = true
 yoke = { workspace = true, features = ["alloc"] }
 cloudmqtt-workspace-hack.workspace = true
-humantime = "2.2"
+humantime = "2.3"
 
 [dev-dependencies]
-camino = "1.1"
-datatest-stable = "0.3.2"
+camino = "1.2"
+datatest-stable = "0.3.3"
 test-dsl = "0.4.0"
 miette = { version = "*", features = ["fancy"] }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
