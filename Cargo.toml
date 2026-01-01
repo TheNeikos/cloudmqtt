@@ -22,7 +22,7 @@ rustc-hash = { version = "2.1.1", default-features = false }
 thiserror = "2.0.17"
 tokio = { version = "1.48.0" }
 tokio-util = { version = "0.7.17" }
-tracing = { version = "0.1.43", default-features = false }
+tracing = { version = "0.1.44", default-features = false }
 tracing-subscriber = { version = "0.3.22", default-features = false }
 winnow = { version = "0.7", default-features = false }
 yoke = { version = "0.8.1", default-features = false }
