@@ -509,7 +509,7 @@ fn mpayload(input: &[u8]) -> IResult<&[u8], &[u8]> {
     take(len)(input)
 }
 
-fn mpacketdata(fixed_header: MPacketHeader, input: &[u8]) -> IResult<&[u8], MPacket> {
+fn mpacketdata(fixed_header: MPacketHeader, input: &'_ [u8]) -> IResult<&'_ [u8], MPacket<'_>> {
     let (input, info) = match fixed_header.kind {
         MPacketKind::Connect => {
             let (input, protocol_name) = mstring(input)?;
