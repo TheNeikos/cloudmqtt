@@ -26,13 +26,13 @@ tokio = { version = "1", features = ["io-util", "macros", "net", "rt-multi-threa
 tracing = { version = "0.1", default-features = false, features = ["attributes"] }
 tracing-core = { version = "0.1", default-features = false, features = ["std"] }
 tracing-subscriber = { version = "0.3", default-features = false, features = ["ansi", "env-filter", "smallvec"] }
-winnow = { version = "0.7" }
+winnow = { version = "1.0" }
 yoke = { version = "0.8", default-features = false, features = ["alloc", "derive"] }
 zerofrom = { version = "0.1", default-features = false, features = ["alloc", "derive"] }
 
 [build-dependencies]
 num_enum_derive = { version = "0.7", default-features = false, features = ["std"] }
 syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
-winnow = { version = "0.7" }
+winnow = { version = "1.0" }
 
 ### END HAKARI SECTION
