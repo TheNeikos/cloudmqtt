@@ -239,7 +239,7 @@ dependencies = [
  "tokio-util",
  "tracing",
  "tracing-subscriber",
- "winnow 0.7.4",
+ "winnow 1.0.3",
  "yoke",
 ]
 
@@ -271,7 +271,7 @@ dependencies = [
  "tracing",
  "tracing-core",
  "tracing-subscriber",
- "winnow 0.7.4",
+ "winnow 1.0.3",
  "yoke",
  "zerofrom",
 ]
@@ -664,7 +664,7 @@ dependencies = [
  "pretty_assertions",
  "thiserror 2.0.18",
  "tokio",
- "winnow 0.7.4",
+ "winnow 1.0.3",
  "yoke",
 ]
 
@@ -1188,7 +1188,7 @@ checksum = "17b4795ff5edd201c7cd6dca065ae59972ce77d1b80fa0a84d94950ece7d1474"
 dependencies = [
  "indexmap",
  "toml_datetime",
- "winnow 0.7.4",
+ "winnow 0.7.15",
 ]
 
 [[package]]
@@ -1402,9 +1402,18 @@ dependencies = [
 
 [[package]]
 name = "winnow"
-version = "0.7.4"
+version = "0.7.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e97b544156e9bebe1a0ffbc03484fc1ffe3100cbce3ffb17eac35f7cdd7ab36"
+checksum = "df79d97927682d2fd8adb29682d1140b343be4ac0f08fd68b7765d9c059d3945"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "winnow"
+version = "1.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0592e1c9d151f854e6fd382574c3a0855250e1d9b2f99d9281c6e6391af352f1"
 dependencies = [
  "memchr",
 ]
