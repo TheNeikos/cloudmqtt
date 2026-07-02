@@ -268,7 +268,7 @@ impl TopicNameBuf {
                     }
                 }
                 TopicFilterLevel::Empty => {
-                    if path != "" {
+                    if !path.is_empty() {
                         return false;
                     }
                 }

@@ -109,20 +109,20 @@ where
     pub fn run(&mut self, current_time: MqttInstant) -> Option<ExpectedAction<'p>> {
         match &mut self.state {
             PublishingState::Store => {
-                if let Some(packet) = &mut self.packet {
-                    if packet.quality_of_service != QualityOfService::AtMostOnce {
-                        let id = self
-                            .client
-                            .client_pis
-                            .get_next_free(PacketIdentifierUsage::Publish)
-                            .unwrap();
-                        packet.packet_identifier = Some(id);
+                if let Some(packet) = &mut self.packet
+                    && packet.quality_of_service != QualityOfService::AtMostOnce
+                {
+                    let id = self
+                        .client
+                        .client_pis
+                        .get_next_free(PacketIdentifierUsage::Publish)
+                        .unwrap();
+                    packet.packet_identifier = Some(id);
 
-                        self.state = PublishingState::Send;
-                        return Some(ExpectedAction::StorePacket {
-                            id: packet.packet_identifier.unwrap(),
-                        });
-                    }
+                    self.state = PublishingState::Send;
+                    return Some(ExpectedAction::StorePacket {
+                        id: packet.packet_identifier.unwrap(),
+                    });
                 }
                 None
             }

@@ -57,7 +57,7 @@ impl<'message> Iterator for MUnsubscriptionIter<'message> {
     }
 }
 
-pub fn munsubscriptionrequests(input: &[u8]) -> MSResult<'_, MUnsubscriptionRequests> {
+pub fn munsubscriptionrequests(input: &'_ [u8]) -> MSResult<'_, MUnsubscriptionRequests<'_>> {
     let data = input;
     let (input, count) = many1_count(munsubscriptionrequest)(input)?;
 
@@ -69,7 +69,7 @@ pub struct MUnsubscriptionRequest<'message> {
     pub topic: MString<'message>,
 }
 
-fn munsubscriptionrequest(input: &[u8]) -> MSResult<'_, MUnsubscriptionRequest> {
+fn munsubscriptionrequest(input: &'_ [u8]) -> MSResult<'_, MUnsubscriptionRequest<'_>> {
     mstring
         .map(|topic| MUnsubscriptionRequest { topic })
         .parse(input)

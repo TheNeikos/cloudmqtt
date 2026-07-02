@@ -2,7 +2,3 @@ disallowed-methods = [
     "std::result::Result::unwrap",
     "std::option::Option::unwrap",
 ]
-
-disallowed-types = [
-    { path = "std::box::Box", reason = "No Heap allocations" },
-]
