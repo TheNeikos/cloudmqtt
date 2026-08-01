@@ -32,7 +32,7 @@ zerofrom = { version = "0.1", default-features = false, features = ["alloc", "de
 
 [build-dependencies]
 num_enum_derive = { version = "0.7", default-features = false, features = ["std"] }
-syn = { version = "2", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
+syn = { version = "3", features = ["extra-traits", "fold", "full", "visit", "visit-mut"] }
 winnow = { version = "0.7" }
 
 ### END HAKARI SECTION
