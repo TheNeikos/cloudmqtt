@@ -96,12 +96,17 @@ impl CoreClient {
         let (sender, receiver): (tokio::sync::mpsc::Sender<SendUsage>, _) =
             tokio::sync::mpsc::channel(1);
 
-        let ConnectionState::Unconnected { client: fsm } =
-            std::mem::replace(&mut *self.connection_state.lock().await, {
-                ConnectionState::Connected { sender }
-            })
-        else {
-            return Err(Error::AlreadyConnected);
+        let fsm = {
+            let mut state = self.connection_state.lock().await;
+            if !matches!(*state, ConnectionState::Unconnected { .. }) {
+                return Err(Error::AlreadyConnected);
+            }
+            let ConnectionState::Unconnected { client: fsm } =
+                std::mem::replace(&mut *state, ConnectionState::Connected { sender })
+            else {
+                unreachable!("Unconnected checked above");
+            };
+            fsm
         };
 
         let start = Instant::now();
